@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { crypto } from "crypto";
 import { sendAccountApprovedEmail } from "@/lib/email";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req) {
   try {
     const session = await getServerSession(authOptions);

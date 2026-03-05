@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma"; // Adjust based on your prisma setup
 
+export const dynamic = "force-dynamic";
+
+
 export async function GET(request) {
   try {
     const feeSetting = await prisma.systemSetting.findUnique({

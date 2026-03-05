@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendInspectionReceipt, sendAdminInspectionAlert } from "@/lib/email";
 
+export const dynamic = "force-dynamic";
+
+
 
 export async function POST(request) {
   try {

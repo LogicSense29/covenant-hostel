@@ -4,6 +4,9 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
+export const dynamic = "force-dynamic";
+
+
 const verifySchema = z.object({
   reference: z.string().min(1, "Reference is required"),
   amount: z.number().positive("Amount must be positive"),
