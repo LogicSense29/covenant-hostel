@@ -186,14 +186,14 @@ export default function BookInspectionForm() {
 
         <div className="flex justify-between items-center mb-8 border-b pb-6">
           <div>
-            <h2 className="text-2xl font-bold">Book Inspection</h2>
-            <p className="text-gray-500 text-sm">
+            <h2 className="text-2xl font-bold text-slate-900">Book Inspection</h2>
+            <p className="text-slate-500 text-sm">
               Enter your correct details
             </p>
           </div>
 
           <div className="text-right">
-            <span className="text-xs text-gray-400 uppercase">
+            <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">
               Booking Fee
             </span>
             <p className="text-2xl font-bold text-blue-600">
@@ -204,43 +204,43 @@ export default function BookInspectionForm() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
 
-          <input
-            required
-            type="text"
-            placeholder="Full Name"
-            className="w-full border rounded-xl px-4 py-3"
+            <input
+              required
+              type="text"
+              placeholder="Full Name"
+              className="w-full border border-slate-200 bg-white text-slate-900 rounded-xl px-4 py-3 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all"
             value={formData.name}
             onChange={(e) =>
               setFormData({ ...formData, name: e.target.value })
             }
           />
 
-          <input
-            required
-            type="email"
-            placeholder="Email"
-            className="w-full border rounded-xl px-4 py-3"
+            <input
+              required
+              type="email"
+              placeholder="Email"
+              className="w-full border border-slate-200 bg-white text-slate-900 rounded-xl px-4 py-3 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all"
             value={formData.email}
             onChange={(e) =>
               setFormData({ ...formData, email: e.target.value })
             }
           />
 
-          <input
-            type="tel"
-            placeholder="Phone Number"
-            className="w-full border rounded-xl px-4 py-3"
+            <input
+              type="tel"
+              placeholder="Phone Number"
+              className="w-full border border-slate-200 bg-white text-slate-900 rounded-xl px-4 py-3 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all"
             value={formData.phone}
             onChange={(e) =>
               setFormData({ ...formData, phone: e.target.value })
             }
           />
 
-          <input
-            required
-            type="date"
-            min={new Date().toISOString().split("T")[0]}
-            className="w-full border rounded-xl px-4 py-3"
+            <input
+              required
+              type="date"
+              min={new Date().toISOString().split("T")[0]}
+              className="w-full border border-slate-200 bg-white text-slate-900 rounded-xl px-4 py-3 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all"
             value={formData.date}
             onChange={(e) =>
               setFormData({ ...formData, date: e.target.value })
