@@ -1,8 +1,8 @@
-import dynamic from "next/dynamic";
+import dynamicImport from "next/dynamic";
 
 export const dynamic = "force-dynamic";
 
-const BookInspectionForm = dynamic(() => import("@/components/BookInspectionForm"), {
+const BookInspectionForm = dynamicImport(() => import("@/components/BookInspectionForm"), {
   ssr: false,
   loading: () => (
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
