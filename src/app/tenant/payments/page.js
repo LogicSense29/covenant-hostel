@@ -2,11 +2,6 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import dynamic from "next/dynamic";
-
-const PaymentForm = dynamic(() => import("@/components/PaymentForm"), {
-  ssr: false,
-  loading: () => <div className="p-8 bg-slate-50 animate-pulse rounded-3xl h-64 border border-slate-100 flex items-center justify-center text-slate-400 font-bold uppercase tracking-widest text-xs">Initializing Secure Checkout...</div>
-});
 import { 
   CreditCard, 
   Receipt, 
@@ -16,6 +11,11 @@ import {
   TrendingUp,
   FileText
 } from "lucide-react";
+
+const PaymentForm = dynamic(() => import("@/components/PaymentForm"), {
+  ssr: false,
+  loading: () => <div className="p-8 bg-slate-50 animate-pulse rounded-3xl h-64 border border-slate-100 flex items-center justify-center text-slate-400 font-bold uppercase tracking-widest text-xs">Initializing Secure Checkout...</div>
+});
 
 export const dynamic = "force-dynamic";
 
