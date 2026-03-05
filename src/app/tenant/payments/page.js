@@ -12,10 +12,7 @@ import {
   FileText
 } from "lucide-react";
 
-const PaymentForm = dynamic(() => import("@/components/PaymentForm"), {
-  ssr: false,
-  loading: () => <div className="p-8 bg-slate-50 animate-pulse rounded-3xl h-64 border border-slate-100 flex items-center justify-center text-slate-400 font-bold uppercase tracking-widest text-xs">Initializing Secure Checkout...</div>
-});
+import PaymentFormWrapper from "@/components/PaymentFormWrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -191,7 +188,7 @@ export default async function TenantPaymentsPage() {
         </div>
 
         <div className="lg:col-span-1 space-y-8">
-           <PaymentForm 
+           <PaymentFormWrapper 
              totalDue={totalDue} 
              canPayPartial={profile.canPayPartial} 
              tenantEmail={session.user.email}
