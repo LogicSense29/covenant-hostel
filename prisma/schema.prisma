@@ -1,0 +1,190 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                     String                  @id @default(cuid())
+  name                   String?
+  email                  String?                 @unique
+  emailVerified          DateTime?
+  hashedPassword         String?
+  image                  String?
+  role                   Role                    @default(TENANT)
+  status                 UserStatus              @default(ACTIVE)
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  serviceProviderProfile ServiceProviderProfile?
+  tenantProfile          TenantProfile?
+}
+
+model TenantProfile {
+  id                  String              @id @default(cuid())
+  userId              String              @unique
+  phone               String              @unique
+  governmentIdUrl     String?
+  guarantorName       String
+  guarantorPhone      String
+  guarantorAddress    String
+  guarantorIdUrl      String?
+  roomId              String?             @unique
+  rentStartDate       DateTime?
+  rentExpiryDate      DateTime?
+  allowPartialPayment Boolean             @default(false)
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  inspections         Inspection[]
+  tickets             MaintenanceTicket[]
+  payments            Payment[]
+  room                Room?               @relation(fields: [roomId], references: [id])
+  user                User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ServiceProviderProfile {
+  id              String              @id @default(cuid())
+  userId          String              @unique
+  phone           String              @unique
+  specialty       String
+  availability    String
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  assignedTickets MaintenanceTicket[]
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Room {
+  id           String         @id @default(cuid())
+  roomNumber   String         @unique
+  status       RoomStatus     @default(AVAILABLE)
+  rentAmount   Float
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  billingRules BillingRule[]
+  inspections  Inspection[]
+  tenant       TenantProfile?
+}
+
+model Payment {
+  id         String        @id @default(cuid())
+  amount     Float
+  receiptUrl String?
+  isPartial  Boolean       @default(false)
+  tenantId   String
+  createdAt  DateTime      @default(now())
+  reference  String?       @unique
+  status     String?       @default("PENDING")
+  tenant     TenantProfile @relation(fields: [tenantId], references: [id])
+}
+
+model MaintenanceTicket {
+  id               String                  @id @default(cuid())
+  issueDescription String
+  status           MaintenanceStatus       @default(OPEN)
+  roomId           String
+  tenantId         String
+  providerId       String?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  category         TicketCategory          @default(MAINTENANCE)
+  provider         ServiceProviderProfile? @relation(fields: [providerId], references: [id])
+  tenant           TenantProfile           @relation(fields: [tenantId], references: [id])
+}
+
+model Inspection {
+  id        String           @id @default(cuid())
+  date      DateTime         @default(now())
+  status    InspectionStatus @default(PENDING)
+  notes     String?
+  feePaid   Boolean          @default(false)
+  tenantId  String
+  roomId    String
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  room      Room             @relation(fields: [roomId], references: [id])
+  tenant    TenantProfile    @relation(fields: [tenantId], references: [id])
+}
+
+model BillingRule {
+  id          String   @id @default(cuid())
+  description String
+  amount      Float
+  isGlobal    Boolean  @default(false)
+  roomId      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  room        Room?    @relation(fields: [roomId], references: [id])
+}
+
+model GuestInspection {
+  id         String           @id @default(cuid())
+  name       String
+  email      String
+  phone      String?
+  date       DateTime
+  status     InspectionStatus @default(PENDING)
+  notes      String?
+  feePaid    Boolean          @default(false)
+  paymentRef String?          @unique
+  amountPaid Float?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+}
+
+model SystemSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  updatedAt   DateTime @updatedAt
+}
+
+model SetupToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String   @unique
+  expires   DateTime
+  createdAt DateTime @default(now())
+}
+
+enum Role {
+  LANDLORD
+  TENANT
+  SERVICE_PROVIDER
+  ADMIN
+}
+
+enum RoomStatus {
+  AVAILABLE
+  OCCUPIED
+  EXPIRED_RENT
+  UNDER_MAINTENANCE
+}
+
+enum MaintenanceStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
+enum TicketCategory {
+  MAINTENANCE
+  COMPLAINT
+  DISPUTE
+  OTHER
+}
+
+enum InspectionStatus {
+  PENDING
+  PASSED
+  FAILED
+}
+
+enum UserStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  ACTIVE
+}
