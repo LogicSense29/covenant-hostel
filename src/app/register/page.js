@@ -221,7 +221,7 @@ export default function RegisterPage() {
                   <div className="space-y-1.5 pt-1">
                     <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Register As</label>
                     <div className="grid grid-cols-3 gap-2">
-                      {["TENANT", "LANDLORD", "SERVICE_PROVIDER"].map((r) => (
+                      {["TENANT"].map((r) => (
                         <button key={r} type="button" onClick={() => setFormData({ ...formData, role: r })} className={`py-3 px-1 rounded-xl border text-[10px] font-bold transition-all ${
                           formData.role === r ? "bg-blue-600 border-blue-600 text-white shadow-sm" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
                         }`}>

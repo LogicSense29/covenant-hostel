@@ -7,6 +7,10 @@ module.exports = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ["var(--font-inter)", "ui-sans-serif", "system-ui"],
+        display: ["var(--font-outfit)", "ui-sans-serif", "system-ui"],
+      },
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
