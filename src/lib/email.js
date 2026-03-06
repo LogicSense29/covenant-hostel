@@ -171,3 +171,88 @@ export async function sendAccountApprovedEmail({ email, name, setupLink }) {
     return { success: false, error };
   }
 }
+
+export async function sendRentExpiryReminder({ email, name, roomNumber, expiryDate, daysLeft }) {
+  try {
+    const transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpPort == 465,
+      auth: { user: smtpUser, pass: smtpPass },
+    });
+
+    await transporter.sendMail({
+      from: '"Covenant Hostel" <support@covenanthostel.com>',
+      to: email,
+      subject: `Rent Expiry Reminder - Room ${roomNumber}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
+          <h2 style="color: #e11d48;">Rent Expiry Notification</h2>
+          <p>Hi ${name},</p>
+          <p>This is a friendly reminder that your rent for <strong>Room ${roomNumber}</strong> is set to expire in <strong>${daysLeft} days</strong> (${new Date(expiryDate).toLocaleDateString()}).</p>
+          <p>Please ensure you make the necessary arrangements for renewal to maintain your occupancy.</p>
+          <div style="margin: 25px 0; padding: 15px; background: #fff1f2; border-radius: 8px; border-left: 4px solid #e11d48;">
+             <p style="margin: 0; font-weight: bold; color: #9f1239;">Action Required: Renewal payment should be made before the expiry date.</p>
+          </div>
+          <p>If you have already made a payment, please disregard this message or contact management to confirm your status.</p>
+          <p>Best regards,<br/>The Covenant Hostel Management Team</p>
+        </div>
+      `,
+    });
+    return { success: true };
+  } catch (error) {
+    console.error("Error sending rent expiry reminder:", error);
+    return { success: false, error };
+  }
+}
+
+export async function sendAdminRentSummary({ expiries }) {
+  const adminEmail = process.env.ADMIN_EMAIL;
+  if (!adminEmail || expiries.length === 0) return;
+
+  try {
+    const transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpPort == 465,
+      auth: { user: smtpUser, pass: smtpPass },
+    });
+
+    const expiryListHtml = expiries.map(item => `
+      <tr style="border-bottom: 1px solid #f1f5f9;">
+        <td style="padding: 10px; font-weight: bold;">Room ${item.roomNumber}</td>
+        <td style="padding: 10px;">${item.tenantName}</td>
+        <td style="padding: 10px; color: #e11d48;">${new Date(item.expiryDate).toLocaleDateString()}</td>
+      </tr>
+    `).join('');
+
+    await transporter.sendMail({
+      from: '"Covenant Hostel" <support@covenanthostel.com>',
+      to: adminEmail,
+      subject: `Daily Rent Expiry Summary - ${new Date().toLocaleDateString()}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: auto;">
+          <h3>Daily Rent Expiry Summary</h3>
+          <p>The following units have rent expiring soon:</p>
+          <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+            <thead>
+              <tr style="background: #f8fafc; text-align: left;">
+                <th style="padding: 10px;">Room</th>
+                <th style="padding: 10px;">Tenant</th>
+                <th style="padding: 10px;">Expiry Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${expiryListHtml}
+            </tbody>
+          </table>
+          <p style="margin-top: 25px; color: #64748b; font-size: 12px;">This is an automated system notification.</p>
+        </div>
+      `,
+    });
+    return { success: true };
+  } catch (error) {
+    console.error("Error sending admin rent summary:", error);
+    return { success: false, error };
+  }
+}

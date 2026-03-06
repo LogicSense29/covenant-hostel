@@ -21,7 +21,10 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body className={`${outfit.variable} ${inter.variable} antialiased font-sans`}>
+      <body 
+        className={`${outfit.variable} ${inter.variable} antialiased font-sans`}
+        suppressHydrationWarning
+      >
         <Providers>
           <Toaster position="top-center" />
           {children}

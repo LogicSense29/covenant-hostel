@@ -5,7 +5,6 @@ import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-
 export async function DELETE(req, { params }) {
   const session = await getServerSession(authOptions);
 
@@ -14,13 +13,21 @@ export async function DELETE(req, { params }) {
   }
 
   try {
-    const { id } = params;
+    const { id } = await params;
+
+    const rule = await prisma.billingRule.findUnique({
+      where: { id }
+    });
+
+    if (!rule) {
+      return new NextResponse("Billing rule not found", { status: 404 });
+    }
 
     await prisma.billingRule.delete({
       where: { id }
     });
 
-    return new NextResponse("Rule deleted successfully", { status: 200 });
+    return new NextResponse("Billing rule deleted", { status: 200 });
   } catch (error) {
     console.error("Delete billing rule error", error);
     return new NextResponse("Internal Server Error", { status: 500 });

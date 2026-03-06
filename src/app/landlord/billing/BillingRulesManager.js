@@ -55,6 +55,10 @@ export default function BillingRulesManager({ defaultRules, rooms }) {
     if (!confirm("Delete this billing rule?")) return;
     setLoading(true);
     try {
+      const res = await fetch(`/api/billing/${id}`, {
+        method: "DELETE"
+      });
+
       if (res.ok) {
         toast.success("Billing rule deleted successfully!");
         router.refresh();
@@ -111,7 +115,7 @@ export default function BillingRulesManager({ defaultRules, rooms }) {
                     </div>
                     
                     <div className="flex items-center gap-6">
-                      <span className="text-lg font-bold text-slate-900">+${rule.amount.toLocaleString()}</span>
+                      <span className="text-lg font-bold text-slate-900">+₦{rule.amount.toLocaleString()}</span>
                       <button 
                         onClick={() => handleDelete(rule.id)}
                         disabled={loading}
@@ -153,7 +157,7 @@ export default function BillingRulesManager({ defaultRules, rooms }) {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Amount ($)</label>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Amount (₦)</label>
               <input
                 type="number"
                 step="0.01"

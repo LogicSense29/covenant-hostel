@@ -14,7 +14,7 @@ export async function PUT(req, { params }) {
   }
 
   try {
-    const { id } = params;
+    const { id } = await params;
 
     const tenant = await prisma.tenantProfile.findUnique({
       where: { id }
@@ -33,11 +33,18 @@ export async function PUT(req, { params }) {
         data: { roomId: null, rentStartDate: null, rentExpiryDate: null }
       });
 
-      // Update room status
-      await tx.room.update({
-        where: { id: roomId },
-        data: { status: "AVAILABLE" }
+      // Check if room still has occupants
+      const remainingOccupants = await tx.tenantProfile.count({
+        where: { roomId }
       });
+
+      // Update room status only if empty
+      if (remainingOccupants === 0) {
+        await tx.room.update({
+          where: { id: roomId },
+          data: { status: "AVAILABLE" }
+        });
+      }
     });
 
     return new NextResponse("Tenant unassigned", { status: 200 });

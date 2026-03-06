@@ -14,9 +14,9 @@ model User {
   hashedPassword         String?
   image                  String?
   role                   Role                    @default(TENANT)
-  status                 UserStatus              @default(ACTIVE)
   createdAt              DateTime                @default(now())
   updatedAt              DateTime                @updatedAt
+  status                 UserStatus              @default(ACTIVE)
   serviceProviderProfile ServiceProviderProfile?
   tenantProfile          TenantProfile?
 }
@@ -29,17 +29,17 @@ model TenantProfile {
   guarantorName       String
   guarantorPhone      String
   guarantorAddress    String
-  guarantorIdUrl      String?
-  roomId              String?             @unique
+  roomId              String?
   rentStartDate       DateTime?
   rentExpiryDate      DateTime?
   allowPartialPayment Boolean             @default(false)
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
+  guarantorIdUrl      String?
   inspections         Inspection[]
   tickets             MaintenanceTicket[]
   payments            Payment[]
-  room                Room?               @relation(fields: [roomId], references: [id])
+  room                Room?               @relation("RoomToTenants", fields: [roomId], references: [id])
   user                User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
@@ -60,11 +60,13 @@ model Room {
   roomNumber   String         @unique
   status       RoomStatus     @default(AVAILABLE)
   rentAmount   Float
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  billingRules BillingRule[]
-  inspections  Inspection[]
-  tenant       TenantProfile?
+  capacity     Int            @default(4)
+  rentExpiryDate DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  billingRules   BillingRule[]
+  inspections    Inspection[]
+  tenants        TenantProfile[] @relation("RoomToTenants")
 }
 
 model Payment {

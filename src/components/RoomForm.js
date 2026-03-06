@@ -13,6 +13,8 @@ export default function RoomForm({ initialData }) {
     roomNumber: initialData?.roomNumber || "",
     rentAmount: initialData?.rentAmount || "",
     status: initialData?.status || "AVAILABLE",
+    capacity: initialData?.capacity || 4,
+    rentExpiryDate: initialData?.rentExpiryDate ? new Date(initialData.rentExpiryDate).toISOString().split('T')[0] : "",
   });
   
   const [loading, setLoading] = useState(false);
@@ -72,37 +74,68 @@ export default function RoomForm({ initialData }) {
           />
         </div>
 
-        <div className={styles.formGroup}>
-          <label htmlFor="rentAmount" className={styles.label}>Rent Amount (₦)</label>
-          <input
-            id="rentAmount"
-            name="rentAmount"
-            type="number"
-            step="0.01"
-            min="0"
-            required
-            className={styles.input}
-            placeholder="e.g. 1500.00"
-            value={formData.rentAmount}
-            onChange={handleChange}
-          />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className={styles.formGroup}>
+            <label htmlFor="rentAmount" className={styles.label}>Rent Amount (₦)</label>
+            <input
+              id="rentAmount"
+              name="rentAmount"
+              type="number"
+              step="0.01"
+              min="0"
+              required
+              className={styles.input}
+              placeholder="e.g. 1500.00"
+              value={formData.rentAmount}
+              onChange={handleChange}
+            />
+          </div>
+
+          <div className={styles.formGroup}>
+            <label htmlFor="capacity" className={styles.label}>Capacity (Max Tenants)</label>
+            <input
+              id="capacity"
+              name="capacity"
+              type="number"
+              min="1"
+              required
+              className={styles.input}
+              placeholder="e.g. 4"
+              value={formData.capacity || 4}
+              onChange={handleChange}
+            />
+          </div>
         </div>
 
-        <div className={styles.formGroup}>
-          <label htmlFor="status" className={styles.label}>Room Status</label>
-          <select
-            id="status"
-            name="status"
-            className={styles.input}
-            value={formData.status}
-            onChange={handleChange}
-            disabled={isEditing && initialData.status === "OCCUPIED" && formData.status !== "OCCUPIED"} // Logic prevention
-          >
-            <option value="AVAILABLE">Available</option>
-            <option value="OCCUPIED" disabled={!isEditing || initialData.status !== "OCCUPIED"}>Occupied (Assigned by system)</option>
-            <option value="EXPIRED_RENT">Expired Rent</option>
-            <option value="UNDER_MAINTENANCE">Under Maintenance</option>
-          </select>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className={styles.formGroup}>
+            <label htmlFor="status" className={styles.label}>Room Status</label>
+            <select
+              id="status"
+              name="status"
+              className={styles.input}
+              value={formData.status}
+              onChange={handleChange}
+              disabled={isEditing && initialData.status === "OCCUPIED" && formData.status !== "OCCUPIED"} // Logic prevention
+            >
+              <option value="AVAILABLE">Available</option>
+              <option value="OCCUPIED" disabled={!isEditing || initialData.status !== "OCCUPIED"}>Occupied (Assigned by system)</option>
+              <option value="EXPIRED_RENT">Expired Rent</option>
+              <option value="UNDER_MAINTENANCE">Under Maintenance</option>
+            </select>
+          </div>
+
+          <div className={styles.formGroup}>
+            <label htmlFor="rentExpiryDate" className={styles.label}>Rent Expiry Date (Optional)</label>
+            <input
+              id="rentExpiryDate"
+              name="rentExpiryDate"
+              type="date"
+              className={styles.input}
+              value={formData.rentExpiryDate}
+              onChange={handleChange}
+            />
+          </div>
         </div>
 
         <div className={styles.buttonGroup}>

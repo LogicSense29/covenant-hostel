@@ -1,3 +1,4 @@
+import { prisma } from "@/lib/prisma";
 import ApprovalActions from "./ApprovalActions";
 import AssignRoomActions from "./AssignRoomActions";
 import { 
@@ -12,30 +13,25 @@ import {
 } from "lucide-react";
 
 export default async function TenantsPage() {
-  let tenants = [];
-  try {
-    tenants = await prisma.tenantProfile.findMany({
-      include: {
-        user: true,
-        room: true
-      },
-      orderBy: {
-        createdAt: "desc"
-      }
-    });
-  } catch (err) {
-    console.error("Tenants Fetch Error:", err);
-  }
+  const tenants = await prisma.tenantProfile.findMany({
+    include: {
+      user: true,
+      room: true
+    },
+    orderBy: {
+      createdAt: "desc"
+    }
+  });
 
-  let availableRooms = [];
-  try {
-    availableRooms = await prisma.room.findMany({
-      where: { status: "AVAILABLE" },
-      orderBy: { roomNumber: "asc" }
-    });
-  } catch (err) {
-    console.error("Rooms Fetch Error:", err);
-  }
+  const availableRooms = await prisma.room.findMany({
+    where: { 
+      NOT: { status: "UNDER_MAINTENANCE" }
+    },
+    include: {
+      tenants: true
+    },
+    orderBy: { roomNumber: "asc" }
+  });
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -130,9 +126,12 @@ export default async function TenantsPage() {
                       <td className="px-6 py-5">
                         {status === "ACTIVE" ? (
                           profile.room ? (
-                            <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg border border-blue-100 w-fit">
-                              <MapPin size={12} />
-                              <span className="text-xs font-bold uppercase tracking-wider">Room {profile.room.roomNumber}</span>
+                            <div className="flex flex-col gap-1 items-start">
+                              <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg border border-blue-100 w-fit">
+                                <MapPin size={12} />
+                                <span className="text-xs font-bold uppercase tracking-wider">Room {profile.room.roomNumber}</span>
+                              </div>
+                              <span className="text-[10px] font-bold text-blue-600 px-1">₦{(profile.room.rentAmount / profile.room.capacity).toLocaleString()} / Bed</span>
                             </div>
                           ) : (
                             <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 text-slate-500 rounded-lg border border-slate-200 w-fit italic">

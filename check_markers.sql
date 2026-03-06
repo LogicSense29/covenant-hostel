@@ -1,0 +1,2 @@
+SELECT 'USER_COUNT:' || COUNT(*) FROM "User";
+SELECT 'TENANT_COUNT:' || COUNT(*) FROM "TenantProfile";

@@ -16,38 +16,28 @@ export async function PUT(req, { params }) {
   try {
     const { id } = await params;
     const body = await req.json();
-    const { roomId } = body;
+    const { roomId, rentExpiryDate } = body;
 
     if (!roomId) {
       return new NextResponse("Missing roomId", { status: 400 });
     }
 
     await prisma.$transaction(async (tx) => {
-      // Unassign current tenant if the room is somehow already occupied
-      const existingTenant = await tx.tenantProfile.findUnique({
-        where: { roomId }
-      });
-
-      if (existingTenant) {
-        await tx.tenantProfile.update({
-          where: { id: existingTenant.id },
-          data: { roomId: null, rentStartDate: null, rentExpiryDate: null }
-        });
-      }
-
       // Assign new tenant
-      // We also set rent start date to now, and expiry to 1 year from now just for demo setup.
-      // A more robust system would ask for duration.
       const now = new Date();
-      const nextYear = new Date();
-      nextYear.setFullYear(now.getFullYear() + 1);
+      let expiry = new Date();
+      expiry.setFullYear(now.getFullYear() + 1);
+
+      if (rentExpiryDate) {
+        expiry = new Date(rentExpiryDate);
+      }
 
       await tx.tenantProfile.update({
         where: { id },
         data: { 
           roomId,
           rentStartDate: now,
-          rentExpiryDate: nextYear
+          rentExpiryDate: expiry
         }
       });
 

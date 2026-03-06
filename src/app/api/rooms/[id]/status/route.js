@@ -29,16 +29,11 @@ export async function PUT(req, { params }) {
           data: { status }
         });
 
-        const tenantProfile = await tx.tenantProfile.findUnique({
-          where: { roomId: id }
+        // Unassign ALL tenants in this room
+        await tx.tenantProfile.updateMany({
+          where: { roomId: id },
+          data: { roomId: null, rentStartDate: null, rentExpiryDate: null }
         });
-
-        if (tenantProfile) {
-          await tx.tenantProfile.update({
-            where: { id: tenantProfile.id },
-            data: { roomId: null, rentStartDate: null, rentExpiryDate: null }
-          });
-        }
       });
     } else {
       await prisma.room.update({

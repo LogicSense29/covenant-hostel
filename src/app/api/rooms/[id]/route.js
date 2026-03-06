@@ -16,7 +16,7 @@ export async function PUT(req, { params }) {
   try {
     const { id } = await params;
     const body = await req.json();
-    const { roomNumber, rentAmount, status } = body;
+    const { roomNumber, rentAmount, status, capacity, rentExpiryDate } = body;
 
     const existingId = await prisma.room.findUnique({ where: { id } });
     if (!existingId) {
@@ -35,7 +35,9 @@ export async function PUT(req, { params }) {
       data: {
         roomNumber,
         rentAmount: rentAmount ? parseFloat(rentAmount) : existingId.rentAmount,
-        status: status || existingId.status
+        status: status || existingId.status,
+        capacity: capacity ? parseInt(capacity) : existingId.capacity,
+        rentExpiryDate: rentExpiryDate ? new Date(rentExpiryDate) : null
       }
     });
 
@@ -58,14 +60,14 @@ export async function DELETE(req, { params }) {
 
     const room = await prisma.room.findUnique({
       where: { id },
-      include: { tenant: true }
+      include: { tenants: true }
     });
 
     if (!room) {
       return new NextResponse("Room not found", { status: 404 });
     }
 
-    if (room.tenant && room.status === "OCCUPIED") {
+    if (room.tenants.length > 0 && room.status === "OCCUPIED") {
        return new NextResponse("Cannot delete an occupied room", { status: 400 });
     }
 

@@ -21,12 +21,23 @@ export default async function LandlordDashboard() {
   const session = await getServerSession(authOptions);
   
   // Dashboard Metrics
-  const totalRooms = await prisma.room.count();
-  const occupiedRooms = await prisma.room.count({ where: { status: "OCCUPIED" } });
-  const vacantRooms = await prisma.room.count({ where: { status: "AVAILABLE" } });
-  const expiredRooms = await prisma.room.count({ where: { status: "EXPIRED_RENT" } });
-  const activeTenants = await prisma.tenantProfile.count({ where: { NOT: { roomId: null } } });
+  const rooms = await prisma.room.findMany({
+    include: { tenants: true }
+  });
+
+  const totalRooms = rooms.length;
+  const vacantRooms = rooms.filter(r => r.tenants.length < r.capacity && r.status !== "UNDER_MAINTENANCE").length;
+  const occupiedRooms = rooms.filter(r => r.tenants.length > 0).length;
+  const expiredRooms = rooms.filter(r => 
+    r.status === "EXPIRED_RENT" || 
+    (r.rentExpiryDate && new Date(r.rentExpiryDate) < new Date()) ||
+    r.tenants.some(t => t.rentExpiryDate && new Date(t.rentExpiryDate) < new Date())
+  ).length;
+  const totalCapacity = rooms.reduce((acc, r) => acc + r.capacity, 0);
+  const totalOccupants = rooms.reduce((acc, r) => acc + r.tenants.length, 0);
   const openTickets = await prisma.maintenanceTicket.count({ where: { status: "OPEN" } });
+  
+  const occupancyRate = totalCapacity > 0 ? (totalOccupants / totalCapacity) * 100 : 0;
 
   // Payment Totals
   const rentPayments = await prisma.payment.aggregate({
@@ -56,7 +67,6 @@ export default async function LandlordDashboard() {
     ];
   }
 
-  const occupancyRate = totalRooms > 0 ? (occupiedRooms / totalRooms) * 100 : 0;
 
   let recentTickets = [];
   try {
@@ -72,10 +82,10 @@ export default async function LandlordDashboard() {
   }
 
   const stats = [
-    { name: "Occupancy Rate", value: `${occupancyRate.toFixed(1)}%`, icon: CheckCircle, color: "text-green-600", bg: "bg-green-50" },
-    { name: "Vacant Rooms", value: vacantRooms, icon: AlertCircle, color: "text-amber-600", bg: "bg-amber-50" },
-    { name: "Rent Expired", value: expiredRooms, icon: Clock, color: "text-red-600", bg: "bg-red-50" },
-    { name: "Open Tickets", value: openTickets, icon: Wrench, color: "text-purple-600", bg: "bg-purple-50" },
+    { name: "Occupancy Rate", value: `${occupancyRate.toFixed(1)}%`, icon: CheckCircle, color: "text-green-600", bg: "bg-green-50", href: "/landlord/rooms" },
+    { name: "Vacant Rooms", value: vacantRooms, icon: AlertCircle, color: "text-amber-600", bg: "bg-amber-50", href: "/landlord/rooms" },
+    { name: "Rent Expired", value: expiredRooms, icon: Clock, color: "text-red-600", bg: "bg-red-50", href: "/landlord/rooms" },
+    { name: "Open Tickets", value: openTickets, icon: Wrench, color: "text-purple-600", bg: "bg-purple-50", href: "/landlord/maintenance" },
   ];
 
 
@@ -114,18 +124,22 @@ export default async function LandlordDashboard() {
         {isAdmin && <h2 className="text-xl font-bold text-slate-900 px-1">Property Management</h2>}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {stats.map((stat) => (
-            <div key={stat.name} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all group">
+            <Link 
+              key={stat.name} 
+              href={stat.href}
+              className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-100 transition-all group block"
+            >
               <div className="flex items-center justify-between">
                 <div className={`p-3 rounded-xl ${stat.bg} ${stat.color} transition-transform group-hover:scale-110 duration-300`}>
                   <stat.icon size={24} />
                 </div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 px-2 py-1 rounded">Live</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 px-2 py-1 rounded">View All</span>
               </div>
               <div className="mt-4">
                 <p className="text-sm font-medium text-slate-500 uppercase tracking-wide">{stat.name}</p>
                 <p className="text-3xl font-bold text-slate-900 mt-1">{stat.value}</p>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </div>
@@ -134,36 +148,39 @@ export default async function LandlordDashboard() {
       <div className="space-y-4">
         <h2 className="text-xl font-bold text-slate-900 px-1">Revenue Overview</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+          <Link href="/landlord/billing" className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:border-blue-100 transition-all hover:shadow-md block">
             <div className="flex items-center justify-between mb-4">
               <div className="p-3 rounded-xl bg-blue-50 text-blue-600">
                 <DollarSign size={24} />
               </div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 px-2 py-1 rounded">Rent</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 px-2 py-1 rounded">Details</span>
             </div>
             <p className="text-sm font-medium text-slate-500 uppercase tracking-wide">Rent Collected</p>
             <p className="text-3xl font-bold text-slate-900 mt-1">₦{totalRentCollected.toLocaleString()}</p>
-          </div>
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+          </Link>
+          <Link href="/landlord/inspections" className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:border-emerald-100 transition-all hover:shadow-md block">
             <div className="flex items-center justify-between mb-4">
               <div className="p-3 rounded-xl bg-emerald-50 text-emerald-600">
                 <CheckCircle size={24} />
               </div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 px-2 py-1 rounded">Inspection</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 px-2 py-1 rounded">History</span>
             </div>
             <p className="text-sm font-medium text-slate-500 uppercase tracking-wide">Inspection Fees</p>
             <p className="text-3xl font-bold text-slate-900 mt-1">₦{totalInspectionFees.toLocaleString()}</p>
-          </div>
-          <div className="bg-gradient-to-br from-blue-600 to-indigo-600 p-6 rounded-2xl shadow-lg shadow-blue-200">
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-3 rounded-xl bg-white/20 text-white">
+          </Link>
+          <Link href="/landlord/billing" className="bg-gradient-to-br from-blue-600 to-indigo-600 p-6 rounded-2xl shadow-lg shadow-blue-200 hover:-translate-y-1 transition-all duration-300 block group overflow-hidden relative">
+            <div className="relative z-10 flex items-center justify-between mb-4">
+              <div className="p-3 rounded-xl bg-white/20 text-white group-hover:scale-110 transition-transform duration-300">
                 <TrendingUp size={24} />
               </div>
               <span className="text-[10px] font-bold text-blue-100 uppercase tracking-widest bg-white/10 px-2 py-1 rounded">Total</span>
             </div>
-            <p className="text-sm font-medium text-blue-100 uppercase tracking-wide">Grand Total Revenue</p>
-            <p className="text-3xl font-bold text-white mt-1">₦{grandTotalRevenue.toLocaleString()}</p>
-          </div>
+            <div className="relative z-10">
+              <p className="text-sm font-medium text-blue-100 uppercase tracking-wide">Grand Total Revenue</p>
+              <p className="text-3xl font-bold text-white mt-1">₦{grandTotalRevenue.toLocaleString()}</p>
+            </div>
+            <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-white/5 rounded-full blur-2xl"></div>
+          </Link>
         </div>
       </div>
 

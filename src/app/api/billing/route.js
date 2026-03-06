@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export async function POST(req) {
   const session = await getServerSession(authOptions);
 
-  if (!session || (session.user.role !== "LANDLORD" || "ADMIN" && session.user.role !== "ADMIN")) {
+  if (!session || (session.user.role !== "LANDLORD" && session.user.role !== "ADMIN")) {
     return new NextResponse("Unauthorized", { status: 403 });
   }
 
