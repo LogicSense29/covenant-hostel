@@ -16,7 +16,9 @@ export default async function TenantsPage() {
   const tenants = await prisma.tenantProfile.findMany({
     include: {
       user: true,
-      room: true
+      room: {
+        include: { block: true }
+      }
     },
     orderBy: {
       createdAt: "desc"
@@ -28,7 +30,8 @@ export default async function TenantsPage() {
       NOT: { status: "UNDER_MAINTENANCE" }
     },
     include: {
-      tenants: true
+      tenants: true,
+      block: true
     },
     orderBy: { roomNumber: "asc" }
   });
@@ -130,6 +133,11 @@ export default async function TenantsPage() {
                               <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg border border-blue-100 w-fit">
                                 <MapPin size={12} />
                                 <span className="text-xs font-bold uppercase tracking-wider">Room {profile.room.roomNumber}</span>
+                                {profile.room.block && (
+                                  <span className="ml-1 text-[9px] font-bold text-indigo-600 bg-indigo-100/50 px-1.5 py-0.5 rounded border border-indigo-200/50 uppercase">
+                                    {profile.room.block.name}
+                                  </span>
+                                )}
                               </div>
                               <span className="text-[10px] font-bold text-blue-600 px-1">₦{(profile.room.rentAmount / profile.room.capacity).toLocaleString()} / Bed</span>
                             </div>

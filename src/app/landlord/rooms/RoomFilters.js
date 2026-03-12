@@ -4,7 +4,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
 import { useTransition } from "react";
 
-export default function RoomFilters() {
+export default function RoomFilters({ blocks }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -35,7 +35,18 @@ export default function RoomFilters() {
           onChange={(e) => handleFilter("search", e.target.value)}
         />
       </div>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
+        <select 
+          defaultValue={searchParams.get("blockId") || ""}
+          onChange={(e) => handleFilter("blockId", e.target.value)}
+          className="bg-slate-50 px-4 py-2.5 rounded-xl border border-slate-100 text-sm font-semibold text-slate-600 outline-none focus:ring-2 focus:ring-blue-500/10 transition-all"
+        >
+          <option value="">All Blocks</option>
+          {blocks?.map(block => (
+            <option key={block.id} value={block.id}>{block.name}</option>
+          ))}
+        </select>
+
         <select 
           defaultValue={searchParams.get("status") || ""}
           onChange={(e) => handleFilter("status", e.target.value)}

@@ -15,18 +15,21 @@ export async function POST(req) {
 
   try {
     const body = await req.json();
-    const { roomNumber, rentAmount, status, capacity, rentExpiryDate } = body;
+    const { roomNumber, rentAmount, status, capacity, rentExpiryDate, blockId, imageUrl } = body;
 
     if (!roomNumber || !rentAmount) {
       return new NextResponse("Missing fields", { status: 400 });
     }
 
-    const existing = await prisma.room.findUnique({
-      where: { roomNumber }
+    const existing = await prisma.room.findFirst({
+      where: { 
+        roomNumber,
+        blockId: blockId || null
+      }
     });
 
     if (existing) {
-      return new NextResponse("Room number already exists", { status: 400 });
+      return new NextResponse("Room number already exists in this block", { status: 400 });
     }
 
     const room = await prisma.room.create({
@@ -35,7 +38,9 @@ export async function POST(req) {
         rentAmount: parseFloat(rentAmount),
         status: status || "AVAILABLE",
         capacity: capacity ? parseInt(capacity) : 4,
-        rentExpiryDate: rentExpiryDate ? new Date(rentExpiryDate) : null
+        rentExpiryDate: rentExpiryDate ? new Date(rentExpiryDate) : null,
+        blockId: blockId || null,
+        imageUrl: imageUrl || null
       }
     });
 

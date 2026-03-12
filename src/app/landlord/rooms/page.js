@@ -21,11 +21,16 @@ export default async function RoomsPage({ searchParams }) {
   const params = await searchParams;
   const search = params.search || "";
   const status = params.status || "";
+  const blockId = params.blockId || "";
 
   const where = {};
   
   if (status) {
     where.status = status;
+  }
+
+  if (blockId) {
+    where.blockId = blockId;
   }
 
   if (search) {
@@ -35,12 +40,17 @@ export default async function RoomsPage({ searchParams }) {
     ];
   }
 
+  const blocks = await prisma.block.findMany({
+    orderBy: { name: "asc" }
+  });
+
   const rooms = await prisma.room.findMany({
     where,
     include: {
       tenants: {
         include: { user: true }
-      }
+      },
+      block: true
     },
     orderBy: { roomNumber: "asc" }
   });
@@ -61,7 +71,7 @@ export default async function RoomsPage({ searchParams }) {
         </Link>
       </div>
 
-      <RoomFilters />
+      <RoomFilters blocks={blocks} />
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {rooms.length === 0 ? (
@@ -81,16 +91,31 @@ export default async function RoomsPage({ searchParams }) {
               <div className="p-6">
                 <div className="flex items-start justify-between mb-6">
                   <div className="flex items-center gap-3">
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg ${
-                      room.status === 'AVAILABLE' ? 'bg-green-50 text-green-600' :
-                      room.status === 'OCCUPIED' ? 'bg-blue-50 text-blue-600' :
-                      room.status === 'EXPIRED_RENT' ? 'bg-red-50 text-red-600' :
-                      'bg-slate-50 text-slate-600'
-                    }`}>
-                      {room.roomNumber}
+                    <div className="relative">
+                      {room.imageUrl ? (
+                        <div className="w-12 h-12 rounded-xl overflow-hidden border border-slate-100">
+                          <img src={room.imageUrl} className="w-full h-full object-cover" alt={`Room ${room.roomNumber}`} />
+                        </div>
+                      ) : (
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg ${
+                          room.status === 'AVAILABLE' ? 'bg-green-50 text-green-600' :
+                          room.status === 'OCCUPIED' ? 'bg-blue-50 text-blue-600' :
+                          room.status === 'EXPIRED_RENT' ? 'bg-red-50 text-red-600' :
+                          'bg-slate-50 text-slate-600'
+                        }`}>
+                          {room.roomNumber}
+                        </div>
+                      )}
                     </div>
                     <div>
-                      <h3 className="font-bold text-slate-900">Room {room.roomNumber}</h3>
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="font-bold text-slate-900">Room {room.roomNumber}</h3>
+                        {room.block && (
+                          <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100">
+                            {room.block.name}
+                          </span>
+                        )}
+                      </div>
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider border ${
                         room.status === 'AVAILABLE' ? 'bg-green-50 text-green-600 border-green-100' :
                         room.tenants.length >= room.capacity ? 'bg-amber-50 text-amber-600 border-amber-100' :

@@ -16,17 +16,24 @@ export async function PUT(req, { params }) {
   try {
     const { id } = await params;
     const body = await req.json();
-    const { roomNumber, rentAmount, status, capacity, rentExpiryDate } = body;
+    const { roomNumber, rentAmount, status, capacity, rentExpiryDate, blockId, imageUrl } = body;
 
-    const existingId = await prisma.room.findUnique({ where: { id } });
-    if (!existingId) {
+    const existingRoom = await prisma.room.findUnique({ where: { id } });
+    if (!existingRoom) {
       return new NextResponse("Room not found", { status: 404 });
     }
 
-    if (roomNumber !== existingId.roomNumber) {
-      const existingNum = await prisma.room.findUnique({ where: { roomNumber } });
-      if (existingNum) {
-        return new NextResponse("Room number already exists", { status: 400 });
+    // Check for duplicate room number in the target block
+    if (roomNumber !== existingRoom.roomNumber || blockId !== existingRoom.blockId) {
+      const duplicate = await prisma.room.findFirst({
+        where: {
+          roomNumber,
+          blockId: blockId || null,
+          NOT: { id }
+        }
+      });
+      if (duplicate) {
+        return new NextResponse("Room number already exists in this block", { status: 400 });
       }
     }
 
@@ -34,10 +41,12 @@ export async function PUT(req, { params }) {
       where: { id },
       data: {
         roomNumber,
-        rentAmount: rentAmount ? parseFloat(rentAmount) : existingId.rentAmount,
-        status: status || existingId.status,
-        capacity: capacity ? parseInt(capacity) : existingId.capacity,
-        rentExpiryDate: rentExpiryDate ? new Date(rentExpiryDate) : null
+        rentAmount: rentAmount ? parseFloat(rentAmount) : existingRoom.rentAmount,
+        status: status || existingRoom.status,
+        capacity: capacity ? parseInt(capacity) : existingRoom.capacity,
+        rentExpiryDate: rentExpiryDate ? new Date(rentExpiryDate) : null,
+        blockId: blockId || null,
+        imageUrl: imageUrl !== undefined ? imageUrl : existingRoom.imageUrl
       }
     });
 

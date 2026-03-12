@@ -19,7 +19,8 @@ import {
   Settings,
   Globe,
   Database,
-  Briefcase
+  Briefcase,
+  Layers
 } from "lucide-react";
 
 
@@ -58,6 +59,7 @@ export default function LandlordLayout({ children }) {
 
   const navigation = [
     { name: "Dashboard", href: "/landlord", icon: LayoutDashboard },
+    { name: "Blocks & Categories", href: "/landlord/blocks", icon: Layers },
     { name: "Room Management", href: "/landlord/rooms", icon: Home },
     { name: "Tenant Directory", href: "/landlord/tenants", icon: Users },
     { name: "Billing & Rules", href: "/landlord/billing", icon: CreditCard },

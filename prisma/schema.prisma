@@ -55,18 +55,34 @@ model ServiceProviderProfile {
   user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+model Block {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  imageUrl    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  rooms       Room[]
+  billingRules BillingRule[]
+}
+
 model Room {
   id           String         @id @default(cuid())
-  roomNumber   String         @unique
+  roomNumber   String
   status       RoomStatus     @default(AVAILABLE)
   rentAmount   Float
   capacity     Int            @default(4)
+  blockId      String?
+  imageUrl     String?
   rentExpiryDate DateTime?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
+  block        Block?         @relation(fields: [blockId], references: [id])
   billingRules   BillingRule[]
   inspections    Inspection[]
   tenants        TenantProfile[] @relation("RoomToTenants")
+
+  @@unique([blockId, roomNumber])
 }
 
 model Payment {
@@ -109,15 +125,25 @@ model Inspection {
   tenant    TenantProfile    @relation(fields: [tenantId], references: [id])
 }
 
+enum RuleType {
+  BASE_RENT
+  ADDITIONAL_CHARGE
+  SECURITY_DEPOSIT
+  UTILITY_FEE
+}
+
 model BillingRule {
   id          String   @id @default(cuid())
   description String
   amount      Float
+  type        RuleType @default(ADDITIONAL_CHARGE)
   isGlobal    Boolean  @default(false)
   roomId      String?
+  blockId     String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   room        Room?    @relation(fields: [roomId], references: [id])
+  block       Block?   @relation(fields: [blockId], references: [id])
 }
 
 model GuestInspection {

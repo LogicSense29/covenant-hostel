@@ -15,20 +15,44 @@ export async function POST(req) {
 
   try {
     const body = await req.json();
-    const { description, amount, isGlobal, roomId } = body;
+    const { description, amount, type, isGlobal, roomId, blockId } = body;
 
     if (!description || !amount) {
       return new NextResponse("Missing fields", { status: 400 });
     }
 
+    const ruleAmount = parseFloat(amount);
+    const ruleType = type || "ADDITIONAL_CHARGE";
+
     const rule = await prisma.billingRule.create({
       data: {
         description,
-        amount: parseFloat(amount),
+        amount: ruleAmount,
+        type: ruleType,
         isGlobal: !!isGlobal,
-        roomId: isGlobal ? null : roomId
+        roomId: isGlobal || !roomId || roomId === "" ? null : roomId,
+        blockId: isGlobal || !blockId || blockId === "" ? null : blockId
       }
     });
+
+    // Synchronize Room.rentAmount if this rule is a BASE_RENT
+    if (ruleType === "BASE_RENT") {
+      if (isGlobal) {
+        await prisma.room.updateMany({
+          data: { rentAmount: ruleAmount }
+        });
+      } else if (blockId) {
+        await prisma.room.updateMany({
+          where: { blockId },
+          data: { rentAmount: ruleAmount }
+        });
+      } else if (roomId) {
+        await prisma.room.update({
+          where: { id: roomId },
+          data: { rentAmount: ruleAmount }
+        });
+      }
+    }
 
     return NextResponse.json(rule);
   } catch (error) {

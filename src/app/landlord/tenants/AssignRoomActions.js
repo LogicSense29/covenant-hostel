@@ -151,7 +151,14 @@ export default function AssignRoomActions({ tenantId, currentRoomId, availableRo
                             <Home size={16} />
                           </div>
                           <div>
-                            <p className={`text-sm font-bold ${isSelected ? 'text-blue-900' : 'text-slate-700'}`}>Room {room.roomNumber}</p>
+                            <div className="flex items-center gap-1.5">
+                              <p className={`text-sm font-bold ${isSelected ? 'text-blue-900' : 'text-slate-700'}`}>Room {room.roomNumber}</p>
+                              {room.block && (
+                                <span className="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 uppercase">
+                                  {room.block.name}
+                                </span>
+                              )}
+                            </div>
                             <p className="text-[10px] font-medium text-slate-500">
                               ₦{room.rentAmount.toLocaleString()} <span className="text-blue-600 font-bold ml-1">₦{(room.rentAmount / room.capacity).toLocaleString()}/Bed</span>
                             </p>

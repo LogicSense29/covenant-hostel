@@ -5,15 +5,17 @@ import { useRouter } from "next/navigation";
 import { Trash2, Plus, Info, CheckCircle2 } from "lucide-react";
 import { toast } from "react-hot-toast";
 
-export default function BillingRulesManager({ defaultRules, rooms }) {
+export default function BillingRulesManager({ defaultRules, rooms, blocks = [] }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   
   const [formData, setFormData] = useState({
     description: "",
     amount: "",
-    isGlobal: true,
-    roomId: ""
+    type: "ADDITIONAL_CHARGE",
+    applyScope: "GLOBAL",
+    roomId: "",
+    blockId: ""
   });
 
   const handleSubmit = async (e) => {
@@ -24,11 +26,14 @@ export default function BillingRulesManager({ defaultRules, rooms }) {
       const payload = {
         ...formData,
         amount: parseFloat(formData.amount),
-        isGlobal: formData.isGlobal === true || formData.isGlobal === "true"
+        isGlobal: formData.applyScope === "GLOBAL",
+        roomId: formData.applyScope === "ROOM" ? formData.roomId : null,
+        blockId: formData.applyScope === "BLOCK" ? formData.blockId : null
       };
 
       if (payload.isGlobal) {
         payload.roomId = null;
+        payload.blockId = null;
       }
 
       const res = await fetch("/api/billing", {
@@ -38,7 +43,14 @@ export default function BillingRulesManager({ defaultRules, rooms }) {
       });
 
       if (res.ok) {
-        setFormData({ description: "", amount: "", isGlobal: true, roomId: "" });
+        setFormData({ 
+          description: "", 
+          amount: "", 
+          type: "ADDITIONAL_CHARGE", 
+          applyScope: "GLOBAL", 
+          roomId: "", 
+          blockId: "" 
+        });
         toast.success("Billing rule created successfully!");
         router.refresh();
       } else {
@@ -102,14 +114,18 @@ export default function BillingRulesManager({ defaultRules, rooms }) {
                 {defaultRules.map(rule => (
                   <div key={rule.id} className="p-5 flex items-center justify-between hover:bg-slate-50/50 transition-colors group">
                     <div className="flex flex-col gap-1">
-                      <span className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{rule.description}</span>
+                      <span className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+                        {rule.description} <span className="text-slate-400 text-xs font-medium ml-1">({(rule.type ? String(rule.type) : "ADDITIONAL_CHARGE").replace('_', ' ')})</span>
+                      </span>
                       <div className="flex items-center gap-2">
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider border ${
                           rule.isGlobal 
                           ? "bg-blue-50 text-blue-600 border-blue-100" 
-                          : "bg-indigo-50 text-indigo-600 border-indigo-100"
+                          : rule.blockId 
+                            ? "bg-purple-50 text-purple-600 border-purple-100"
+                            : "bg-indigo-50 text-indigo-600 border-indigo-100"
                         }`}>
-                          {rule.isGlobal ? "Global Charge" : `Room ${rule.room?.roomNumber}`}
+                          {rule.isGlobal ? "Global Charge" : rule.blockId ? `Block: ${rule.block?.name || "Unknown"}` : `Room ${rule.room?.roomNumber}`}
                         </span>
                       </div>
                     </div>
@@ -145,6 +161,21 @@ export default function BillingRulesManager({ defaultRules, rooms }) {
           
           <form onSubmit={handleSubmit} className="p-6 space-y-5">
             <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Rule Type</label>
+              <select
+                required
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none focus:ring-4 focus:ring-blue-500/10 transition-all cursor-pointer"
+                value={formData.type}
+                onChange={(e) => setFormData({...formData, type: e.target.value})}
+              >
+                <option value="ADDITIONAL_CHARGE">Additional Charge</option>
+                <option value="BASE_RENT">Base Rent</option>
+                <option value="SECURITY_DEPOSIT">Security Deposit</option>
+                <option value="UTILITY_FEE">Utility Fee</option>
+              </select>
+            </div>
+
+            <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Description</label>
               <input
                 type="text"
@@ -172,21 +203,30 @@ export default function BillingRulesManager({ defaultRules, rooms }) {
 
             <div className="pt-2">
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Apply Scope</label>
-              <div className="grid grid-cols-2 gap-2 bg-slate-50 p-1 rounded-xl">
+              <div className="grid grid-cols-3 gap-2 bg-slate-50 p-1 rounded-xl">
                  <button 
                   type="button"
-                  onClick={() => setFormData({...formData, isGlobal: true})}
+                  onClick={() => setFormData({...formData, applyScope: "GLOBAL"})}
                   className={`py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${
-                    formData.isGlobal ? 'bg-white shadow-sm text-blue-600 border border-slate-100' : 'text-slate-500'
+                    formData.applyScope === "GLOBAL" ? 'bg-white shadow-sm text-blue-600 border border-slate-100' : 'text-slate-500'
                   }`}
                  >
                    Global
                  </button>
                  <button 
                   type="button"
-                  onClick={() => setFormData({...formData, isGlobal: false})}
+                  onClick={() => setFormData({...formData, applyScope: "BLOCK"})}
                   className={`py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${
-                    !formData.isGlobal ? 'bg-white shadow-sm text-blue-600 border border-slate-100' : 'text-slate-500'
+                    formData.applyScope === "BLOCK" ? 'bg-white shadow-sm text-blue-600 border border-slate-100' : 'text-slate-500'
+                  }`}
+                 >
+                   Block
+                 </button>
+                 <button 
+                  type="button"
+                  onClick={() => setFormData({...formData, applyScope: "ROOM"})}
+                  className={`py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${
+                    formData.applyScope === "ROOM" ? 'bg-white shadow-sm text-blue-600 border border-slate-100' : 'text-slate-500'
                   }`}
                  >
                    Specific Room
@@ -194,7 +234,24 @@ export default function BillingRulesManager({ defaultRules, rooms }) {
               </div>
             </div>
 
-            {!formData.isGlobal && (
+            {formData.applyScope === "BLOCK" && (
+              <div className="animate-in slide-in-from-top-2 duration-300">
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Block Selection</label>
+                <select
+                  required
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900 outline-none focus:ring-4 focus:ring-blue-500/10 transition-all cursor-pointer"
+                  value={formData.blockId}
+                  onChange={(e) => setFormData({...formData, blockId: e.target.value})}
+                >
+                  <option value="">Select Block...</option>
+                  {blocks.map(b => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {formData.applyScope === "ROOM" && (
               <div className="animate-in slide-in-from-top-2 duration-300">
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Room Selection</label>
                 <select

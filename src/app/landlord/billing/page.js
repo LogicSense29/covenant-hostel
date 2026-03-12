@@ -6,12 +6,16 @@ export const dynamic = "force-dynamic";
 
 export default async function BillingPage() {
   const billingRules = await prisma.billingRule.findMany({
-    include: { room: true },
+    include: { room: true, block: true },
     orderBy: { createdAt: "desc" }
   });
 
   const rooms = await prisma.room.findMany({
     orderBy: { roomNumber: "asc" }
+  });
+
+  const blocks = await prisma.block.findMany({
+    orderBy: { name: "asc" }
   });
 
   return (
@@ -36,10 +40,10 @@ export default async function BillingPage() {
              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Billing System</p>
              <p className="text-sm font-bold text-slate-900">v2.0 Active</p>
            </div>
-        </div>
+         </div>
       </div>
 
-      <BillingRulesManager defaultRules={billingRules} rooms={rooms} />
+      <BillingRulesManager defaultRules={billingRules} rooms={rooms} blocks={blocks} />
     </div>
   );
 }
