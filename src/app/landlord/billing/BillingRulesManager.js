@@ -13,6 +13,7 @@ export default function BillingRulesManager({ defaultRules, rooms, blocks = [] }
     description: "",
     amount: "",
     type: "ADDITIONAL_CHARGE",
+    frequency: "ONCE",
     applyScope: "GLOBAL",
     roomId: "",
     blockId: ""
@@ -47,6 +48,7 @@ export default function BillingRulesManager({ defaultRules, rooms, blocks = [] }
           description: "", 
           amount: "", 
           type: "ADDITIONAL_CHARGE", 
+          frequency: "ONCE",
           applyScope: "GLOBAL", 
           roomId: "", 
           blockId: "" 
@@ -116,6 +118,9 @@ export default function BillingRulesManager({ defaultRules, rooms, blocks = [] }
                     <div className="flex flex-col gap-1">
                       <span className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
                         {rule.description} <span className="text-slate-400 text-xs font-medium ml-1">({(rule.type ? String(rule.type) : "ADDITIONAL_CHARGE").replace('_', ' ')})</span>
+                        <span className="text-blue-500 text-[10px] font-bold uppercase ml-2 bg-blue-50 px-1.5 py-0.5 rounded-md border border-blue-100">
+                          {rule.frequency?.replace('_', ' ') || "ONCE"}
+                        </span>
                       </span>
                       <div className="flex items-center gap-2">
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider border ${
@@ -172,6 +177,22 @@ export default function BillingRulesManager({ defaultRules, rooms, blocks = [] }
                 <option value="BASE_RENT">Base Rent</option>
                 <option value="SECURITY_DEPOSIT">Security Deposit</option>
                 <option value="UTILITY_FEE">Utility Fee</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Billing Frequency</label>
+              <select
+                required
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none focus:ring-4 focus:ring-blue-500/10 transition-all cursor-pointer"
+                value={formData.frequency}
+                onChange={(e) => setFormData({...formData, frequency: e.target.value})}
+              >
+                <option value="ONCE">Once (One-time)</option>
+                <option value="MONTHLY">Monthly</option>
+                <option value="QUARTERLY">Quarterly</option>
+                <option value="YEARLY">Yearly</option>
+                <option value="PER_SEMESTER">Per Semester</option>
               </select>
             </div>
 

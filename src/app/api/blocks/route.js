@@ -37,7 +37,7 @@ export async function POST(req) {
 
   try {
     const body = await req.json();
-    const { name, description, imageUrl } = body;
+    const { name, address, description, imageUrl } = body;
 
     if (!name) {
       return new NextResponse("Missing block name", { status: 400 });
@@ -46,6 +46,7 @@ export async function POST(req) {
     const block = await prisma.block.create({
       data: {
         name,
+        address,
         description,
         imageUrl: imageUrl || null
       }

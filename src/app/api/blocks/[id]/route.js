@@ -15,7 +15,7 @@ export async function PUT(req, { params }) {
   try {
     const { id } = await params;
     const body = await req.json();
-    const { name, description, imageUrl } = body;
+    const { name, address, description, imageUrl } = body;
 
     if (!name) {
       return new NextResponse("Missing block name", { status: 400 });
@@ -25,6 +25,7 @@ export async function PUT(req, { params }) {
       where: { id },
       data: {
         name,
+        address,
         description,
         imageUrl: imageUrl !== undefined ? imageUrl : undefined
       }

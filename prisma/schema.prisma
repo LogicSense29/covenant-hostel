@@ -58,6 +58,7 @@ model ServiceProviderProfile {
 model Block {
   id          String   @id @default(cuid())
   name        String   @unique
+  address     String?
   description String?
   imageUrl    String?
   createdAt   DateTime @default(now())
@@ -132,11 +133,20 @@ enum RuleType {
   UTILITY_FEE
 }
 
+enum RuleFrequency {
+  ONCE
+  MONTHLY
+  QUARTERLY
+  YEARLY
+  PER_SEMESTER
+}
+
 model BillingRule {
   id          String   @id @default(cuid())
   description String
   amount      Float
   type        RuleType @default(ADDITIONAL_CHARGE)
+  frequency   RuleFrequency @default(ONCE)
   isGlobal    Boolean  @default(false)
   roomId      String?
   blockId     String?

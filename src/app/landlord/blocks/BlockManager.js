@@ -11,13 +11,14 @@ export default function BlockManager({ initialBlocks }) {
   const [loading, setLoading] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [editingBlock, setEditingBlock] = useState(null);
-  const [formData, setFormData] = useState({ name: "", description: "", imageUrl: "" });
+  const [formData, setFormData] = useState({ name: "", address: "", description: "", imageUrl: "" });
   const [uploading, setUploading] = useState(false);
 
   const handleEdit = (block) => {
     setEditingBlock(block);
     setFormData({ 
       name: block.name, 
+      address: block.address || "",
       description: block.description || "",
       imageUrl: block.imageUrl || ""
     });
@@ -27,9 +28,10 @@ export default function BlockManager({ initialBlocks }) {
   const handleCancel = () => {
     setIsAdding(false);
     setEditingBlock(null);
-    setFormData({ name: "", description: "", imageUrl: "" });
+    setFormData({ name: "", address: "", description: "", imageUrl: "" });
   };
 
+  /* Commented out image upload for blocks as requested
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -57,6 +59,7 @@ export default function BlockManager({ initialBlocks }) {
       setUploading(false);
     }
   };
+  */
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -118,7 +121,7 @@ export default function BlockManager({ initialBlocks }) {
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Room Blocks & Categories</h1>
+          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Room Blocks</h1>
           <p className="text-slate-500 mt-1 text-sm">Organize your rooms into manageable groups like "Block A", "Female Wing", etc.</p>
         </div>
         <button 
@@ -176,6 +179,9 @@ export default function BlockManager({ initialBlocks }) {
                     </div>
                   </div>
                   <h3 className="text-xl font-bold text-slate-900 leading-tight">{block.name}</h3>
+                  {block.address && (
+                    <p className="text-sm text-slate-600 font-medium mt-1">{block.address}</p>
+                  )}
                   <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">
                     {block._count?.rooms || 0} Rooms Assigned
                   </p>
@@ -197,6 +203,7 @@ export default function BlockManager({ initialBlocks }) {
                 {editingBlock ? "Edit Block" : "New Block"}
               </h3>
               
+              {/* Commented out image upload for blocks as requested
               <div className="mb-6 bg-slate-50 rounded-2xl p-4 border-2 border-dashed border-slate-200 text-center relative overflow-hidden group">
                 {formData.imageUrl ? (
                   <div className="relative aspect-video rounded-xl overflow-hidden">
@@ -219,6 +226,7 @@ export default function BlockManager({ initialBlocks }) {
                   </label>
                 )}
               </div>
+              */}
 
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div>
@@ -230,6 +238,17 @@ export default function BlockManager({ initialBlocks }) {
                     className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
                     value={formData.name}
                     onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Address</label>
+                  <input 
+                    type="text"
+                    required
+                    placeholder="Physical location of this block..."
+                    className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-900 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                    value={formData.address}
+                    onChange={(e) => setFormData({...formData, address: e.target.value})}
                   />
                 </div>
                 <div>

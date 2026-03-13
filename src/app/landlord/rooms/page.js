@@ -9,7 +9,8 @@ import {
   Trash2, 
   Edit,
   ExternalLink,
-  Calendar
+  Calendar,
+  MapPin
 } from "lucide-react";
 import RoomActions from "./RoomActions";
 import RoomFilters from "./RoomFilters";
@@ -111,9 +112,16 @@ export default async function RoomsPage({ searchParams }) {
                       <div className="flex items-center gap-1.5">
                         <h3 className="font-bold text-slate-900">Room {room.roomNumber}</h3>
                         {room.block && (
-                          <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100">
-                            {room.block.name}
-                          </span>
+                          <div className="flex flex-col items-start gap-1">
+                            <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100">
+                              {room.block.name}
+                            </span>
+                            {room.block.address && (
+                              <span className="text-[9px] text-slate-400 font-medium px-1 flex items-center gap-1">
+                                <MapPin size={10} /> {room.block.address}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider border ${

@@ -5,6 +5,28 @@ import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
+export async function GET() {
+  const session = await getServerSession(authOptions);
+
+  if (!session || (session.user.role !== "LANDLORD" && session.user.role !== "ADMIN")) {
+    return new NextResponse("Unauthorized", { status: 403 });
+  }
+
+  try {
+    const rules = await prisma.billingRule.findMany({
+      include: {
+        room: true,
+        block: true
+      },
+      orderBy: { createdAt: "desc" }
+    });
+    return NextResponse.json(rules);
+  } catch (error) {
+    console.error("Fetch billing rules error", error);
+    return new NextResponse("Internal Server Error", { status: 500 });
+  }
+}
+
 
 export async function POST(req) {
   const session = await getServerSession(authOptions);
@@ -15,7 +37,7 @@ export async function POST(req) {
 
   try {
     const body = await req.json();
-    const { description, amount, type, isGlobal, roomId, blockId } = body;
+    const { description, amount, type, frequency, isGlobal, roomId, blockId } = body;
 
     if (!description || !amount) {
       return new NextResponse("Missing fields", { status: 400 });
@@ -29,6 +51,7 @@ export async function POST(req) {
         description,
         amount: ruleAmount,
         type: ruleType,
+        frequency: frequency || "ONCE",
         isGlobal: !!isGlobal,
         roomId: isGlobal || !roomId || roomId === "" ? null : roomId,
         blockId: isGlobal || !blockId || blockId === "" ? null : blockId
