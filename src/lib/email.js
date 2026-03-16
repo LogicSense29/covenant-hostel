@@ -172,6 +172,42 @@ export async function sendAccountApprovedEmail({ email, name, setupLink }) {
   }
 }
 
+export async function sendAccountRejectedEmail({ email, name, reason }) {
+  try {
+    const transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpHost == 465,
+      auth: { user: smtpUser, pass: smtpPass },
+    });
+
+    await transporter.sendMail({
+      from: '"Covenant Hostel" <support@covenanthostel.com>',
+      to: email,
+      subject: "Update Regarding Your Application - Covenant Hostel",
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
+          <h2 style="color: #e11d48;">Application Status Update</h2>
+          <p>Hi ${name},</p>
+          <p>Thank you for your interest in Covenant Hostel. After reviewing your application, we regret to inform you that we are unable to approve your request at this time.</p>
+          
+          <div style="margin: 24px 0; padding: 20px; background: #fff1f2; border-radius: 10px; border-left: 4px solid #e11d48;">
+            <p style="margin: 0; font-weight: bold; color: #9f1239; font-size: 14px;">Reason for rejection:</p>
+            <p style="margin: 8px 0 0; color: #b91c1c; font-size: 15px; line-height: 1.5;">${reason || "Your application did not meet our current requirements."}</p>
+          </div>
+          
+          <p>If you have any questions or would like to re-apply in the future with updated information, please feel free to reach out.</p>
+          <p>Best regards,<br/>The Covenant Hostel Management Team</p>
+        </div>
+      `,
+    });
+    return { success: true };
+  } catch (error) {
+    console.error("Error sending account rejected email:", error);
+    return { success: false, error };
+  }
+}
+
 export async function sendRentExpiryReminder({ email, name, roomNumber, expiryDate, daysLeft }) {
   try {
     const transporter = nodemailer.createTransport({

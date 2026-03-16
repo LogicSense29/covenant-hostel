@@ -237,17 +237,27 @@ export default function RegisterPage() {
                 <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
       
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4">
                                 <div className="space-y-1.5">
                     <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Guarantor Name</label>
                     <input required name="guarantorName" type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all text-sm font-semibold text-slate-900" placeholder="Full name of guarantor" value={formData.guarantorName} onChange={handleChange} />
                   </div>
-                  
-                    <div className="space-y-1.5">
+
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
                       <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Phone</label>
                       <input required name="guarantorPhone" type="tel" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all text-sm font-semibold text-slate-900" placeholder="080..." value={formData.guarantorPhone} onChange={handleChange} />
                     </div>
 
+                                                        <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Relationship</label>
+                    <div className="relative group">
+                       <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={14} />
+                       <input required name="guarantorRelationship" type="text" className="w-full pl-9 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all text-sm font-semibold text-slate-900" placeholder="e.g. Father" value={formData.guarantorRelationship} onChange={handleChange} />
+                    </div>
+                  </div>
                   </div>
 
                                     <div className="space-y-1.5">

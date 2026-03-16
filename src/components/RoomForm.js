@@ -32,8 +32,11 @@ export default function RoomForm({ initialData }) {
     rentExpiryDate: initialData?.rentExpiryDate ? new Date(initialData.rentExpiryDate).toISOString().split('T')[0] : "",
     blockId: initialData?.blockId || "",
     imageUrl: initialData?.imageUrl || "",
+    billingRuleIds: initialData?.billingRules?.map(r => r.id) || [],
   });
   
+  const [billingSearch, setBillingSearch] = useState("");
+  const [showSearchBox, setShowSearchBox] = useState(false);
   const [blocks, setBlocks] = useState([]);
   const [billingRules, setBillingRules] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -106,7 +109,7 @@ export default function RoomForm({ initialData }) {
     
     // 1. Try to find a rule specifically for this block
     if (formData.blockId) {
-      const blockRule = billingRules.find(r => r.type === "BASE_RENT" && r.blockId === formData.blockId);
+      const blockRule = billingRules.find(r => (r.type === "BASE_RENT" || r.type === "Base Rent") && r.blockId === formData.blockId);
       if (blockRule) suggestedAmount = blockRule.amount;
     }
     
@@ -118,7 +121,7 @@ export default function RoomForm({ initialData }) {
 
     // Aggressively update if the current amount is NOT valid for the new block selection
     // OR if we are adding a new room.
-    const validRules = billingRules.filter(r => r.type === "BASE_RENT" && (r.isGlobal || r.blockId === formData.blockId));
+    const validRules = billingRules.filter(r => (r.type === "BASE_RENT" || r.type === "Base Rent") && (r.isGlobal || r.blockId === formData.blockId));
     const isCurrentAmountValid = validRules.some(r => Number(r.amount) === Number(formData.rentAmount));
 
     if (suggestedAmount !== null && (!isCurrentAmountValid || !formData.rentAmount || !isEditing)) {
@@ -257,7 +260,7 @@ export default function RoomForm({ initialData }) {
                 </span>
               )}
             </div>
-            {billingRules.filter(r => r.type === "BASE_RENT" && (r.isGlobal || r.blockId === formData.blockId)).length > 0 ? (
+            {billingRules.filter(r => (r.type === "BASE_RENT" || r.type === "Base Rent") && (r.isGlobal || r.blockId === formData.blockId)).length > 0 ? (
               <select
                 id="rentAmount"
                 name="rentAmount"
@@ -268,7 +271,7 @@ export default function RoomForm({ initialData }) {
               >
                 <option value="">Select Rent Rate...</option>
                 {billingRules
-                  .filter(r => r.type === "BASE_RENT" && (r.isGlobal || r.blockId === formData.blockId))
+                  .filter(r => (r.type === "BASE_RENT" || r.type === "Base Rent") && (r.isGlobal || r.blockId === formData.blockId))
                   .map(rule => (
                     <option key={rule.id} value={rule.amount}>
                       ₦{rule.amount.toLocaleString()} ({rule.description})
@@ -341,6 +344,166 @@ export default function RoomForm({ initialData }) {
               value={formData.rentExpiryDate}
               onChange={handleChange}
             />
+          </div>
+        </div>
+
+        {/* Billing Rules Attachment Section */}
+        <div className="mt-8 border-t border-slate-100 pt-8">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+            <div className="flex items-center gap-2">
+              <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                <Plus size={18} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Recommended Billings</h3>
+                <p className="text-[10px] text-slate-400 font-medium italic">Applicable to this block or global</p>
+              </div>
+            </div>
+
+            <div className="relative w-full md:w-80" onMouseLeave={() => setShowSearchBox(false)}>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search & Add Other Billing..."
+                  className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-300 transition-all placeholder:text-slate-400"
+                  value={billingSearch}
+                  onChange={(e) => {
+                    setBillingSearch(e.target.value);
+                    setShowSearchBox(true);
+                  }}
+                  onFocus={() => setShowSearchBox(true)}
+                />
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                  <Search size={14} />
+                </div>
+              </div>
+              
+              {showSearchBox && (
+                <div className="absolute z-50 w-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-2xl max-h-64 overflow-y-auto animate-in zoom-in-95 duration-200">
+                  {billingRules
+                    .filter(r => {
+                      const type = String(r.type || "").toUpperCase();
+                      const isNotBaseRent = type !== "BASE_RENT";
+                      const isNotSelected = !formData.billingRuleIds.includes(r.id);
+                      const matchesSearch = r.description.toLowerCase().includes(billingSearch.toLowerCase());
+                      return isNotBaseRent && isNotSelected && matchesSearch;
+                    })
+                    .length === 0 ? (
+                      <div className="p-4 text-center text-[10px] text-slate-400 italic">
+                        No matching rules found.
+                      </div>
+                    ) : (
+                      billingRules
+                        .filter(r => {
+                          const type = String(r.type || "").toUpperCase();
+                          return type !== "BASE_RENT" && !formData.billingRuleIds.includes(r.id) && 
+                                 r.description.toLowerCase().includes(billingSearch.toLowerCase());
+                        })
+                        .map(rule => (
+                          <button
+                            key={rule.id}
+                            type="button"
+                            className="w-full p-3 text-left hover:bg-slate-50 flex flex-col gap-0.5 transition-colors border-b border-slate-50 last:border-0"
+                            onClick={() => {
+                              setFormData(prev => ({ 
+                                ...prev, 
+                                billingRuleIds: [...prev.billingRuleIds, rule.id] 
+                              }));
+                              setBillingSearch("");
+                              setShowSearchBox(false);
+                              toast.success(`Added: ${rule.description}`);
+                            }}
+                          >
+                            <span className="text-xs font-bold text-slate-900">{rule.description}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-bold text-blue-600">₦{rule.amount.toLocaleString()}</span>
+                              <span className="text-[8px] font-medium text-slate-400 uppercase bg-slate-100 px-1 py-0.5 rounded">
+                                {String(rule.type || "").replace(/_/g, ' ')}
+                              </span>
+                            </div>
+                          </button>
+                        ))
+                    )
+                  }
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-80 overflow-y-auto p-1 bg-slate-50/50 rounded-3xl border border-slate-100/50 p-4">
+            {/* Show Selected Rules First (even if not 'recommended' for this block) */}
+            {billingRules
+              .filter(r => formData.billingRuleIds.includes(r.id))
+              .map(rule => (
+                <label 
+                  key={rule.id} 
+                  className="flex items-center gap-3 p-3 rounded-2xl border-2 border-blue-500 bg-blue-50/30 transition-all cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500 transition-all cursor-pointer"
+                    checked={true}
+                    onChange={() => {
+                      setFormData(prev => ({ 
+                        ...prev, 
+                        billingRuleIds: prev.billingRuleIds.filter(id => id !== rule.id) 
+                      }));
+                    }}
+                  />
+                  <div className="flex flex-col flex-1 overflow-hidden">
+                    <span className="text-[11px] font-bold text-slate-900 truncate">{rule.description}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold text-blue-600">₦{rule.amount.toLocaleString()}</span>
+                      <span className="text-[8px] font-medium text-slate-400 uppercase tracking-tighter bg-slate-100 px-1 py-0.5 rounded">
+                        {String(rule.type || "").replace(/_/g, ' ')}
+                      </span>
+                    </div>
+                  </div>
+                </label>
+              ))
+            }
+
+            {/* Then show Recommended but NOT yet selected */}
+            {billingRules
+              .filter(r => {
+                const type = String(r.type || "").toUpperCase();
+                return type !== "BASE_RENT" && 
+                       !formData.billingRuleIds.includes(r.id) && 
+                       (r.isGlobal || r.blockId === formData.blockId || r.roomId === initialData?.id);
+              })
+              .map(rule => (
+                <label 
+                  key={rule.id} 
+                  className="flex items-center gap-3 p-3 rounded-2xl border-2 border-dashed border-slate-200 bg-white hover:border-blue-200 transition-all cursor-pointer group"
+                >
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 rounded text-slate-300 border-slate-300 focus:ring-blue-500 transition-all cursor-pointer"
+                    checked={false}
+                    onChange={() => {
+                      setFormData(prev => ({ 
+                        ...prev, 
+                        billingRuleIds: [...prev.billingRuleIds, rule.id] 
+                      }));
+                    }}
+                  />
+                  <div className="flex flex-col flex-1 overflow-hidden">
+                    <span className="text-[11px] font-bold text-slate-500 group-hover:text-blue-600 truncate">{rule.description}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold text-slate-400 group-hover:text-blue-500">₦{rule.amount.toLocaleString()}</span>
+                    </div>
+                  </div>
+                </label>
+              ))
+            }
+
+            {formData.billingRuleIds.length === 0 && 
+             billingRules.filter(r => r.type !== "BASE_RENT" && (r.isGlobal || r.blockId === formData.blockId || r.roomId === initialData?.id)).length === 0 && (
+              <div className="col-span-full py-10 text-center">
+                <p className="text-xs text-slate-400 font-medium italic">No rules selected yet.</p>
+                <p className="text-[10px] text-slate-300 mt-1">Use the dropdown above to browse all rules.</p>
+              </div>
+            )}
           </div>
         </div>
 

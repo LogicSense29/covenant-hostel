@@ -16,9 +16,12 @@ export async function PUT(req, { params }) {
   try {
     const { id } = await params;
     const body = await req.json();
-    const { roomNumber, rentAmount, status, capacity, rentExpiryDate, blockId, imageUrl } = body;
+    const { roomNumber, rentAmount, status, capacity, rentExpiryDate, blockId, imageUrl, billingRuleIds = [] } = body;
 
-    const existingRoom = await prisma.room.findUnique({ where: { id } });
+    const existingRoom = await prisma.room.findUnique({ 
+      where: { id },
+      include: { billingRules: true }
+    });
     if (!existingRoom) {
       return new NextResponse("Room not found", { status: 404 });
     }
@@ -37,6 +40,11 @@ export async function PUT(req, { params }) {
       }
     }
 
+    // Calculate billing rule changes
+    const currentRuleIds = existingRoom.billingRules.map(r => r.id);
+    const toDisconnect = currentRuleIds.filter(id => !billingRuleIds.includes(id));
+    const toConnect = billingRuleIds.filter(id => !currentRuleIds.includes(id));
+
     const room = await prisma.room.update({
       where: { id },
       data: {
@@ -46,7 +54,14 @@ export async function PUT(req, { params }) {
         capacity: capacity ? parseInt(capacity) : existingRoom.capacity,
         rentExpiryDate: rentExpiryDate ? new Date(rentExpiryDate) : null,
         blockId: blockId || null,
-        imageUrl: imageUrl !== undefined ? imageUrl : existingRoom.imageUrl
+        imageUrl: imageUrl !== undefined ? imageUrl : existingRoom.imageUrl,
+        billingRules: {
+          disconnect: toDisconnect.map(id => ({ id })),
+          connect: toConnect.map(id => ({ id }))
+        }
+      },
+      include: {
+        billingRules: true
       }
     });
 

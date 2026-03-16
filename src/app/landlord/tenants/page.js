@@ -12,6 +12,8 @@ import {
   ExternalLink
 } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 export default async function TenantsPage() {
   const tenants = await prisma.tenantProfile.findMany({
     include: {
@@ -85,7 +87,9 @@ export default async function TenantsPage() {
                       <td className="px-6 py-5">
                         <div className="flex items-center gap-3">
                           <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm border ${
-                            status === 'PENDING' ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-slate-100 text-slate-600 border-slate-200'
+                            status === 'PENDING' ? 'bg-amber-50 text-amber-600 border-amber-100' : 
+                            status === 'REJECTED' ? 'bg-red-50 text-red-600 border-red-100' :
+                            'bg-slate-100 text-slate-600 border-slate-200'
                           }`}>
                             {profile.user?.name?.[0]?.toUpperCase() || "T"}
                           </div>
@@ -93,6 +97,7 @@ export default async function TenantsPage() {
                             <div className="flex items-center gap-2">
                                <p className="text-sm font-bold text-slate-900">{profile.user?.name || "Unnamed"}</p>
                                {status === 'PENDING' && <span className="text-[9px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-bold uppercase tracking-tighter">New Application</span>}
+                               {status === 'REJECTED' && <span className="text-[9px] px-1.5 py-0.5 bg-red-100 text-red-700 rounded font-bold uppercase tracking-tighter">Rejected</span>}
                             </div>
                             <p className="text-xs text-slate-500">{profile.phone}</p>
                           </div>
@@ -100,7 +105,14 @@ export default async function TenantsPage() {
                       </td>
                       <td className="px-6 py-5">
                         <div className="space-y-1 max-w-[200px]">
-                          <p className="text-sm font-bold text-slate-900">{profile.guarantorName}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-bold text-slate-900">{profile.guarantorName}</p>
+                            {profile.guarantorRelationship && (
+                              <span className="text-[9px] px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded border border-slate-200 font-bold uppercase tracking-tighter">
+                                {profile.guarantorRelationship}
+                              </span>
+                            )}
+                          </div>
                           <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
                             <Phone size={10} className="text-slate-400" /> {profile.guarantorPhone}
                           </div>
@@ -147,9 +159,15 @@ export default async function TenantsPage() {
                             </div>
                           )
                         ) : (
-                          <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 text-slate-400 rounded-lg border border-slate-100 w-fit border-dashed">
-                             <span className="text-[10px] font-bold uppercase tracking-wider italic">Awaiting Approval</span>
-                          </div>
+                          status === "REJECTED" ? (
+                            <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg border border-red-100 w-fit">
+                               <span className="text-[10px] font-bold uppercase tracking-wider italic font-bold">Rejected</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 text-slate-400 rounded-lg border border-slate-100 w-fit border-dashed text-slate-300">
+                               <span className="text-[10px] font-bold uppercase tracking-wider italic">Awaiting Approval</span>
+                            </div>
+                          )
                         )}
                       </td>
                       <td className="px-6 py-5">

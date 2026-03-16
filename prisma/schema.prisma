@@ -29,6 +29,7 @@ model TenantProfile {
   guarantorName       String
   guarantorPhone      String
   guarantorAddress    String
+  guarantorRelationship String?
   roomId              String?
   rentStartDate       DateTime?
   rentExpiryDate      DateTime?
@@ -79,7 +80,8 @@ model Room {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   block        Block?         @relation(fields: [blockId], references: [id])
-  billingRules   BillingRule[]
+  billingRules   BillingRule[]  @relation("RoomToBillingRules")
+  specificRules  BillingRule[]  @relation("SpecificRoomRules")
   inspections    Inspection[]
   tenants        TenantProfile[] @relation("RoomToTenants")
 
@@ -126,12 +128,7 @@ model Inspection {
   tenant    TenantProfile    @relation(fields: [tenantId], references: [id])
 }
 
-enum RuleType {
-  BASE_RENT
-  ADDITIONAL_CHARGE
-  SECURITY_DEPOSIT
-  UTILITY_FEE
-}
+// RuleType enum removed to support custom types
 
 enum RuleFrequency {
   ONCE
@@ -145,15 +142,16 @@ model BillingRule {
   id          String   @id @default(cuid())
   description String
   amount      Float
-  type        RuleType @default(ADDITIONAL_CHARGE)
+  type        String   @default("ADDITIONAL_CHARGE")
   frequency   RuleFrequency @default(ONCE)
   isGlobal    Boolean  @default(false)
   roomId      String?
   blockId     String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  room        Room?    @relation(fields: [roomId], references: [id])
+  room        Room?    @relation("SpecificRoomRules", fields: [roomId], references: [id])
   block       Block?   @relation(fields: [blockId], references: [id])
+  rooms       Room[]   @relation("RoomToBillingRules")
 }
 
 model GuestInspection {

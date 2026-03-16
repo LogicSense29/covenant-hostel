@@ -15,7 +15,8 @@ export async function POST(req) {
       role, 
       guarantorName, 
       guarantorPhone, 
-      guarantorAddress 
+      guarantorAddress,
+      guarantorRelationship
     } = body;
 
     // Basic validation
@@ -28,8 +29,8 @@ export async function POST(req) {
 
     // Role-specific validation
     if (userRole === "TENANT") {
-      if (!phone || !guarantorName || !guarantorPhone || !guarantorAddress) {
-        return NextResponse.json({ message: "Guarantor details and phone are mandatory for tenants" }, { status: 400 });
+      if (!phone || !guarantorName || !guarantorPhone || !guarantorAddress || !guarantorRelationship) {
+        return NextResponse.json({ message: "Guarantor details, relationship, and phone are mandatory for tenants" }, { status: 400 });
       }
     } else {
       if (!password) {
@@ -71,6 +72,7 @@ export async function POST(req) {
             guarantorName,
             guarantorPhone,
             guarantorAddress,
+            guarantorRelationship,
             guarantorIdUrl: body.guarantorIdUrl,
           }
         });
@@ -78,6 +80,14 @@ export async function POST(req) {
 
       return user;
     });
+
+    // Revalidate the landlord directory so the new application shows up immediately
+    try {
+      const { revalidatePath } = await import("next/cache");
+      revalidatePath("/landlord/tenants");
+    } catch (e) {
+      console.warn("Revalidation failed:", e);
+    }
 
     // Send email notification (outside transaction to avoid rolling back on SMTP errors)
     if (userStatus === "PENDING") {

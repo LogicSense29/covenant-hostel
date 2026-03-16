@@ -36,15 +36,8 @@ export async function POST(req) {
   }
 
   try {
-    const body = await req.json();
-    const { description, amount, type, frequency, isGlobal, roomId, blockId } = body;
-
-    if (!description || !amount) {
-      return new NextResponse("Missing fields", { status: 400 });
-    }
-
     const ruleAmount = parseFloat(amount);
-    const ruleType = type || "ADDITIONAL_CHARGE";
+    const ruleType = type || "ADDITIONAL_CHARGE"; // Now a string, no longer strictly an enum
 
     const rule = await prisma.billingRule.create({
       data: {

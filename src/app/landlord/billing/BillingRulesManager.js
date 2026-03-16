@@ -12,7 +12,7 @@ export default function BillingRulesManager({ defaultRules, rooms, blocks = [] }
   const [formData, setFormData] = useState({
     description: "",
     amount: "",
-    type: "ADDITIONAL_CHARGE",
+    type: "Additional Charge",
     frequency: "ONCE",
     applyScope: "GLOBAL",
     roomId: "",
@@ -47,7 +47,7 @@ export default function BillingRulesManager({ defaultRules, rooms, blocks = [] }
         setFormData({ 
           description: "", 
           amount: "", 
-          type: "ADDITIONAL_CHARGE", 
+          type: "Additional Charge", 
           frequency: "ONCE",
           applyScope: "GLOBAL", 
           roomId: "", 
@@ -117,9 +117,9 @@ export default function BillingRulesManager({ defaultRules, rooms, blocks = [] }
                   <div key={rule.id} className="p-5 flex items-center justify-between hover:bg-slate-50/50 transition-colors group">
                     <div className="flex flex-col gap-1">
                       <span className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
-                        {rule.description} <span className="text-slate-400 text-xs font-medium ml-1">({(rule.type ? String(rule.type) : "ADDITIONAL_CHARGE").replace('_', ' ')})</span>
+                        {rule.description} <span className="text-slate-400 text-xs font-medium ml-1">({String(rule.type || "Additional Charge").replace(/_/g, ' ')})</span>
                         <span className="text-blue-500 text-[10px] font-bold uppercase ml-2 bg-blue-50 px-1.5 py-0.5 rounded-md border border-blue-100">
-                          {rule.frequency?.replace('_', ' ') || "ONCE"}
+                          {rule.frequency?.replace(/_/g, ' ') || "ONCE"}
                         </span>
                       </span>
                       <div className="flex items-center gap-2">
@@ -167,17 +167,27 @@ export default function BillingRulesManager({ defaultRules, rooms, blocks = [] }
           <form onSubmit={handleSubmit} className="p-6 space-y-5">
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Rule Type</label>
-              <select
-                required
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none focus:ring-4 focus:ring-blue-500/10 transition-all cursor-pointer"
-                value={formData.type}
-                onChange={(e) => setFormData({...formData, type: e.target.value})}
-              >
-                <option value="ADDITIONAL_CHARGE">Additional Charge</option>
-                <option value="BASE_RENT">Base Rent</option>
-                <option value="SECURITY_DEPOSIT">Security Deposit</option>
-                <option value="UTILITY_FEE">Utility Fee</option>
-              </select>
+              <div className="relative group/type">
+                <input
+                  list="rule-types"
+                  required
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white focus:border-blue-500 transition-all placeholder:text-slate-300"
+                  placeholder="Select or type type..."
+                  value={formData.type}
+                  onChange={(e) => setFormData({...formData, type: e.target.value})}
+                />
+                <datalist id="rule-types">
+                  <option value="Additional Charge" />
+                  <option value="Base Rent" />
+                  <option value="Security Deposit" />
+                  <option value="Utility Fee" />
+                  <option value="Maintenance Fee" />
+                  <option value="Tax" />
+                </datalist>
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-blue-500 opacity-0 group-focus-within/type:opacity-100 transition-opacity">
+                  Type custom...
+                </div>
+              </div>
             </div>
 
             <div>
@@ -198,13 +208,22 @@ export default function BillingRulesManager({ defaultRules, rooms, blocks = [] }
 
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Description</label>
-              <input
-                type="text"
+              <textarea
                 required
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white focus:border-blue-500 transition-all placeholder:text-slate-300"
+                rows="1"
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white focus:border-blue-500 transition-all placeholder:text-slate-300 resize-none overflow-hidden"
                 placeholder="e.g. Utility Charge, Tax"
                 value={formData.description}
-                onChange={(e) => setFormData({...formData, description: e.target.value})}
+                onChange={(e) => {
+                  setFormData({...formData, description: e.target.value});
+                  // Auto-resize
+                  e.target.style.height = 'auto';
+                  e.target.style.height = (e.target.scrollHeight) + 'px';
+                }}
+                onFocus={(e) => {
+                  e.target.style.height = 'auto';
+                  e.target.style.height = (e.target.scrollHeight) + 'px';
+                }}
               />
             </div>
 
