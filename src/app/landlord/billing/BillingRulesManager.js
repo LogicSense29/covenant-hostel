@@ -248,6 +248,7 @@ export default function BillingRulesManager({ defaultRules, rooms, blocks = [] }
                 onChange={(e) => setFormData({...formData, frequency: e.target.value})}
               >
                 <option value="ONCE">Once (One-time)</option>
+                <option value="DAILY">Daily</option>
                 <option value="MONTHLY">Monthly</option>
                 <option value="QUARTERLY">Quarterly</option>
                 <option value="YEARLY">Yearly</option>

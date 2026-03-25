@@ -132,6 +132,7 @@ model Inspection {
 
 enum RuleFrequency {
   ONCE
+  DAILY
   MONTHLY
   QUARTERLY
   YEARLY
