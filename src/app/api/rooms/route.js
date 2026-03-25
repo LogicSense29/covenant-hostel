@@ -14,6 +14,7 @@ export async function POST(req) {
   }
 
   try {
+    const body = await req.json();
     const { roomNumber, rentAmount, status, capacity, rentExpiryDate, blockId, imageUrl, billingRuleIds = [] } = body;
 
     if (!roomNumber || !rentAmount) {

@@ -100,34 +100,56 @@ export default function RoomForm({ initialData }) {
   }, []);
 
 
-  // Update rent amount when block changes
+  // Update rent amount and auto-tick BASE_RENT rules
   useEffect(() => {
     if (fetchingData || billingRules.length === 0) return;
     
     // Find applicable base rent
     let suggestedAmount = null;
+    let matchingRuleId = null;
     
     // 1. Try to find a rule specifically for this block
     if (formData.blockId) {
       const blockRule = billingRules.find(r => (r.type === "BASE_RENT" || r.type === "Base Rent") && r.blockId === formData.blockId);
-      if (blockRule) suggestedAmount = blockRule.amount;
+      if (blockRule) {
+        suggestedAmount = blockRule.amount;
+        matchingRuleId = blockRule.id;
+      }
     }
     
     // 2. Fallback to global rule if no block-specific rule found or no block selected
     if (suggestedAmount === null) {
-      const globalRule = billingRules.find(r => r.type === "BASE_RENT" && r.isGlobal);
-      if (globalRule) suggestedAmount = globalRule.amount;
+      const globalRule = billingRules.find(r => (r.type === "BASE_RENT" || r.type === "Base Rent") && r.isGlobal);
+      if (globalRule) {
+        suggestedAmount = globalRule.amount;
+        matchingRuleId = globalRule.id;
+      }
     }
 
-    // Aggressively update if the current amount is NOT valid for the new block selection
+    // Aggressively update rentAmount if the current amount is NOT valid for the new block selection
     // OR if we are adding a new room.
     const validRules = billingRules.filter(r => (r.type === "BASE_RENT" || r.type === "Base Rent") && (r.isGlobal || r.blockId === formData.blockId));
     const isCurrentAmountValid = validRules.some(r => Number(r.amount) === Number(formData.rentAmount));
 
     if (suggestedAmount !== null && (!isCurrentAmountValid || !formData.rentAmount || !isEditing)) {
-      setFormData(prev => ({ ...prev, rentAmount: suggestedAmount }));
+      setFormData(prev => ({ 
+        ...prev, 
+        rentAmount: suggestedAmount,
+        // Auto-tick the rule if it's the one we're applying
+        billingRuleIds: matchingRuleId && !prev.billingRuleIds.includes(matchingRuleId) 
+          ? [...prev.billingRuleIds, matchingRuleId] 
+          : prev.billingRuleIds
+      }));
+    } else if (formData.rentAmount && suggestedAmount !== null && Number(formData.rentAmount) === Number(suggestedAmount)) {
+      // If rentAmount already matches suggested, ensure it's ticked
+      if (matchingRuleId && !formData.billingRuleIds.includes(matchingRuleId)) {
+        setFormData(prev => ({
+          ...prev,
+          billingRuleIds: [...prev.billingRuleIds, matchingRuleId]
+        }));
+      }
     }
-  }, [formData.blockId, billingRules, fetchingData]);
+  }, [formData.blockId, formData.rentAmount, billingRules, fetchingData]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });

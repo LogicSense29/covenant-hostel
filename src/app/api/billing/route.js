@@ -36,8 +36,24 @@ export async function POST(req) {
   }
 
   try {
+    const { amount, type, description, frequency, isGlobal, roomId, blockId } = await req.json();
     const ruleAmount = parseFloat(amount);
     const ruleType = type || "ADDITIONAL_CHARGE"; // Now a string, no longer strictly an enum
+
+    // Duplicate check
+    const existingRule = await prisma.billingRule.findFirst({
+      where: {
+        description,
+        amount: ruleAmount,
+        isGlobal: !!isGlobal,
+        roomId: isGlobal || !roomId || roomId === "" ? null : roomId,
+        blockId: isGlobal || !blockId || blockId === "" ? null : blockId
+      }
+    });
+
+    if (existingRule) {
+      return new NextResponse("A billing rule with this description, amount and scope already exists.", { status: 400 });
+    }
 
     const rule = await prisma.billingRule.create({
       data: {

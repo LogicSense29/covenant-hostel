@@ -2,12 +2,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2, Plus, Info, CheckCircle2 } from "lucide-react";
+import { Trash2, Plus, Info, CheckCircle2, Edit3, X } from "lucide-react";
 import { toast } from "react-hot-toast";
 
 export default function BillingRulesManager({ defaultRules, rooms, blocks = [] }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   
   const [formData, setFormData] = useState({
     description: "",
@@ -18,6 +21,36 @@ export default function BillingRulesManager({ defaultRules, rooms, blocks = [] }
     roomId: "",
     blockId: ""
   });
+
+  const handleEdit = (rule) => {
+    setIsEditing(true);
+    setEditingId(rule.id);
+    setFormData({
+      description: rule.description,
+      amount: rule.amount.toString(),
+      type: rule.type || "Additional Charge",
+      frequency: rule.frequency || "ONCE",
+      applyScope: rule.isGlobal ? "GLOBAL" : rule.blockId ? "BLOCK" : "ROOM",
+      roomId: rule.roomId || "",
+      blockId: rule.blockId || ""
+    });
+    // Scroll to form
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const cancelEdit = () => {
+    setIsEditing(false);
+    setEditingId(null);
+    setFormData({
+      description: "",
+      amount: "",
+      type: "Additional Charge",
+      frequency: "ONCE",
+      applyScope: "GLOBAL",
+      roomId: "",
+      blockId: ""
+    });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -37,29 +70,25 @@ export default function BillingRulesManager({ defaultRules, rooms, blocks = [] }
         payload.blockId = null;
       }
 
-      const res = await fetch("/api/billing", {
-        method: "POST",
+      const url = isEditing ? `/api/billing/${editingId}` : "/api/billing";
+      const method = isEditing ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
 
       if (res.ok) {
-        setFormData({ 
-          description: "", 
-          amount: "", 
-          type: "Additional Charge", 
-          frequency: "ONCE",
-          applyScope: "GLOBAL", 
-          roomId: "", 
-          blockId: "" 
-        });
-        toast.success("Billing rule created successfully!");
+        cancelEdit();
+        toast.success(isEditing ? "Billing rule updated!" : "Billing rule created!");
         router.refresh();
       } else {
-        toast.error("Failed to create rule");
+        const errorText = await res.text();
+        toast.error(errorText || "Failed to save rule");
       }
     } catch (err) {
-      toast.error("An error occurred while creating rule");
+      toast.error("An error occurred while saving rule");
     } finally {
       setLoading(false);
     }
@@ -74,6 +103,7 @@ export default function BillingRulesManager({ defaultRules, rooms, blocks = [] }
       });
 
       if (res.ok) {
+        if (editingId === id) cancelEdit();
         toast.success("Billing rule deleted successfully!");
         router.refresh();
       } else {
@@ -135,16 +165,26 @@ export default function BillingRulesManager({ defaultRules, rooms, blocks = [] }
                       </div>
                     </div>
                     
-                    <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-4">
                       <span className="text-lg font-bold text-slate-900">+₦{rule.amount.toLocaleString()}</span>
-                      <button 
-                        onClick={() => handleDelete(rule.id)}
-                        disabled={loading}
-                        className="p-2 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100"
-                        title="Delete Rule"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                        <button 
+                          onClick={() => handleEdit(rule)}
+                          disabled={loading}
+                          className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                          title="Edit Rule"
+                        >
+                          <Edit3 size={18} />
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(rule.id)}
+                          disabled={loading}
+                          className="p-2 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                          title="Delete Rule"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -157,11 +197,20 @@ export default function BillingRulesManager({ defaultRules, rooms, blocks = [] }
       {/* Add New Rule Form */}
       <div className="lg:col-span-1">
         <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden sticky top-28 border-l-4 border-l-blue-600">
-          <div className="p-6 border-b border-slate-100">
+          <div className="p-6 border-b border-slate-100 flex items-center justify-between">
             <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <Plus size={20} className="text-blue-600" />
-              Add New Rule
+              {isEditing ? <Edit3 size={20} className="text-blue-600" /> : <Plus size={20} className="text-blue-600" />}
+              {isEditing ? "Edit Billing Rule" : "Add New Rule"}
             </h2>
+            {isEditing && (
+              <button 
+                onClick={cancelEdit}
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all"
+                title="Cancel Edit"
+              >
+                <X size={18} />
+              </button>
+            )}
           </div>
           
           <form onSubmit={handleSubmit} className="p-6 space-y-5">
@@ -308,13 +357,25 @@ export default function BillingRulesManager({ defaultRules, rooms, blocks = [] }
               </div>
             )}
 
-            <button 
-              type="submit" 
-              disabled={loading} 
-              className="w-full py-4 bg-blue-600 text-white rounded-2xl text-sm font-bold hover:bg-blue-700 shadow-xl shadow-blue-500/20 active:translate-y-px transition-all mt-4 disabled:bg-slate-200 disabled:shadow-none"
-            >
-              {loading ? "Processing..." : "Create Billing Rule"}
-            </button>
+            <div className="flex gap-3 mt-4">
+              <button 
+                type="submit" 
+                disabled={loading} 
+                className="flex-1 py-4 bg-blue-600 text-white rounded-2xl text-sm font-bold hover:bg-blue-700 shadow-xl shadow-blue-500/20 active:translate-y-px transition-all disabled:bg-slate-200 disabled:shadow-none"
+              >
+                {loading ? "Processing..." : isEditing ? "Update Billing Rule" : "Create Billing Rule"}
+              </button>
+              {isEditing && (
+                <button 
+                  type="button"
+                  onClick={cancelEdit}
+                  disabled={loading}
+                  className="px-6 py-4 bg-slate-100 text-slate-600 rounded-2xl text-sm font-bold hover:bg-slate-200 transition-all"
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
           </form>
         </div>
       </div>
