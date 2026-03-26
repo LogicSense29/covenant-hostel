@@ -70,13 +70,55 @@ export default function ApprovalActions({ userId, status }) {
     }
   };
 
+  const handleActivate = async () => {
+    if (!confirm("Are you sure you want to activate this tenancy? This will set the tenancy start date to today.")) {
+      return;
+    }
+
+    setLoading(true);
+    const toastId = toast.loading("Activating tenancy...");
+
+    try {
+      const res = await fetch("/api/landlord/activate-tenancy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
+
+      if (res.ok) {
+        toast.success("Tenancy activated successfully!", { id: toastId });
+        window.location.reload();
+      } else {
+        const errorText = await res.text();
+        toast.error(errorText || "Activation failed", { id: toastId });
+      }
+    } catch (err) {
+      toast.error("An unexpected error occurred", { id: toastId });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (status === "ACTIVE") return null;
 
-  if (status === "APPROVED") {
+  if (status === "AWAITING_PAYMENT") {
     return (
       <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-600 rounded-lg border border-amber-100 italic">
-        <span className="text-[10px] font-bold uppercase tracking-wider">Awaiting Activation</span>
+        <span className="text-[10px] font-bold uppercase tracking-wider">Awaiting Payment</span>
       </div>
+    );
+  }
+
+  if (status === "PAYMENT_MADE") {
+    return (
+      <button 
+        onClick={handleActivate} 
+        disabled={loading}
+        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 active:scale-95 disabled:bg-slate-200"
+      >
+        {loading ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
+        Verify & Activate
+      </button>
     );
   }
 

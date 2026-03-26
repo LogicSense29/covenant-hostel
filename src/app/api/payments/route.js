@@ -31,13 +31,23 @@ export async function POST(req) {
       return new NextResponse("Forbidden", { status: 403 });
     }
 
-    const payment = await prisma.payment.create({
-      data: {
-        amount,
-        receiptUrl,
-        isPartial: !!isPartial,
-        tenantId
-      }
+    const payment = await prisma.$transaction(async (tx) => {
+      const p = await tx.payment.create({
+        data: {
+          amount,
+          receiptUrl,
+          isPartial: !!isPartial,
+          tenantId
+        }
+      });
+
+      // Update User status to PAYMENT_MADE
+      await tx.user.update({
+        where: { id: tenant.userId },
+        data: { status: "PAYMENT_MADE" }
+      });
+
+      return p;
     });
 
     return NextResponse.json(payment);

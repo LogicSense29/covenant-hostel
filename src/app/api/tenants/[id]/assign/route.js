@@ -22,14 +22,24 @@ export async function PUT(req, { params }) {
       return new NextResponse("Missing roomId", { status: 400 });
     }
 
-    await prisma.$transaction(async (tx) => {
-      // Assign new tenant
-      const now = new Date();
-      let expiry = new Date();
-      expiry.setFullYear(now.getFullYear() + 1);
+      // Check if tenant is already active
+      const profile = await tx.tenantProfile.findUnique({
+        where: { id },
+        include: { user: true }
+      });
 
-      if (rentExpiryDate) {
-        expiry = new Date(rentExpiryDate);
+      // Close previous StayHistory if moving
+      if (profile.roomId) {
+        await tx.stayHistory.updateMany({
+          where: { 
+            tenantId: id,
+            status: "ACTIVE"
+          },
+          data: {
+            endDate: now,
+            status: "COMPLETED"
+          }
+        });
       }
 
       await tx.tenantProfile.update({
@@ -40,6 +50,18 @@ export async function PUT(req, { params }) {
           rentExpiryDate: expiry
         }
       });
+
+      // Create new StayHistory if they were already active
+      if (profile.user.status === "ACTIVE") {
+        await tx.stayHistory.create({
+          data: {
+            tenantId: id,
+            roomId,
+            startDate: now,
+            status: "ACTIVE"
+          }
+        });
+      }
 
       // Update room status
       await tx.room.update({

@@ -12,11 +12,21 @@ export async function POST(req) {
       email, 
       password, 
       phone, 
-      role, 
+      role,
+      isStudent,
+      matricNumber,
+      studentIdUrl,
+      schoolName,
+      department,
+      faculty,
+      courseOfStudy,
+      schoolYear,
+      permanentAddress,
       guarantorName, 
       guarantorPhone, 
       guarantorAddress,
-      guarantorRelationship
+      guarantorRelationship,
+      guarantorIdUrl
     } = body;
 
     // Basic validation
@@ -69,11 +79,20 @@ export async function POST(req) {
           data: {
             userId: user.id,
             phone,
+            isStudent: !!isStudent,
+            matricNumber: isStudent ? matricNumber : null,
+            studentIdUrl: isStudent ? studentIdUrl : null,
+            schoolName: isStudent ? schoolName : null,
+            department: isStudent ? department : null,
+            faculty: isStudent ? faculty : null,
+            courseOfStudy: isStudent ? courseOfStudy : null,
+            schoolYear: isStudent ? schoolYear : null,
+            permanentAddress: isStudent ? permanentAddress : null,
             guarantorName,
             guarantorPhone,
             guarantorAddress,
             guarantorRelationship,
-            guarantorIdUrl: body.guarantorIdUrl,
+            guarantorIdUrl,
           }
         });
       }

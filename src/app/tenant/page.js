@@ -34,19 +34,71 @@ export default async function TenantDashboard() {
         <div className="bg-amber-50 p-4 rounded-2xl mb-6">
           <AlertCircle size={48} className="text-amber-600" />
         </div>
-        <h1 className="text-3xl font-extrabold text-slate-900 text-center">Profile Under Review</h1>
+        <h1 className="text-3xl font-extrabold text-slate-900 text-center">Profile Not Found</h1>
         <p className="text-slate-500 mt-4 text-center max-w-md leading-relaxed">
-          Your profile is currently being reviewed by the administration. You will have full access to your portal once your room allocation is confirmed.
+          We could not find a tenant profile associated with your account. Please contact support if you believe this is an error.
         </p>
-        <div className="mt-8 p-4 bg-slate-50 rounded-xl border border-slate-100 w-full max-w-sm text-center">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Status</p>
-            <p className="text-sm font-bold text-amber-600 uppercase">Pending Approval</p>
-        </div>
       </div>
     );
   }
 
   const { room, user } = profile;
+
+  if (user.status === "PENDING") {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 bg-white rounded-3xl border border-slate-200 shadow-xl border-t-4 border-t-amber-500 animate-in fade-in duration-700">
+        <div className="bg-amber-50 p-4 rounded-2xl mb-6">
+          <AlertCircle size={48} className="text-amber-600" />
+        </div>
+        <h1 className="text-3xl font-extrabold text-slate-900 text-center">Profile Under Review</h1>
+        <p className="text-slate-500 mt-4 text-center max-w-md leading-relaxed">
+          Your profile is currently being reviewed by the administration. You will have full access to your portal once your application is approved.
+        </p>
+        <div className="mt-8 p-4 bg-slate-50 rounded-xl border border-slate-100 w-full max-w-sm text-center">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Current Status</p>
+            <p className="text-sm font-bold text-amber-600 uppercase tracking-tight">Pending Approval</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (user.status === "AWAITING_PAYMENT") {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 bg-white rounded-3xl border border-slate-200 shadow-xl border-t-4 border-t-blue-500 animate-in fade-in duration-700">
+        <div className="bg-blue-50 p-4 rounded-2xl mb-6">
+          <AlertCircle size={48} className="text-blue-600" />
+        </div>
+        <h1 className="text-3xl font-extrabold text-slate-900 text-center">Action Required: Payment</h1>
+        <p className="text-slate-500 mt-4 text-center max-w-md leading-relaxed">
+          Your application has been approved! To finalize your tenancy and activate your portal, please proceed to the payment section to settle your annual rent.
+        </p>
+        <Link 
+          href="/tenant/payments"
+          className="mt-8 flex items-center gap-3 px-8 py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 shadow-xl shadow-blue-500/20 active:scale-95 transition-all"
+        >
+          Proceed to Payment <ArrowRight size={20} />
+        </Link>
+      </div>
+    );
+  }
+
+  if (user.status === "PAYMENT_MADE") {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 bg-white rounded-3xl border border-slate-200 shadow-xl border-t-4 border-t-emerald-500 animate-in fade-in duration-700">
+        <div className="bg-emerald-50 p-4 rounded-2xl mb-6">
+          <AlertCircle size={48} className="text-emerald-600" />
+        </div>
+        <h1 className="text-3xl font-extrabold text-slate-900 text-center">Payment Verification</h1>
+        <p className="text-slate-500 mt-4 text-center max-w-md leading-relaxed">
+          We've received your payment! The administration is currently verifying the receipt. Your tenancy will be activated shortly.
+        </p>
+        <div className="mt-8 p-4 bg-slate-50 rounded-xl border border-slate-100 w-full max-w-sm text-center">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Current Status</p>
+            <p className="text-sm font-bold text-emerald-600 uppercase tracking-tight">Payment Made - Awaiting Activation</p>
+        </div>
+      </div>
+    );
+  }
   const isExpired = profile.rentExpiryDate && new Date(profile.rentExpiryDate) < new Date();
 
   return (

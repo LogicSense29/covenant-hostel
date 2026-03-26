@@ -9,7 +9,10 @@ import {
   Calendar,
   AlertCircle,
   FileText,
-  ExternalLink
+  ExternalLink,
+  GraduationCap,
+  History,
+  Home
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +23,16 @@ export default async function TenantsPage() {
       user: true,
       room: {
         include: { block: true }
+      },
+      stayHistory: {
+        include: {
+          room: {
+            include: { block: true }
+          }
+        },
+        orderBy: {
+          startDate: "desc"
+        }
       }
     },
     orderBy: {
@@ -96,10 +109,27 @@ export default async function TenantsPage() {
                           <div>
                             <div className="flex items-center gap-2">
                                <p className="text-sm font-bold text-slate-900">{profile.user?.name || "Unnamed"}</p>
+                               {profile.isStudent && (
+                                 <span className="flex items-center gap-1 text-[9px] px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded font-bold uppercase tracking-tighter">
+                                   <GraduationCap size={10} /> Student
+                                 </span>
+                               )}
                                {status === 'PENDING' && <span className="text-[9px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-bold uppercase tracking-tighter">New Application</span>}
                                {status === 'REJECTED' && <span className="text-[9px] px-1.5 py-0.5 bg-red-100 text-red-700 rounded font-bold uppercase tracking-tighter">Rejected</span>}
                             </div>
-                            <p className="text-xs text-slate-500">{profile.phone}</p>
+                            <p className="text-xs text-slate-500 font-medium">{profile.phone}</p>
+                            {profile.isStudent && (
+                              <div className="mt-2 space-y-0.5 border-l-2 border-blue-100 pl-2">
+                                <p className="text-[10px] font-bold text-slate-700 uppercase">{profile.schoolName}</p>
+                                <p className="text-[10px] text-slate-500">{profile.courseOfStudy} ({profile.schoolYear})</p>
+                                <p className="text-[9px] text-slate-400 font-mono">{profile.matricNumber}</p>
+                                {profile.permanentAddress && (
+                                  <p className="text-[9px] text-slate-400 italic mt-1 leading-tight">
+                                    <span className="font-bold text-slate-300">Home:</span> {profile.permanentAddress}
+                                  </p>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -123,20 +153,35 @@ export default async function TenantsPage() {
                         </div>
                       </td>
                       <td className="px-6 py-5">
-                        {profile.guarantorIdUrl ? (
-                          <a 
-                            href={profile.guarantorIdUrl} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg border border-slate-200 w-fit hover:bg-white hover:text-blue-600 hover:border-blue-200 transition-all"
-                          >
-                            <FileText size={12} />
-                            <span className="text-[10px] font-bold uppercase tracking-wider">View ID</span>
-                            <ExternalLink size={10} />
-                          </a>
-                        ) : (
-                          <span className="text-slate-300 text-[10px] italic">No ID uploaded</span>
-                        )}
+                        <div className="flex flex-col gap-2">
+                          {profile.guarantorIdUrl ? (
+                            <a 
+                              href={profile.guarantorIdUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg border border-slate-200 w-fit hover:bg-white hover:text-blue-600 hover:border-blue-200 transition-all"
+                            >
+                              <FileText size={12} />
+                              <span className="text-[10px] font-bold uppercase tracking-wider">Guarantor ID</span>
+                              <ExternalLink size={10} />
+                            </a>
+                          ) : (
+                            <span className="text-slate-300 text-[10px] italic">No Guarantor ID</span>
+                          )}
+
+                          {profile.isStudent && profile.studentIdUrl && (
+                             <a 
+                               href={profile.studentIdUrl} 
+                               target="_blank" 
+                               rel="noopener noreferrer"
+                               className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg border border-blue-100 w-fit hover:bg-white hover:text-blue-700 hover:border-blue-300 transition-all"
+                             >
+                               <GraduationCap size={12} />
+                               <span className="text-[10px] font-bold uppercase tracking-wider">Student ID</span>
+                               <ExternalLink size={10} />
+                             </a>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-5">
                         {status === "ACTIVE" ? (
@@ -168,6 +213,39 @@ export default async function TenantsPage() {
                                <span className="text-[10px] font-bold uppercase tracking-wider italic">Awaiting Approval</span>
                             </div>
                           )
+                        )}
+
+                        {/* Stay History */}
+                        {profile.stayHistory?.length > 0 && (
+                          <div className="mt-4 pt-3 border-t border-slate-100">
+                             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1">
+                               <History size={10} /> Stay History
+                             </p>
+                             <div className="space-y-1.5 max-h-[120px] overflow-y-auto pr-1">
+                               {profile.stayHistory.map((stay) => {
+                                 const isCurrent = stay.status === "ACTIVE";
+                                 return (
+                                   <div key={stay.id} className={`flex items-center justify-between text-[10px] px-2 py-1.5 rounded-lg border transition-all ${
+                                     isCurrent ? 'bg-blue-50/50 border-blue-100/50 text-blue-700' : 'bg-slate-50 border-slate-100 text-slate-500'
+                                   }`}>
+                                     <div className="flex items-center gap-1.5">
+                                        <Home size={10} className={isCurrent ? 'text-blue-400' : 'text-slate-400'} />
+                                        <div className="flex flex-col leading-tight">
+                                          <span className="font-bold">Room {stay.room.roomNumber}</span>
+                                          <span className="text-[8px] opacity-70">({stay.room.block?.name})</span>
+                                        </div>
+                                     </div>
+                                     <div className="text-right leading-tight">
+                                        <p className="font-bold">{new Date(stay.startDate).toLocaleDateString()}</p>
+                                        <p className="text-[8px] opacity-60">
+                                          {stay.endDate ? `to ${new Date(stay.endDate).toLocaleDateString()}` : 'Present'}
+                                        </p>
+                                     </div>
+                                   </div>
+                                 );
+                               })}
+                             </div>
+                          </div>
                         )}
                       </td>
                       <td className="px-6 py-5">

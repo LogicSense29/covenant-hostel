@@ -45,6 +45,18 @@ export async function PUT(req, { params }) {
           data: { status: "AVAILABLE" }
         });
       }
+
+      // Close StayHistory
+      await tx.stayHistory.updateMany({
+        where: { 
+          tenantId: id,
+          status: "ACTIVE"
+        },
+        data: {
+          endDate: new Date(),
+          status: "COMPLETED"
+        }
+      });
     });
 
     return new NextResponse("Tenant unassigned", { status: 200 });

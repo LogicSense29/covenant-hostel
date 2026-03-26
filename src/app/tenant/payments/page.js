@@ -29,9 +29,13 @@ export default async function TenantPaymentsPage() {
         <div className="bg-blue-50 p-4 rounded-2xl mb-6">
           <CreditCard size={48} className="text-blue-600" />
         </div>
-        <h1 className="text-3xl font-extrabold text-slate-900 text-center">Financial Portal Locked</h1>
+        <h1 className="text-3xl font-extrabold text-slate-900 text-center">
+          {session.user.status === "AWAITING_PAYMENT" ? "Room Allocation Pending" : "Financial Portal Locked"}
+        </h1>
         <p className="text-slate-500 mt-4 text-center max-w-md leading-relaxed">
-          Payment details will be available once you have been allocated to a room. 
+          {session.user.status === "AWAITING_PAYMENT" 
+            ? "Your application is approved! Payment details will be available as soon as the administrator assigns you to a specific room."
+            : "Payment details will be available once you have been allocated to a room."}
         </p>
       </div>
     );

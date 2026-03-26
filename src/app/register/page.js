@@ -27,28 +27,42 @@ export default function RegisterPage() {
     phone: "",
     password: "",
     confirmPassword: "",
-    role: "TENANT", 
+    role: "TENANT",
+    isStudent: false,
+    matricNumber: "",
+    studentIdUrl: "",
+    schoolName: "",
+    department: "",
+    faculty: "",
+    courseOfStudy: "",
+    schoolYear: "",
+    permanentAddress: "",
     guarantorName: "",
     guarantorPhone: "",
     guarantorAddress: "",
+    guarantorRelationship: "",
     guarantorIdUrl: "",
   });
-  
+
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
 
   const [registered, setRegistered] = useState(false);
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value, type, checked } = e.target;
+    setFormData({
+      ...formData,
+      [name]: type === "checkbox" ? checked : value
+    });
   };
 
-  const handleFileUpload = async (e) => {
+  const handleFileUpload = async (e, targetField = "guarantorIdUrl") => {
     const file = e.target.files[0];
     if (!file) return;
 
     setUploading(true);
-    const toastId = toast.loading("Uploading ID...");
+    const toastId = toast.loading("Uploading document...");
 
     try {
       const data = new FormData();
@@ -61,8 +75,8 @@ export default function RegisterPage() {
 
       const result = await res.json();
       if (result.success) {
-        setFormData({ ...formData, guarantorIdUrl: result.fileUrl });
-        toast.success("ID uploaded successfully!", { id: toastId });
+        setFormData({ ...formData, [targetField]: result.fileUrl });
+        toast.success("Uploaded successfully!", { id: toastId });
       } else {
         toast.error(result.error || "Upload failed", { id: toastId });
       }
@@ -79,21 +93,31 @@ export default function RegisterPage() {
         return toast.error("Please fill all account information");
       }
       if (formData.role !== "TENANT") {
-        setStep(3); // Go to Password for others (we'll call step 3 "Security")
+        setStep(3); // Go to Security
+      } else if (formData.isStudent) {
+        setStep(1.5); // Go to Student Details
       } else {
-        setStep(2); // Go to Guarantor for tenants
+        setStep(2); // Go to Guarantor
       }
+    } else if (step === 1.5) {
+        if (!formData.matricNumber || !formData.schoolName || !formData.courseOfStudy || !formData.studentIdUrl || !formData.permanentAddress) {
+            return toast.error("Please provide all student and permanent address details");
+        }
+        setStep(2);
     } else if (step === 2) {
-      if (!formData.guarantorName || !formData.guarantorPhone || !formData.guarantorAddress || !formData.guarantorIdUrl) {
-        return toast.error("Please provide all guarantor details and ID verification");
+      if (!formData.guarantorName || !formData.guarantorPhone || !formData.guarantorAddress || !formData.guarantorIdUrl || !formData.guarantorRelationship) {
+        return toast.error("Please provide all guarantor details and relationship");
       }
-      // For tenants, Step 2 is the last interactive step before submission
       handleSubmitInternal();
     }
   };
 
   const prevStep = () => {
-    setStep(1);
+    if (step === 2 && formData.isStudent) {
+        setStep(1.5);
+    } else {
+        setStep(1);
+    }
   };
 
   const handleSubmitInternal = async () => {
@@ -128,8 +152,9 @@ export default function RegisterPage() {
 
   const steps = [
     { title: "Personal", id: 1 },
-    { title: formData.role === "TENANT" ? "Guarantor & ID" : "Security", id: formData.role === "TENANT" ? 2 : 3 },
-  ];
+    { title: "Student", id: 1.5, hide: !formData.isStudent },
+    { title: formData.role === "TENANT" ? "Guarantor" : "Security", id: formData.role === "TENANT" ? 2 : 3 },
+  ].filter(s => !s.hide);
 
   if (registered) {
     return (
@@ -187,7 +212,7 @@ export default function RegisterPage() {
                 Step {step === 1 ? 1 : 2} of 2
               </span>
               <span className="text-sm font-bold text-slate-900">
-                {step === 1 ? "Personal Info" : (formData.role === "TENANT" ? "Guarantor & ID" : "Password Security")}
+                {step === 1 ? "Personal Info" : step === 1.5 ? "Student Details" : (formData.role === "TENANT" ? "Guarantor & ID" : "Password Security")}
               </span>
             </div>
 
@@ -218,18 +243,86 @@ export default function RegisterPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-1.5 pt-1">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Register As</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {["TENANT"].map((r) => (
-                        <button key={r} type="button" onClick={() => setFormData({ ...formData, role: r })} className={`py-3 px-1 rounded-xl border text-[10px] font-bold transition-all ${
-                          formData.role === r ? "bg-blue-600 border-blue-600 text-white shadow-sm" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-                        }`}>
-                          {r.replace('_', ' ')}
-                        </button>
-                      ))}
+                  <div className="space-y-4 pt-3 border-t border-slate-100">
+                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${formData.isStudent ? 'bg-blue-600 text-white' : 'bg-white text-slate-400 border border-slate-200'}`}>
+                           <ShieldCheck size={18} />
+                        </div>
+                        <div>
+                           <p className="text-xs font-bold text-slate-900">Are you a Student?</p>
+                           <p className="text-[10px] text-slate-500">Enable for academic details</p>
+                        </div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input name="isStudent" type="checkbox" className="sr-only peer" checked={formData.isStudent} onChange={handleChange} />
+                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                      </label>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {step === 1.5 && formData.isStudent && (
+                 <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Matric Number</label>
+                            <input name="matricNumber" type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white transition-all text-sm font-semibold text-slate-900" placeholder="e.g. 19/..." value={formData.matricNumber} onChange={handleChange} />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">School Year</label>
+                            <input name="schoolYear" type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white transition-all text-sm font-semibold text-slate-900" placeholder="e.g. 400L" value={formData.schoolYear} onChange={handleChange} />
+                        </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">School Name</label>
+                        <input name="schoolName" type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white transition-all text-sm font-semibold text-slate-900" placeholder="Enter institution name" value={formData.schoolName} onChange={handleChange} />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Faculty</label>
+                            <input name="faculty" type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white transition-all text-sm font-semibold text-slate-900" placeholder="e.g. Engineering" value={formData.faculty} onChange={handleChange} />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Department</label>
+                            <input name="department" type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white transition-all text-sm font-semibold text-slate-900" placeholder="e.g. Civil Eng" value={formData.department} onChange={handleChange} />
+                        </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Course of Study</label>
+                        <input name="courseOfStudy" type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white transition-all text-sm font-semibold text-slate-900" placeholder="Enter course" value={formData.courseOfStudy} onChange={handleChange} />
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Permanent Address</label>
+                        <textarea name="permanentAddress" rows="2" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white transition-all text-sm font-semibold text-slate-900 resize-none" placeholder="Residential address outside school" value={formData.permanentAddress} onChange={handleChange} />
+                    </div>
+
+                    <div className="space-y-1.5 pt-2">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Student ID Card</label>
+                        <label className={`block border-2 border-dashed rounded-xl p-4 transition-all cursor-pointer text-center ${
+                        formData.studentIdUrl ? "border-green-500 bg-green-50/50" : "border-slate-200 bg-slate-50 hover:bg-white hover:border-blue-400"
+                        }`}>
+                        {uploading ? (
+                            <Loader2 className="text-blue-600 animate-spin mx-auto" size={20} />
+                        ) : formData.studentIdUrl ? (
+                            <div className="flex items-center justify-center gap-2">
+                                <CheckCircle2 className="text-green-600" size={20} />
+                                <span className="text-xs font-bold text-green-600">ID Uploaded</span>
+                            </div>
+                        ) : (
+                            <div className="flex items-center justify-center gap-2">
+                                <Upload className="text-slate-400" size={20} />
+                                <span className="text-xs font-bold text-slate-600">Upload Student ID</span>
+                            </div>
+                        )}
+                        <input type="file" className="hidden" accept="image/*,.pdf" onChange={(e) => handleFileUpload(e, "studentIdUrl")} />
+                        </label>
+                    </div>
                 </div>
               )}
 
@@ -298,7 +391,7 @@ export default function RegisterPage() {
                             <span className="text-[9px] text-slate-400">Passport, License or NIN</span>
                          </div>
                       )}
-                      <input type="file" className="hidden" accept="image/*,.pdf" onChange={handleFileUpload} />
+                      <input type="file" className="hidden" accept="image/*,.pdf" onChange={(e) => handleFileUpload(e, "guarantorIdUrl")} />
                     </label>
                   </div>
                 </div>

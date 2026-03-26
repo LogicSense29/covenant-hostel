@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { crypto } from "crypto";
-import { sendAccountApprovedEmail } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -31,46 +29,40 @@ export async function POST(req) {
       return new NextResponse("User not found", { status: 404 });
     }
 
-    if (user.status !== "PENDING") {
-      return new NextResponse("User is not in PENDING status", { status: 400 });
+    if (user.status !== "PAYMENT_MADE") {
+      return new NextResponse("Tenancy can only be activated after payment is made", { status: 400 });
     }
 
-    // Generate secure token
-    const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-    const expires = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 hours
+    const now = new Date();
+    const expiryDate = new Date();
+    expiryDate.setFullYear(expiryDate.getFullYear() + 1);
 
     await prisma.$transaction([
       prisma.user.update({
         where: { id: userId },
-        data: { status: "AWAITING_PAYMENT" }
+        data: { status: "ACTIVE" }
       }),
-      prisma.setupToken.upsert({
+      prisma.tenantProfile.update({
         where: { userId: userId },
-        update: {
-          token,
-          expires
-        },
-        create: {
-          userId,
-          token,
-          expires
+        data: { 
+          rentStartDate: now,
+          rentExpiryDate: expiryDate
+        }
+      }),
+      prisma.stayHistory.create({
+        data: {
+          tenantId: user.tenantProfile.id,
+          roomId: user.tenantProfile.roomId,
+          startDate: now,
+          status: "ACTIVE"
         }
       })
     ]);
 
-    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
-    const setupLink = `${baseUrl}/setup-password/${token}`;
-
-    await sendAccountApprovedEmail({
-      email: user.email,
-      name: user.name,
-      setupLink
-    });
-
-    return NextResponse.json({ success: true, message: "User approved and email sent." });
+    return NextResponse.json({ success: true, message: "Tenancy activated successfully." });
 
   } catch (error) {
-    console.error("APPROVE_ERROR", error);
+    console.error("ACTIVATE_ERROR", error);
     return new NextResponse("Internal Error", { status: 500 });
   }
 }
