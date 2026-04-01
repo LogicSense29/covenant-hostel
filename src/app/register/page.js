@@ -388,6 +388,32 @@ export default function RegisterPage() {
                           />
                         </div>
                     </div>
+
+                    {formData.workType === "Employee" && (
+                      <div className="space-y-1.5 pt-1">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+                          Work ID Card <span className="font-normal text-slate-400 normal-case">(Optional)</span>
+                        </label>
+                        <label className={`block border-2 border-dashed rounded-xl p-4 transition-all cursor-pointer text-center ${
+                          formData.workIdUrl ? "border-green-500 bg-green-50/50" : "border-slate-200 bg-slate-50 hover:bg-white hover:border-blue-400"
+                        }`}>
+                          {uploading ? (
+                            <Loader2 className="text-blue-600 animate-spin mx-auto" size={20} />
+                          ) : formData.workIdUrl ? (
+                            <div className="flex items-center justify-center gap-2">
+                              <CheckCircle2 className="text-green-600" size={20} />
+                              <span className="text-xs font-bold text-green-600">Work ID Uploaded</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-center gap-2">
+                              <Upload className="text-slate-400" size={20} />
+                              <span className="text-xs font-bold text-slate-600">Upload Work ID</span>
+                            </div>
+                          )}
+                          <input type="file" className="hidden" accept="image/*,.pdf" onChange={(e) => handleFileUpload(e, "workIdUrl")} />
+                        </label>
+                      </div>
+                    )}
                  </div>
               )}
 

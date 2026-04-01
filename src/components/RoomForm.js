@@ -32,6 +32,7 @@ export default function RoomForm({ initialData }) {
     rentExpiryDate: initialData?.rentExpiryDate ? new Date(initialData.rentExpiryDate).toISOString().split('T')[0] : "",
     blockId: initialData?.blockId || "",
     imageUrl: initialData?.imageUrl || "",
+    photos: initialData?.photos || (initialData?.imageUrl ? [initialData.imageUrl] : []),
     billingRuleIds: initialData?.billingRules?.map(r => r.id) || [],
   });
   
@@ -60,7 +61,12 @@ export default function RoomForm({ initialData }) {
 
       if (res.ok) {
         const result = await res.json();
-        setFormData(prev => ({ ...prev, imageUrl: result.fileUrl }));
+        setFormData(prev => ({ 
+           ...prev, 
+           photos: [...prev.photos, result.fileUrl],
+           // For backward compatibility until full transition
+           imageUrl: prev.photos.length === 0 ? result.fileUrl : prev.imageUrl
+        }));
         toast.success("Image uploaded!");
       } else {
         toast.error("Failed to upload image");
@@ -70,6 +76,13 @@ export default function RoomForm({ initialData }) {
     } finally {
       setUploading(false);
     }
+  };
+
+  const removePhoto = (indexToRemove) => {
+    setFormData(prev => ({
+      ...prev,
+      photos: prev.photos.filter((_, index) => index !== indexToRemove),
+    }));
   };
 
   useEffect(() => {
@@ -200,19 +213,34 @@ export default function RoomForm({ initialData }) {
       <h2 className={styles.title}>{isEditing ? "Edit Room" : "Add New Room"}</h2>
 
       <div className="mb-8 p-6 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 text-center relative overflow-hidden group">
-        {formData.imageUrl ? (
-          <div className="relative aspect-video rounded-2xl overflow-hidden mb-4">
-             <img 
-               src={formData.imageUrl} 
-               alt="Room Preview" 
-               className="w-full h-full object-cover"
-             />
-             <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                <label className="cursor-pointer bg-white text-slate-900 px-4 py-2 rounded-xl font-bold flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-transform">
-                   <Camera size={18} />
-                   Change Picture
-                   <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploading} />
-                </label>
+        
+        {formData.photos.length > 0 ? (
+          <div className="space-y-4">
+             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+               {formData.photos.map((url, index) => (
+                 <div key={index} className="relative aspect-square rounded-2xl overflow-hidden group/photo border border-slate-200 shadow-sm">
+                   <img src={url} alt={`Room Preview ${index + 1}`} className="w-full h-full object-cover" />
+                   <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center justify-center">
+                      <button 
+                        type="button" 
+                        onClick={() => removePhoto(index)}
+                        className="bg-white text-red-600 p-2.5 rounded-xl hover:bg-red-50 hover:scale-110 transition-all shadow-sm"
+                        title="Remove photo"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                   </div>
+                 </div>
+               ))}
+               
+               {/* Add more button */}
+               <label className="cursor-pointer flex flex-col items-center justify-center aspect-square transition-all hover:bg-white bg-slate-100/50 rounded-2xl border-2 border-dashed border-slate-300">
+                  <div className="w-12 h-12 bg-white rounded-2xl shadow-sm flex items-center justify-center text-slate-400 mb-2 group-hover:text-blue-500 group-hover:scale-110 transition-all">
+                    {uploading ? <Loader2 size={24} className="animate-spin text-blue-500" /> : <Plus size={24} />}
+                  </div>
+                  <p className="text-[11px] font-bold text-slate-600">Add More</p>
+                  <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploading} />
+               </label>
              </div>
           </div>
         ) : (
@@ -220,14 +248,14 @@ export default function RoomForm({ initialData }) {
             <div className="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center text-slate-300 mb-4 group-hover:text-blue-500 group-hover:scale-110 transition-all">
               {uploading ? <Loader2 size={32} className="animate-spin text-blue-500" /> : <Camera size={32} />}
             </div>
-            <p className="text-sm font-bold text-slate-700">Add Room Picture (Optional)</p>
+            <p className="text-sm font-bold text-slate-700">Add Room Pictures (Optional)</p>
             <p className="text-xs text-slate-400 mt-1">PNG, JPG or WebP up to 5MB</p>
             <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploading} />
           </label>
         )}
         
-        {uploading && !formData.imageUrl && (
-          <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] flex items-center justify-center">
+        {uploading && formData.photos.length === 0 && (
+          <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] flex items-center justify-center z-10">
              <div className="flex items-center gap-3 bg-white px-6 py-3 rounded-2xl shadow-xl">
                 <Loader2 size={20} className="animate-spin text-blue-600" />
                 <span className="text-sm font-bold text-slate-700">Uploading...</span>

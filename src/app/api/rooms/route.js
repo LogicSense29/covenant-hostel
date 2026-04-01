@@ -15,7 +15,7 @@ export async function POST(req) {
 
   try {
     const body = await req.json();
-    const { roomNumber, rentAmount, status, capacity, rentExpiryDate, blockId, imageUrl, billingRuleIds = [] } = body;
+    const { roomNumber, rentAmount, status, capacity, rentExpiryDate, blockId, imageUrl, photos = [], billingRuleIds = [] } = body;
 
     if (!roomNumber || !rentAmount) {
       return new NextResponse("Missing fields", { status: 400 });
@@ -40,7 +40,8 @@ export async function POST(req) {
         capacity: capacity ? parseInt(capacity) : 4,
         rentExpiryDate: rentExpiryDate ? new Date(rentExpiryDate) : null,
         blockId: blockId || null,
-        imageUrl: imageUrl || null,
+        imageUrl: photos.length > 0 ? photos[0] : (imageUrl || null),
+        photos: photos || [],
         billingRules: {
           connect: billingRuleIds.map(id => ({ id }))
         }

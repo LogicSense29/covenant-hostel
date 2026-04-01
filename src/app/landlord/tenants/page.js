@@ -166,6 +166,12 @@ export default async function TenantsPage() {
                               <GraduationCap size={14} />
                             </a>
                           )}
+                          {!profile.isStudent && profile.workType === "Employee" && profile.workIdUrl && (
+                            <a href={profile.workIdUrl} target="_blank" rel="noopener noreferrer" title="Work ID"
+                              className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-white transition-all border border-emerald-100">
+                              <Briefcase size={14} />
+                            </a>
+                          )}
                           {profile.rulesSigned && (
                             <div title="Rules Signed" className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100">
                               <ShieldCheck size={14} />

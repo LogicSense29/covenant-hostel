@@ -16,7 +16,7 @@ export async function PUT(req, { params }) {
   try {
     const { id } = await params;
     const body = await req.json();
-    const { roomNumber, rentAmount, status, capacity, rentExpiryDate, blockId, imageUrl, billingRuleIds = [] } = body;
+    const { roomNumber, rentAmount, status, capacity, rentExpiryDate, blockId, imageUrl, photos, billingRuleIds = [] } = body;
 
     const existingRoom = await prisma.room.findUnique({ 
       where: { id },
@@ -54,7 +54,8 @@ export async function PUT(req, { params }) {
         capacity: capacity ? parseInt(capacity) : existingRoom.capacity,
         rentExpiryDate: rentExpiryDate ? new Date(rentExpiryDate) : null,
         blockId: blockId || null,
-        imageUrl: imageUrl !== undefined ? imageUrl : existingRoom.imageUrl,
+        imageUrl: photos && photos.length > 0 ? photos[0] : (imageUrl !== undefined ? imageUrl : existingRoom.imageUrl),
+        photos: photos !== undefined ? photos : existingRoom.photos,
         billingRules: {
           disconnect: toDisconnect.map(id => ({ id })),
           connect: toConnect.map(id => ({ id }))

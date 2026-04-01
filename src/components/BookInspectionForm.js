@@ -107,17 +107,22 @@ export default function BookInspectionForm() {
 
       bookingDetailsRef.current = data.inspection;
 
-      if (data.feeAmount) {
+      if (data.feeAmount !== undefined) {
         setFee(data.feeAmount);
         feeRef.current = data.feeAmount;
       }
 
       setLoading(false);
 
-      initializePayment({
-        onSuccess: handlePaymentSuccess,
-        onClose: handlePaymentClose,
-      });
+      if (feeRef.current === 0) {
+        setSuccess(true);
+        toast.success("Booking confirmed successfully!", { duration: 4000 });
+      } else {
+        initializePayment({
+          onSuccess: handlePaymentSuccess,
+          onClose: handlePaymentClose,
+        });
+      }
     } catch (err) {
       console.error(err);
       toast.error(err.message || "Something went wrong", {
@@ -162,11 +167,11 @@ export default function BookInspectionForm() {
             <div className="h-px bg-slate-100" />
             <div className="flex justify-between items-center">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wide">Amount Paid</span>
-              <span className="font-black text-green-600 text-lg">₦{fee.toLocaleString()}</span>
+              <span className="font-black text-green-600 text-lg">{fee === 0 ? "FREE" : `₦${fee.toLocaleString()}`}</span>
             </div>
           </div>
 
-          <p className="text-slate-400 text-xs mb-8">A receipt has been sent to your email address. Please check your inbox.</p>
+          <p className="text-slate-400 text-xs mb-8">Your booking has been received. Please check your inbox for details.</p>
 
           <button
             onClick={() => router.push("/book-inspection")}
@@ -197,7 +202,7 @@ export default function BookInspectionForm() {
               Booking Fee
             </span>
             <p className="text-2xl font-bold text-blue-600">
-              ₦{fee.toLocaleString()}
+              {fee === 0 ? "FREE" : `₦${fee.toLocaleString()}`}
             </p>
           </div>
         </div>
@@ -247,10 +252,12 @@ export default function BookInspectionForm() {
             }
           />
 
-          <div className="bg-amber-50 p-4 rounded-xl border text-sm text-amber-800 flex gap-3">
-            <AlertCircle size={18} />
-            Non-refundable booking fee. Payment handled by Paystack.
-          </div>
+          {fee > 0 && (
+            <div className="bg-amber-50 p-4 rounded-xl border text-sm text-amber-800 flex gap-3">
+              <AlertCircle size={18} />
+              Non-refundable booking fee. Payment handled by Paystack.
+            </div>
+          )}
 
           <button
             type="submit"
@@ -264,7 +271,7 @@ export default function BookInspectionForm() {
               </>
             ) : (
               <>
-                Continue to Payment <ArrowRight size={16} />
+                {fee === 0 ? "Confirm Booking" : "Continue to Payment"} <ArrowRight size={16} />
               </>
             )}
           </button>
