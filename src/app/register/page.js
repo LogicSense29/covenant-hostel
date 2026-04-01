@@ -45,6 +45,7 @@ export default function RegisterPage() {
     workType: "Employee",
     companyName: "",
     workAddress: "",
+    workIdUrl: "",
   });
 
   const [loading, setLoading] = useState(false);
@@ -111,7 +112,7 @@ export default function RegisterPage() {
         if (!formData.workType || !formData.companyName || !formData.workAddress) {
             return toast.error("Please provide all work details");
         }
-        setStep(2);
+        handleSubmitInternal();
     } else if (step === 2) {
       if (!formData.guarantorName || !formData.guarantorPhone || !formData.guarantorAddress || !formData.guarantorIdUrl || !formData.guarantorRelationship) {
         return toast.error("Please provide all guarantor details and relationship");
@@ -168,7 +169,7 @@ export default function RegisterPage() {
     { title: "Personal", id: 1 },
     { title: "Student", id: 1.5, hide: !formData.isStudent },
     { title: "Employment", id: 1.6, hide: formData.isStudent || formData.role !== "TENANT" },
-    { title: formData.role === "TENANT" ? "Guarantor" : "Security", id: 2 },
+    { title: formData.role === "TENANT" ? "Guarantor" : "Security", id: 2, hide: formData.role === "TENANT" && !formData.isStudent },
   ].filter(s => !s.hide);
 
   if (registered) {
@@ -280,6 +281,12 @@ export default function RegisterPage() {
 
               {step === 1.5 && formData.isStudent && (
                  <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+
+                                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">School Name</label>
+                        <input name="schoolName" type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white transition-all text-sm font-semibold text-slate-900" placeholder="Enter institution name" value={formData.schoolName} onChange={handleChange} />
+                    </div>
+                    
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1.5">
                             <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Matric Number</label>
@@ -291,10 +298,6 @@ export default function RegisterPage() {
                         </div>
                     </div>
 
-                    <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">School Name</label>
-                        <input name="schoolName" type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white transition-all text-sm font-semibold text-slate-900" placeholder="Enter institution name" value={formData.schoolName} onChange={handleChange} />
-                    </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1.5">

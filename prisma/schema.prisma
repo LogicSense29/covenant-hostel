@@ -35,13 +35,14 @@ model TenantProfile {
   schoolYear          String?
   permanentAddress    String?
   governmentIdUrl     String?
-  guarantorName       String
-  guarantorPhone      String
-  guarantorAddress    String
+  guarantorName       String?
+  guarantorPhone      String?
+  guarantorAddress    String?
   guarantorRelationship String?
   workType            String?
   workAddress         String?
   companyName         String?
+  workIdUrl           String?
   roomId              String?
   rentStartDate       DateTime?
   rentExpiryDate      DateTime?
@@ -92,6 +93,7 @@ model Room {
   capacity     Int            @default(4)
   blockId      String?
   imageUrl     String?
+  photos       String[]
   rentExpiryDate DateTime?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt

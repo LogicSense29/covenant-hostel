@@ -24,12 +24,7 @@ export default async function TenantDashboard() {
     where: { userId: session.user.id },
     include: {
       room: true,
-      user: true,
-      payments: {
-        where: {
-          status: { in: ["SUCCESS", "PAID", "VERIFIED"] }
-        }
-      }
+      user: true
     }
   });
 
@@ -104,8 +99,7 @@ export default async function TenantDashboard() {
       </div>
     );
   }
-  const hasPaid = !!profile.rentExpiryDate && profile.payments?.length > 0;
-  const isExpired = !!profile.rentExpiryDate && new Date(profile.rentExpiryDate) < new Date();
+  const isExpired = profile.rentExpiryDate && new Date(profile.rentExpiryDate) < new Date();
 
   return (
     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -113,19 +107,19 @@ export default async function TenantDashboard() {
         <div>
           <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">Welcome, {user.name}</h1>
           <p className="text-slate-500 mt-2 flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${(!hasPaid || isExpired) ? 'bg-red-500' : 'bg-green-500'}`}></span>
+            <span className="w-2 h-2 rounded-full bg-green-500"></span>
             Profile Active • Tenant Portal
           </p>
         </div>
         <div className="bg-white px-5 py-3 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
            <div className="text-right">
              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Rent Status</p>
-             <p className={`text-sm font-bold ${(!hasPaid || isExpired) ? 'text-red-600' : 'text-green-600'}`}>
-               {!hasPaid ? 'Unpaid / Inactive' : (isExpired ? 'Expired' : 'Active')}
+             <p className={`text-sm font-bold ${isExpired ? 'text-red-600' : 'text-green-600'}`}>
+               {isExpired ? 'Expired' : 'Active'}
              </p>
            </div>
-           <div className={`p-2 rounded-xl ${(!hasPaid || isExpired) ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
-              {(!hasPaid || isExpired) ? <AlertCircle size={20} /> : <ShieldCheck size={20} />}
+           <div className={`p-2 rounded-xl ${isExpired ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
+             <ShieldCheck size={20} />
            </div>
         </div>
       </div>

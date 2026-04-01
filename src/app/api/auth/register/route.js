@@ -42,8 +42,12 @@ export async function POST(req) {
 
     // Role-specific validation
     if (userRole === "TENANT") {
-      if (!phone || !guarantorName || !guarantorPhone || !guarantorAddress || !guarantorRelationship) {
-        return NextResponse.json({ message: "Guarantor details, relationship, and phone are mandatory for tenants" }, { status: 400 });
+      if (!phone) {
+        return NextResponse.json({ message: "Phone number is required" }, { status: 400 });
+      }
+      // Guarantor is only required for students
+      if (isStudent && (!guarantorName || !guarantorPhone || !guarantorAddress || !guarantorRelationship)) {
+        return NextResponse.json({ message: "Guarantor details and relationship are mandatory for students" }, { status: 400 });
       }
     } else {
       if (!password) {
