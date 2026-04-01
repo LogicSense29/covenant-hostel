@@ -26,7 +26,10 @@ export async function POST(req) {
       guarantorPhone, 
       guarantorAddress,
       guarantorRelationship,
-      guarantorIdUrl
+      guarantorIdUrl,
+      workType,
+      workAddress,
+      companyName
     } = body;
 
     // Basic validation
@@ -93,6 +96,9 @@ export async function POST(req) {
             guarantorAddress,
             guarantorRelationship,
             guarantorIdUrl,
+            workType: !isStudent ? workType : null,
+            workAddress: !isStudent ? workAddress : null,
+            companyName: !isStudent ? companyName : null,
           }
         });
       }

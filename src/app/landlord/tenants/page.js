@@ -12,7 +12,10 @@ import {
   ExternalLink,
   GraduationCap,
   History,
-  Home
+  Home,
+  Briefcase,
+  ShieldCheck,
+  Clock
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +35,11 @@ export default async function TenantsPage() {
         },
         orderBy: {
           startDate: "desc"
+        }
+      },
+      payments: {
+        where: {
+          status: { in: ["SUCCESS", "PAID", "VERIFIED"] }
         }
       }
     },
@@ -109,16 +117,37 @@ export default async function TenantsPage() {
                           <div>
                             <div className="flex items-center gap-2">
                                <p className="text-sm font-bold text-slate-900">{profile.user?.name || "Unnamed"}</p>
-                               {profile.isStudent && (
+                               {profile.isStudent ? (
                                  <span className="flex items-center gap-1 text-[9px] px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded font-bold uppercase tracking-tighter">
                                    <GraduationCap size={10} /> Student
+                                 </span>
+                               ) : (
+                                 <span className="flex items-center gap-1 text-[9px] px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded font-bold uppercase tracking-tighter">
+                                   <Briefcase size={10} /> Professional
                                  </span>
                                )}
                                {status === 'PENDING' && <span className="text-[9px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-bold uppercase tracking-tighter">New Application</span>}
                                {status === 'REJECTED' && <span className="text-[9px] px-1.5 py-0.5 bg-red-100 text-red-700 rounded font-bold uppercase tracking-tighter">Rejected</span>}
+                               {status === 'AWAITING_PAYMENT' && <span className="text-[9px] px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded font-bold uppercase tracking-tighter border border-blue-100">Awaiting Payment</span>}
+                               {status === 'PAYMENT_MADE' && <span className="text-[9px] px-1.5 py-0.5 bg-emerald-50 text-emerald-600 rounded font-bold uppercase tracking-tighter border border-emerald-100 animate-pulse">Payment Made</span>}
+                               {status === 'ACTIVE' && (
+                                 !(profile.rentExpiryDate && profile.payments?.length > 0) ? (
+                                   <span className="text-[9px] px-1.5 py-0.5 bg-red-50 text-red-600 rounded font-bold uppercase tracking-tighter border border-red-100 flex items-center gap-1">
+                                      <AlertCircle size={10} /> Rent Unpaid
+                                   </span>
+                                 ) : isExpired ? (
+                                   <span className="text-[9px] px-1.5 py-0.5 bg-red-50 text-red-600 rounded font-bold uppercase tracking-tighter border border-red-100 flex items-center gap-1">
+                                      <Clock size={10} /> Rent Expired
+                                   </span>
+                                 ) : (
+                                   <span className="text-[9px] px-1.5 py-0.5 bg-green-50 text-green-700 rounded font-bold uppercase tracking-tighter border border-green-100 flex items-center gap-1">
+                                      <ShieldCheck size={10} /> Rent Active
+                                   </span>
+                                 )
+                               )}
                             </div>
                             <p className="text-xs text-slate-500 font-medium">{profile.phone}</p>
-                            {profile.isStudent && (
+                            {profile.isStudent ? (
                               <div className="mt-2 space-y-0.5 border-l-2 border-blue-100 pl-2">
                                 <p className="text-[10px] font-bold text-slate-700 uppercase">{profile.schoolName}</p>
                                 <p className="text-[10px] text-slate-500">{profile.courseOfStudy} ({profile.schoolYear})</p>
@@ -126,6 +155,16 @@ export default async function TenantsPage() {
                                 {profile.permanentAddress && (
                                   <p className="text-[9px] text-slate-400 italic mt-1 leading-tight">
                                     <span className="font-bold text-slate-300">Home:</span> {profile.permanentAddress}
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="mt-2 space-y-0.5 border-l-2 border-emerald-100 pl-2">
+                                <p className="text-[10px] font-bold text-slate-700 uppercase">{profile.companyName}</p>
+                                <p className="text-[10px] text-slate-500">{profile.workType}</p>
+                                {profile.workAddress && (
+                                  <p className="text-[9px] text-slate-400 italic mt-1 leading-tight">
+                                    <span className="font-bold text-slate-300">Work:</span> {profile.workAddress}
                                   </p>
                                 )}
                               </div>
@@ -180,6 +219,18 @@ export default async function TenantsPage() {
                                <span className="text-[10px] font-bold uppercase tracking-wider">Student ID</span>
                                <ExternalLink size={10} />
                              </a>
+                          )}
+
+                          {profile.rulesSigned && (
+                            <div className="mt-2 flex flex-col gap-1">
+                              <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100 w-fit">
+                                <ShieldCheck size={12} />
+                                <span className="text-[10px] font-bold uppercase tracking-wider">Rules Signed</span>
+                              </div>
+                              <p className="text-[9px] text-emerald-500 font-medium px-1 italic leading-tight">
+                                by {profile.rulesSignedName} on {new Date(profile.rulesSignedAt).toLocaleDateString()}
+                              </p>
+                            </div>
                           )}
                         </div>
                       </td>

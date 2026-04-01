@@ -22,11 +22,19 @@ export async function PUT(req, { params }) {
       return new NextResponse("Missing roomId", { status: 400 });
     }
 
+    const now = new Date();
+    const expiry = new Date(rentExpiryDate);
+
+    await prisma.$transaction(async (tx) => {
       // Check if tenant is already active
       const profile = await tx.tenantProfile.findUnique({
         where: { id },
         include: { user: true }
       });
+
+      if (!profile) {
+        throw new Error("Tenant profile not found");
+      }
 
       // Close previous StayHistory if moving
       if (profile.roomId) {

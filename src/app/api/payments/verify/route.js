@@ -10,6 +10,7 @@ export const dynamic = "force-dynamic";
 const verifySchema = z.object({
   reference: z.string().min(1, "Reference is required"),
   amount: z.number().positive("Amount must be positive"),
+  signature: z.string().optional(),
 });
 
 export async function POST(req) {
@@ -29,7 +30,7 @@ export async function POST(req) {
       }, { status: 400 });
     }
 
-    const { reference, amount } = validation.data;
+    const { reference, amount, signature } = validation.data;
 
     // Verify with Paystack
     const paystackRes = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
@@ -57,14 +58,30 @@ export async function POST(req) {
       return NextResponse.json({ error: "Tenant profile not found" }, { status: 404 });
     }
 
-    const payment = await prisma.payment.create({
-      data: {
-        amount,
-        reference: reference,
-        status: "SUCCESS",
-        tenantId: profile.id,
-      }
-    });
+    const [payment, updatedUser, updatedProfile] = await prisma.$transaction([
+      prisma.payment.create({
+        data: {
+          amount,
+          reference: reference,
+          status: "SUCCESS",
+          tenantId: profile.id,
+        }
+      }),
+      prisma.user.update({
+        where: { id: session.user.id },
+        data: { status: "PAYMENT_MADE" }
+      }),
+      prisma.tenantProfile.update({
+        where: { id: profile.id },
+        data: {
+          rulesSigned: true,
+          rulesSignedAt: new Date(),
+          rulesSignedName: signature || "Signed Online"
+        }
+      })
+    ]);
+
+    return NextResponse.json({ success: true, payment });
 
     return NextResponse.json({ success: true, payment });
   } catch (err) {

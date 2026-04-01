@@ -20,7 +20,7 @@ export async function sendInspectionReceipt({ email, name, date, reference, amou
 
 
     const info = await transporter.sendMail({
-      from: '"Covenant Hostel" <support@covenanthostel.com>',
+      from: `"Covenant Hostel" <${smtpUser}>`,
       to: email,
       subject: "Your Booking Receipt - Covenant Hostel Tour",
       html: `
@@ -71,7 +71,7 @@ export async function sendAdminInspectionAlert({ name, email, phone, date, refer
     });
 
     await transporter.sendMail({
-      from: '"Covenant Hostel" <support@covenanthostel.com>',
+      from: `"Covenant Hostel" <${smtpUser}>`,
       to: adminEmail,
       subject: `New Inspection Booked — ${name}`,
       html: `
@@ -112,7 +112,7 @@ export async function sendApplicationReceivedEmail({ email, name }) {
     });
 
     const info = await transporter.sendMail({
-      from: '"Covenant Hostel" <support@covenanthostel.com>',
+      from: `"Covenant Hostel" <${smtpUser}>`,
       to: email,
       subject: "Application Received - Covenant Hostel",
       html: `
@@ -143,7 +143,7 @@ export async function sendAccountApprovedEmail({ email, name, setupLink }) {
     });
 
     await transporter.sendMail({
-      from: '"Covenant Hostel" <support@covenanthostel.com>',
+      from: `"Covenant Hostel" <${smtpUser}>`,
       to: email,
       subject: "Account Approved - Covenant Hostel",
       html: `
@@ -182,7 +182,7 @@ export async function sendAccountRejectedEmail({ email, name, reason }) {
     });
 
     await transporter.sendMail({
-      from: '"Covenant Hostel" <support@covenanthostel.com>',
+      from: `"Covenant Hostel" <${smtpUser}>`,
       to: email,
       subject: "Update Regarding Your Application - Covenant Hostel",
       html: `
@@ -218,7 +218,7 @@ export async function sendRentExpiryReminder({ email, name, roomNumber, expiryDa
     });
 
     await transporter.sendMail({
-      from: '"Covenant Hostel" <support@covenanthostel.com>',
+      from: `"Covenant Hostel" <${smtpUser}>`,
       to: email,
       subject: `Rent Expiry Reminder - Room ${roomNumber}`,
       html: `
@@ -263,7 +263,7 @@ export async function sendAdminRentSummary({ expiries }) {
     `).join('');
 
     await transporter.sendMail({
-      from: '"Covenant Hostel" <support@covenanthostel.com>',
+      from: `"Covenant Hostel" <${smtpUser}>`,
       to: adminEmail,
       subject: `Daily Rent Expiry Summary - ${new Date().toLocaleDateString()}`,
       html: `

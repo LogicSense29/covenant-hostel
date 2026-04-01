@@ -39,10 +39,16 @@ model TenantProfile {
   guarantorPhone      String
   guarantorAddress    String
   guarantorRelationship String?
+  workType            String?
+  workAddress         String?
+  companyName         String?
   roomId              String?
   rentStartDate       DateTime?
   rentExpiryDate      DateTime?
   allowPartialPayment Boolean             @default(false)
+  rulesSigned       Boolean             @default(false)
+  rulesSignedAt     DateTime?
+  rulesSignedName   String?
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
   guarantorIdUrl      String?

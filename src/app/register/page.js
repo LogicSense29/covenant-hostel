@@ -42,6 +42,9 @@ export default function RegisterPage() {
     guarantorAddress: "",
     guarantorRelationship: "",
     guarantorIdUrl: "",
+    workType: "Employee",
+    companyName: "",
+    workAddress: "",
   });
 
   const [loading, setLoading] = useState(false);
@@ -97,11 +100,16 @@ export default function RegisterPage() {
       } else if (formData.isStudent) {
         setStep(1.5); // Go to Student Details
       } else {
-        setStep(2); // Go to Guarantor
+        setStep(1.6); // Go to Work Details
       }
     } else if (step === 1.5) {
         if (!formData.matricNumber || !formData.schoolName || !formData.courseOfStudy || !formData.studentIdUrl || !formData.permanentAddress) {
             return toast.error("Please provide all student and permanent address details");
+        }
+        setStep(2);
+    } else if (step === 1.6) {
+        if (!formData.workType || !formData.companyName || !formData.workAddress) {
+            return toast.error("Please provide all work details");
         }
         setStep(2);
     } else if (step === 2) {
@@ -113,8 +121,14 @@ export default function RegisterPage() {
   };
 
   const prevStep = () => {
-    if (step === 2 && formData.isStudent) {
-        setStep(1.5);
+    if (step === 2) {
+        if (formData.isStudent) {
+            setStep(1.5);
+        } else {
+            setStep(1.6);
+        }
+    } else if (step === 1.5 || step === 1.6) {
+        setStep(1);
     } else {
         setStep(1);
     }
@@ -153,7 +167,8 @@ export default function RegisterPage() {
   const steps = [
     { title: "Personal", id: 1 },
     { title: "Student", id: 1.5, hide: !formData.isStudent },
-    { title: formData.role === "TENANT" ? "Guarantor" : "Security", id: formData.role === "TENANT" ? 2 : 3 },
+    { title: "Employment", id: 1.6, hide: formData.isStudent || formData.role !== "TENANT" },
+    { title: formData.role === "TENANT" ? "Guarantor" : "Security", id: 2 },
   ].filter(s => !s.hide);
 
   if (registered) {
@@ -209,10 +224,10 @@ export default function RegisterPage() {
           <div className="p-6 md:p-8">
             <div className="flex items-center justify-between mb-8">
               <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">
-                Step {step === 1 ? 1 : 2} of 2
+                Step {steps.findIndex(s => s.id === step) + 1} of {steps.length}
               </span>
               <span className="text-sm font-bold text-slate-900">
-                {step === 1 ? "Personal Info" : step === 1.5 ? "Student Details" : (formData.role === "TENANT" ? "Guarantor & ID" : "Password Security")}
+                {step === 1 ? "Personal Info" : step === 1.5 ? "Student Details" : step === 1.6 ? "Work Details" : (formData.role === "TENANT" ? "Guarantor & ID" : "Password Security")}
               </span>
             </div>
 
@@ -326,6 +341,53 @@ export default function RegisterPage() {
                 </div>
               )}
 
+              {step === 1.6 && !formData.isStudent && formData.role === "TENANT" && (
+                 <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Work Type</label>
+                        <select 
+                          name="workType" 
+                          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white transition-all text-sm font-semibold text-slate-900 outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500"
+                          value={formData.workType} 
+                          onChange={handleChange}
+                        >
+                          <option value="Employee">Employee</option>
+                          <option value="Self employed/Worker">Self employed/Worker</option>
+                        </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Company / Business Name</label>
+                        <div className="relative group">
+                          <ShieldCheck className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={18} />
+                          <input 
+                            name="companyName" 
+                            type="text" 
+                            className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white transition-all text-sm font-semibold text-slate-900 outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500" 
+                            placeholder="Enter workplace name" 
+                            value={formData.companyName} 
+                            onChange={handleChange} 
+                          />
+                        </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Work Address</label>
+                        <div className="relative group">
+                          <MapPin className="absolute left-3.5 top-3 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={18} />
+                          <textarea 
+                            name="workAddress" 
+                            rows="3" 
+                            className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white transition-all text-sm font-semibold text-slate-900 outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 resize-none" 
+                            placeholder="Full address of your workplace" 
+                            value={formData.workAddress} 
+                            onChange={handleChange} 
+                          />
+                        </div>
+                    </div>
+                 </div>
+              )}
+
               {step === 2 && formData.role === "TENANT" && (
                 <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
       
@@ -433,8 +495,8 @@ export default function RegisterPage() {
                     <Loader2 className="animate-spin" size={18} />
                   ) : (
                     <>
-                      {step === 1 ? "Continue" : (formData.role === "TENANT" ? "Submit Application" : "Complete Registration")}
-                      {step === 1 && <ArrowRight size={18} className="group-hover:translate-x-0.5 transition-transform" />}
+                      { (step === 1 || step === 1.5 || step === 1.6) ? "Continue" : (formData.role === "TENANT" ? "Submit Application" : "Complete Registration")}
+                      { (step === 1 || step === 1.5 || step === 1.6) && <ArrowRight size={18} className="group-hover:translate-x-0.5 transition-transform" />}
                     </>
                   )}
                 </button>
