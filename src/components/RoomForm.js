@@ -45,13 +45,35 @@ export default function RoomForm({ initialData }) {
   const [fetchingData, setFetchingData] = useState(false);
   const [error, setError] = useState("");
 
-  const handleImageUpload = async (e) => {
+  const handleMediaUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
+    const isImage = file.type.startsWith("image/");
+    const isVideo = file.type.startsWith("video/");
+
+    if (!isImage && !isVideo) {
+      toast.error("Invalid file type. Please upload an image (JPG, PNG, WebP) or a video (MP4, MOV, WebM).");
+      e.target.value = "";
+      return;
+    }
+
+    if (isImage && file.size > 5 * 1024 * 1024) {
+      toast.error("Image is too large. Maximum size is 5MB.");
+      e.target.value = "";
+      return;
+    }
+
+    if (isVideo && file.size > 10 * 1024 * 1024) {
+      toast.error("Video is too large. Maximum size is 10MB.");
+      e.target.value = "";
+      return;
+    }
 
     setUploading(true);
     const data = new FormData();
     data.append("file", file);
+    data.append("folder", "rooms");
 
     try {
       const res = await fetch("/api/upload", {
@@ -64,17 +86,17 @@ export default function RoomForm({ initialData }) {
         setFormData(prev => ({ 
            ...prev, 
            photos: [...prev.photos, result.fileUrl],
-           // For backward compatibility until full transition
            imageUrl: prev.photos.length === 0 ? result.fileUrl : prev.imageUrl
         }));
-        toast.success("Image uploaded!");
+        toast.success(isVideo ? "Video uploaded!" : "Image uploaded!");
       } else {
-        toast.error("Failed to upload image");
+        toast.error(`Failed to upload ${isVideo ? "video" : "image"}.`);
       }
     } catch (err) {
-      toast.error("Upload error");
+      toast.error("Upload error. Please try again.");
     } finally {
       setUploading(false);
+      e.target.value = "";
     }
   };
 
@@ -217,21 +239,28 @@ export default function RoomForm({ initialData }) {
         {formData.photos.length > 0 ? (
           <div className="space-y-4">
              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-               {formData.photos.map((url, index) => (
+               {formData.photos.map((url, index) => {
+                 const isVideo = url.match(/\.(mp4|mov|webm|ogg|avi)$/i) || url.includes('/video/');
+                 return (
                  <div key={index} className="relative aspect-square rounded-2xl overflow-hidden group/photo border border-slate-200 shadow-sm">
-                   <img src={url} alt={`Room Preview ${index + 1}`} className="w-full h-full object-cover" />
+                   {isVideo ? (
+                     <video src={url} className="w-full h-full object-cover" muted playsInline />
+                   ) : (
+                     <img src={url} alt={`Room Preview ${index + 1}`} className="w-full h-full object-cover" />
+                   )}
                    <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center justify-center">
                       <button 
                         type="button" 
                         onClick={() => removePhoto(index)}
                         className="bg-white text-red-600 p-2.5 rounded-xl hover:bg-red-50 hover:scale-110 transition-all shadow-sm"
-                        title="Remove photo"
+                        title="Remove"
                       >
                         <Trash2 size={18} />
                       </button>
                    </div>
                  </div>
-               ))}
+                 );
+               })}
                
                {/* Add more button */}
                <label className="cursor-pointer flex flex-col items-center justify-center aspect-square transition-all hover:bg-white bg-slate-100/50 rounded-2xl border-2 border-dashed border-slate-300">
@@ -239,7 +268,7 @@ export default function RoomForm({ initialData }) {
                     {uploading ? <Loader2 size={24} className="animate-spin text-blue-500" /> : <Plus size={24} />}
                   </div>
                   <p className="text-[11px] font-bold text-slate-600">Add More</p>
-                  <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploading} />
+                  <input type="file" accept="image/*,video/mp4,video/mov,video/webm" className="hidden" onChange={handleMediaUpload} disabled={uploading} />
                </label>
              </div>
           </div>
@@ -248,9 +277,9 @@ export default function RoomForm({ initialData }) {
             <div className="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center text-slate-300 mb-4 group-hover:text-blue-500 group-hover:scale-110 transition-all">
               {uploading ? <Loader2 size={32} className="animate-spin text-blue-500" /> : <Camera size={32} />}
             </div>
-            <p className="text-sm font-bold text-slate-700">Add Room Pictures (Optional)</p>
-            <p className="text-xs text-slate-400 mt-1">PNG, JPG or WebP up to 5MB</p>
-            <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploading} />
+            <p className="text-sm font-bold text-slate-700">Add Room Photos or Videos (Optional)</p>
+            <p className="text-xs text-slate-400 mt-1">Images up to 5MB • Videos (MP4, MOV, WebM) up to 10MB</p>
+            <input type="file" accept="image/*,video/mp4,video/mov,video/webm" className="hidden" onChange={handleMediaUpload} disabled={uploading} />
           </label>
         )}
         

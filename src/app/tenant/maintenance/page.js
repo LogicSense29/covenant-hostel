@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { AlertCircle } from "lucide-react";
 import MaintenanceManager from "./MaintenanceManager";
 
 export const dynamic = "force-dynamic";
@@ -38,10 +39,12 @@ export default async function TenantMaintenancePage() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <MaintenanceManager initialTickets={tickets} />
+      <MaintenanceManager 
+        initialTickets={tickets} 
+        currentUser={session.user}
+        tenantProfileId={profile.id}
+        roomId={profile.roomId}
+      />
     </div>
   );
 }
-
-// Add the missing AlertCircle import for the error state
-import { AlertCircle } from "lucide-react";

@@ -141,8 +141,23 @@ model MaintenanceTicket {
   createdAt        DateTime                @default(now())
   updatedAt        DateTime                @updatedAt
   category         TicketCategory          @default(MAINTENANCE)
+  tenantRating     Int?
+  tenantFeedback   String?
   provider         ServiceProviderProfile? @relation(fields: [providerId], references: [id])
   tenant           TenantProfile           @relation(fields: [tenantId], references: [id])
+  messages         TicketMessage[]
+}
+
+model TicketMessage {
+  id        String   @id @default(cuid())
+  ticketId  String
+  senderId  String
+  senderRole Role
+  content   String
+  imageUrl  String?
+  createdAt DateTime @default(now())
+
+  ticket    MaintenanceTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 }
 
 model Inspection {

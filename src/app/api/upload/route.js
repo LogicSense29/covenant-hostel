@@ -15,12 +15,13 @@ export async function POST(req) {
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const fileName = `${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
+    const folder = formData.get("folder") || "tenant-ids";
     
     // Upload to ImageKit
     const uploadResponse = await imagekit.upload({
       file: buffer.toString("base64"),
       fileName: fileName,
-      folder: "/tenant-ids"
+      folder: `/${folder}`
     });
 
     return NextResponse.json({ 

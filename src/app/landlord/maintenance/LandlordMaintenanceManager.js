@@ -11,13 +11,19 @@ import {
   User, 
   Home, 
   ExternalLink,
-  Filter
+  Filter,
+  MessageSquare,
+  CheckCircle,
+  MessageCircle
 } from "lucide-react";
+import TicketChatDrawer from "@/components/TicketChatDrawer";
 
-export default function LandlordMaintenanceManager({ initialTickets, providers }) {
+export default function LandlordMaintenanceManager({ initialTickets, providers, currentUser }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState("ALL");
+  const [selectedTicket, setSelectedTicket] = useState(null);
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   const handleAssign = async (ticketId, providerId) => {
     if (!providerId) return;
@@ -160,10 +166,21 @@ export default function LandlordMaintenanceManager({ initialTickets, providers }
                    {/* Right Side: Assignment/Action */}
                    <div className="w-full lg:w-80 space-y-4">
                       {ticket.status === 'RESOLVED' ? (
-                        <div className="bg-green-50 p-6 rounded-2xl border border-green-100 flex items-center justify-center flex-col text-center">
-                           <CheckCircle2 size={32} className="text-green-600 mb-2" />
-                           <p className="text-sm font-bold text-green-900">Task Completed</p>
-                           <p className="text-[10px] text-green-700 font-medium">Issue marked as resolved</p>
+                        <div className="bg-green-50 p-6 rounded-2xl border border-green-100 flex items-center justify-center flex-col text-center space-y-4">
+                           <div>
+                             <CheckCircle2 size={32} className="text-green-600 mx-auto mb-2" />
+                             <p className="text-sm font-bold text-green-900">Task Completed</p>
+                             <p className="text-[10px] text-green-700 font-medium">Issue marked as resolved</p>
+                           </div>
+                           <button 
+                             onClick={() => {
+                               setSelectedTicket(ticket);
+                               setIsChatOpen(true);
+                             }}
+                            className="text-xs font-bold text-green-700 uppercase tracking-widest hover:text-green-800 flex items-center gap-2 border-b border-green-200 pb-1"
+                           >
+                             <MessageSquare size={14} /> View Chat
+                           </button>
                         </div>
                       ) : (
                         <div className="space-y-4">
@@ -180,15 +197,24 @@ export default function LandlordMaintenanceManager({ initialTickets, providers }
                              ))}
                            </select>
 
-                           {ticket.status === 'IN_PROGRESS' && (
-                             <button 
-                               onClick={() => handleStatusUpdate(ticket.id, 'RESOLVED')}
-                               disabled={loading}
-                               className="w-full py-4 bg-green-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-green-700 shadow-lg shadow-green-500/20 transition-all font-sans"
-                             >
-                               Mark as Resolved
-                             </button>
-                           )}
+                              <div className="grid grid-cols-2 gap-2">
+                                <button 
+                                  onClick={() => {
+                                    setSelectedTicket(ticket);
+                                    setIsChatOpen(true);
+                                  }}
+                                  className="py-4 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
+                                >
+                                  <MessageSquare size={14} /> Chat
+                                </button>
+                                <button 
+                                  onClick={() => handleStatusUpdate(ticket.id, 'RESOLVED')}
+                                  disabled={loading}
+                                  className="py-4 bg-green-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-green-700 shadow-lg shadow-green-500/20 transition-all font-sans"
+                                >
+                                  Resolve
+                                </button>
+                              </div>
                         </div>
                       )}
                    </div>
@@ -198,6 +224,13 @@ export default function LandlordMaintenanceManager({ initialTickets, providers }
           </div>
         )}
       </div>
+
+      <TicketChatDrawer 
+        isOpen={isChatOpen} 
+        onClose={() => setIsChatOpen(false)} 
+        ticket={selectedTicket} 
+        currentUser={currentUser} 
+      />
     </div>
   );
 }

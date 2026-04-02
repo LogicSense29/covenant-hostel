@@ -9,14 +9,18 @@ import {
   CheckCircle2, 
   AlertCircle, 
   ChevronRight,
-  MessageSquare
+  MessageSquare,
+  Star
 } from "lucide-react";
+import TicketChatDrawer from "@/components/TicketChatDrawer";
 
-export default function MaintenanceManager({ initialTickets }) {
+export default function MaintenanceManager({ initialTickets, currentUser, tenantProfileId, roomId }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [issueDescription, setIssueDescription] = useState("");
+  const [selectedTicket, setSelectedTicket] = useState(null);
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -37,6 +41,11 @@ export default function MaintenanceManager({ initialTickets }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const openChat = (ticket) => {
+    setSelectedTicket(ticket);
+    setIsChatOpen(true);
   };
 
   return (
@@ -73,7 +82,7 @@ export default function MaintenanceManager({ initialTickets }) {
                 required
                 rows={4}
                 className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white focus:border-blue-500 transition-all placeholder:text-slate-300"
-                placeholder="Please describe the problem as clearly as possible (e.g. Broken pipe in bathroom, Flickering light in kitchen...)"
+                placeholder="Please describe the problem as clearly as possible..."
                 value={issueDescription}
                 onChange={(e) => setIssueDescription(e.target.value)}
               />
@@ -94,7 +103,7 @@ export default function MaintenanceManager({ initialTickets }) {
         
         {initialTickets.length === 0 ? (
           <div className="py-20 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 text-center">
-            <div className="bg-white w-16 h-16 rounded-2xl shadow-sm flex items-center justify-center mx-auto mb-4 border border-slate-100 italic">
+            <div className="bg-white w-16 h-16 rounded-2xl shadow-sm flex items-center justify-center mx-auto mb-4 border border-slate-100">
               <CheckCircle2 size={32} className="text-green-200" />
             </div>
             <h3 className="text-lg font-bold text-slate-900">All Systems Normal</h3>
@@ -113,20 +122,27 @@ export default function MaintenanceManager({ initialTickets }) {
                  </div>
 
                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 mb-1">
+                    <div className="flex items-center gap-3 mb-1 flex-wrap">
                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest ${
                          ticket.status === 'OPEN' ? 'bg-red-600 text-white' :
                          ticket.status === 'IN_PROGRESS' ? 'bg-amber-500 text-white' :
                          'bg-green-600 text-white'
                        }`}>
-                         {ticket.status}
+                         {ticket.status.replace("_", " ")}
                        </span>
                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                          Ticket #{ticket.id.slice(-4)}
                        </span>
+                       {ticket.status === 'RESOLVED' && ticket.tenantRating > 0 && (
+                         <span className="flex items-center gap-0.5 text-amber-400">
+                           {[1,2,3,4,5].map(s => (
+                             <Star key={s} size={10} className={ticket.tenantRating >= s ? "fill-current" : "text-slate-200"} />
+                           ))}
+                         </span>
+                       )}
                     </div>
                     <p className="text-slate-900 font-bold text-lg mb-1 leading-tight">{ticket.issueDescription}</p>
-                    <div className="flex items-center gap-4 text-xs text-slate-400 font-medium">
+                    <div className="flex items-center gap-4 text-xs text-slate-400 font-medium flex-wrap">
                        <span className="flex items-center gap-1"><Clock size={12} /> Reported {new Date(ticket.createdAt).toLocaleDateString()}</span>
                        {ticket.provider && (
                          <span className="flex items-center gap-1 text-blue-600"><CheckCircle2 size={12} /> Assigned to {ticket.provider.user.name}</span>
@@ -134,15 +150,27 @@ export default function MaintenanceManager({ initialTickets }) {
                     </div>
                  </div>
 
-                 <div className="flex items-center gap-2 shrink-0 md:ml-auto">
-                    <button className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all">Details</button>
-                    <ChevronRight size={18} className="text-slate-300" />
+                 <div className="shrink-0 md:ml-auto">
+                    <button 
+                      onClick={() => openChat(ticket)}
+                      className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-50 border border-blue-100 text-blue-700 rounded-xl text-xs font-bold hover:bg-blue-100 transition-all"
+                    >
+                      <MessageSquare size={14} />
+                      {ticket.status === 'RESOLVED' ? 'View Chat' : 'Open Chat'}
+                    </button>
                  </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      <TicketChatDrawer 
+        isOpen={isChatOpen} 
+        onClose={() => setIsChatOpen(false)} 
+        ticket={selectedTicket} 
+        currentUser={currentUser}
+      />
     </div>
   );
 }

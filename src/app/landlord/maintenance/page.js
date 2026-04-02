@@ -1,9 +1,13 @@
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import LandlordMaintenanceManager from "./LandlordMaintenanceManager";
 
 export const dynamic = "force-dynamic";
 
 export default async function LandlordMaintenancePage() {
+  const session = await getServerSession(authOptions);
+  
   const tickets = await prisma.maintenanceTicket.findMany({
     include: {
       tenant: {
@@ -22,7 +26,11 @@ export default async function LandlordMaintenancePage() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <LandlordMaintenanceManager initialTickets={tickets} providers={providers} />
+      <LandlordMaintenanceManager 
+        initialTickets={tickets} 
+        providers={providers} 
+        currentUser={session?.user}
+      />
     </div>
   );
 }
