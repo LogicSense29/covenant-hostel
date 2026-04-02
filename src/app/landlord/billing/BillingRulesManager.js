@@ -146,9 +146,10 @@ export default function BillingRulesManager({ defaultRules, rooms, blocks = [] }
                 {defaultRules.map(rule => (
                   <div key={rule.id} className="p-5 flex items-center justify-between hover:bg-slate-50/50 transition-colors group">
                     <div className="flex flex-col gap-1">
-                      <span className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
-                        {rule.description} <span className="text-slate-400 text-xs font-medium ml-1">({String(rule.type || "Additional Charge").replace(/_/g, ' ')})</span>
-                        <span className="text-blue-500 text-[10px] font-bold uppercase ml-2 bg-blue-50 px-1.5 py-0.5 rounded-md border border-blue-100">
+                      <span className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">
+                        <span className="text-blue-600 text-xs font-bold mr-2 uppercase tracking-tight">[{String(rule.type || "Additional Charge").replace(/_/g, ' ')}]</span>
+                        {rule.description}
+                        <span className="text-blue-500 text-[10px] font-bold uppercase ml-3 bg-blue-50 px-1.5 py-0.5 rounded-md border border-blue-100">
                           {rule.frequency?.replace(/_/g, ' ') || "ONCE"}
                         </span>
                       </span>

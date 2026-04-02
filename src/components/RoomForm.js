@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
@@ -38,12 +38,16 @@ export default function RoomForm({ initialData }) {
   
   const [billingSearch, setBillingSearch] = useState("");
   const [showSearchBox, setShowSearchBox] = useState(false);
+  const [isBillingModalOpen, setIsBillingModalOpen] = useState(false);
+  
   const [blocks, setBlocks] = useState([]);
   const [billingRules, setBillingRules] = useState([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [fetchingData, setFetchingData] = useState(false);
   const [error, setError] = useState("");
+
+  const billingSearchRef = useRef(null);
 
   const handleMediaUpload = async (e) => {
     const file = e.target.files[0];
@@ -106,6 +110,16 @@ export default function RoomForm({ initialData }) {
       photos: prev.photos.filter((_, index) => index !== indexToRemove),
     }));
   };
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (billingSearchRef.current && !billingSearchRef.current.contains(event.target)) {
+        setShowSearchBox(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -428,7 +442,7 @@ export default function RoomForm({ initialData }) {
 
         {/* Billing Rules Attachment Section */}
         <div className="mt-8 border-t border-slate-100 pt-8">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+          {/* <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
             <div className="flex items-center gap-2">
               <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
                 <Plus size={18} />
@@ -439,7 +453,7 @@ export default function RoomForm({ initialData }) {
               </div>
             </div>
 
-            <div className="relative w-full md:w-80" onMouseLeave={() => setShowSearchBox(false)}>
+            <div className="relative w-full md:w-80" ref={billingSearchRef}>
               <div className="relative">
                 <input
                   type="text"
@@ -490,12 +504,12 @@ export default function RoomForm({ initialData }) {
                               }));
                               setBillingSearch("");
                               setShowSearchBox(false);
-                              toast.success(`Added: ${rule.description}`);
+                              toast.success(`Rule added!`);
                             }}
                           >
                             <span className="text-xs font-bold text-slate-900">{rule.description}</span>
                             <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-bold text-blue-600">₦{rule.amount.toLocaleString()}</span>
+                              <span className="text-[10px] font-bold text-blue-600">+₦{rule.amount.toLocaleString()}</span>
                               <span className="text-[8px] font-medium text-slate-400 uppercase bg-slate-100 px-1 py-0.5 rounded">
                                 {String(rule.type || "").replace(/_/g, ' ')}
                               </span>
@@ -507,82 +521,132 @@ export default function RoomForm({ initialData }) {
                 </div>
               )}
             </div>
-          </div>
+          </div> */}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-80 overflow-y-auto p-1 bg-slate-50/50 rounded-3xl border border-slate-100/50 p-4">
-            {/* Show Selected Rules First (even if not 'recommended' for this block) */}
-            {billingRules
-              .filter(r => formData.billingRuleIds.includes(r.id))
-              .map(rule => (
-                <label 
-                  key={rule.id} 
-                  className="flex items-center gap-3 p-3 rounded-2xl border-2 border-blue-500 bg-blue-50/30 transition-all cursor-pointer"
-                >
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500 transition-all cursor-pointer"
-                    checked={true}
-                    onChange={() => {
-                      setFormData(prev => ({ 
-                        ...prev, 
-                        billingRuleIds: prev.billingRuleIds.filter(id => id !== rule.id) 
-                      }));
-                    }}
-                  />
-                  <div className="flex flex-col flex-1 overflow-hidden">
-                    <span className="text-[11px] font-bold text-slate-900 truncate">{rule.description}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold text-blue-600">₦{rule.amount.toLocaleString()}</span>
-                      <span className="text-[8px] font-medium text-slate-400 uppercase tracking-tighter bg-slate-100 px-1 py-0.5 rounded">
-                        {String(rule.type || "").replace(/_/g, ' ')}
-                      </span>
+          <div className="bg-slate-50/50 rounded-3xl border border-slate-100/50 p-4 min-h-[100px]">
+             {(() => {
+                const selectedRules = billingRules.filter(r => formData.billingRuleIds.includes(r.id));
+                const recommendedRules = billingRules.filter(r => {
+                  const type = String(r.type || "").toUpperCase();
+                  return type !== "BASE_RENT" && 
+                         !formData.billingRuleIds.includes(r.id) && 
+                         (r.isGlobal || r.blockId === formData.blockId || r.roomId === initialData?.id);
+                });
+                
+                const totalRules = [...selectedRules, ...recommendedRules];
+                const shouldShowModalTrigger = totalRules.length > 3;
+
+                if (totalRules.length === 0) {
+                   return (
+                    <div className="flex flex-col items-center justify-center py-6 text-center">
+                      <p className="text-xs text-slate-400 font-medium italic">No additional rules configured.</p>
                     </div>
-                  </div>
-                </label>
-              ))
-            }
+                   );
+                }
 
-            {/* Then show Recommended but NOT yet selected */}
-            {billingRules
-              .filter(r => {
-                const type = String(r.type || "").toUpperCase();
-                return type !== "BASE_RENT" && 
-                       !formData.billingRuleIds.includes(r.id) && 
-                       (r.isGlobal || r.blockId === formData.blockId || r.roomId === initialData?.id);
-              })
-              .map(rule => (
-                <label 
-                  key={rule.id} 
-                  className="flex items-center gap-3 p-3 rounded-2xl border-2 border-dashed border-slate-200 bg-white hover:border-blue-200 transition-all cursor-pointer group"
-                >
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4 rounded text-slate-300 border-slate-300 focus:ring-blue-500 transition-all cursor-pointer"
-                    checked={false}
-                    onChange={() => {
-                      setFormData(prev => ({ 
-                        ...prev, 
-                        billingRuleIds: [...prev.billingRuleIds, rule.id] 
-                      }));
-                    }}
-                  />
-                  <div className="flex flex-col flex-1 overflow-hidden">
-                    <span className="text-[11px] font-bold text-slate-500 group-hover:text-blue-600 truncate">{rule.description}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold text-slate-400 group-hover:text-blue-500">₦{rule.amount.toLocaleString()}</span>
+                if (shouldShowModalTrigger) {
+                  return (
+                    <div className="flex flex-col gap-4">
+                      {/* Folder Button */}
+                      <button
+                        type="button"
+                        onClick={() => setIsBillingModalOpen(true)}
+                        className="w-full flex items-center justify-center gap-2 py-4 bg-white border-2 border-dashed border-slate-200 hover:border-blue-300 hover:bg-blue-50/30 rounded-2xl text-xs font-bold text-slate-500 hover:text-blue-600 transition-all group"
+                      >
+                         <div className="w-8 h-8 rounded-lg bg-slate-100 group-hover:bg-blue-100 flex items-center justify-center transition-colors">
+                            <Plus size={16} />
+                         </div>
+                         Manage all additional billings ({totalRules.length})
+                      </button>
+
+
+                      {/* Grid for top 3 results */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {totalRules.slice(0, 3).map(rule => {
+                          const isSelected = formData.billingRuleIds.includes(rule.id);
+                          return (
+                            <label 
+                              key={rule.id} 
+                              className={`flex items-center gap-3 p-3 rounded-2xl border-2 transition-all cursor-pointer ${
+                                isSelected ? "border-blue-500 bg-blue-50/30" : "border-slate-200 bg-white hover:border-blue-200"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500 transition-all cursor-pointer shrink-0"
+                                checked={isSelected}
+                                onChange={(e) => {
+                                  // Stop event propagation to prevent double toggle
+                                  e.stopPropagation();
+                                  setFormData(prev => ({ 
+                                    ...prev, 
+                                    billingRuleIds: isSelected 
+                                      ? prev.billingRuleIds.filter(id => id !== rule.id) 
+                                      : [...prev.billingRuleIds, rule.id] 
+                                  }));
+                                }}
+                              />
+                              <div className="flex flex-col flex-1 overflow-hidden pointer-events-none">
+                                <span className={`text-[11px] font-bold truncate ${isSelected ? "text-slate-900" : "text-slate-500"}`}>
+                                  {rule.description}
+                                </span>
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-[10px] font-bold ${isSelected ? "text-blue-600" : "text-slate-400"}`}>
+                                    ₦{rule.amount.toLocaleString()}
+                                  </span>
+                                </div>
+                              </div>
+                            </label>
+                          );
+                        })}
+                      </div>
+                      
                     </div>
-                  </div>
-                </label>
-              ))
-            }
+                  );
+                }
 
-            {formData.billingRuleIds.length === 0 && 
-             billingRules.filter(r => r.type !== "BASE_RENT" && (r.isGlobal || r.blockId === formData.blockId || r.roomId === initialData?.id)).length === 0 && (
-              <div className="col-span-full py-10 text-center">
-                <p className="text-xs text-slate-400 font-medium italic">No rules selected yet.</p>
-                <p className="text-[10px] text-slate-300 mt-1">Use the dropdown above to browse all rules.</p>
-              </div>
-            )}
+                // Inline list for <= 3 rules
+                return (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {totalRules.map(rule => {
+                      const isSelected = formData.billingRuleIds.includes(rule.id);
+                      return (
+                        <label 
+                          key={rule.id} 
+                          className={`flex items-center gap-3 p-3 rounded-2xl border-2 transition-all cursor-pointer ${
+                            isSelected ? "border-blue-500 bg-blue-50/30" : "border-slate-200 bg-white hover:border-blue-200"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500 transition-all cursor-pointer shrink-0"
+                            checked={isSelected}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              setFormData(prev => ({ 
+                                ...prev, 
+                                billingRuleIds: isSelected 
+                                  ? prev.billingRuleIds.filter(id => id !== rule.id) 
+                                  : [...prev.billingRuleIds, rule.id] 
+                              }));
+                            }}
+                          />
+                          <div className="flex flex-col flex-1 overflow-hidden pointer-events-none">
+                            <span className={`text-[11px] font-bold truncate ${isSelected ? "text-slate-900" : "text-slate-500"}`}>
+                              {rule.description}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-[10px] font-bold ${isSelected ? "text-blue-600" : "text-slate-400"}`}>
+                                ₦{rule.amount.toLocaleString()}
+                              </span>
+                            </div>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                );
+             })()}
           </div>
         </div>
 
@@ -595,6 +659,139 @@ export default function RoomForm({ initialData }) {
           </button>
         </div>
       </form>
+
+      {/* ── BILLING SELECTION MODAL ── */}
+      {isBillingModalOpen && (
+        <>
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] animate-in fade-in duration-300"
+            onClick={() => setIsBillingModalOpen(false)}
+          />
+          
+          {/* Modal */}
+          <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-xl bg-slate-50 z-[70] rounded-3xl shadow-2xl flex flex-col max-h-[85vh] animate-in zoom-in-95 fade-in duration-300 overflow-hidden">
+            
+            {/* Modal Header */}
+            <div className="p-6 border-b border-slate-200 bg-white flex items-center justify-between shrink-0">
+               <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-blue-600 text-white rounded-xl shadow-lg shadow-blue-500/20">
+                    <Search size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900 leading-none">Manage Billings</h3>
+                    <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest mt-1.5 flex items-center gap-1.5">
+                      {formData.billingRuleIds.length} Selected • {billingRules.filter(r => r.type !== "BASE_RENT").length} Total
+                    </p>
+                  </div>
+               </div>
+               <button 
+                onClick={() => setIsBillingModalOpen(false)}
+                className="p-2.5 bg-slate-100 text-slate-500 rounded-xl hover:bg-slate-200 hover:text-slate-900 transition-all font-bold"
+               >
+                 <Plus size={20} className="rotate-45" />
+               </button>
+            </div>
+
+            {/* Modal Search Bar */}
+            <div className="px-6 py-4 bg-white border-b border-slate-100">
+               <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search all billing rules..."
+                    className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-300 focus:bg-white transition-all"
+                    value={billingSearch}
+                    onChange={(e) => setBillingSearch(e.target.value)}
+                  />
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                    <Search size={18} />
+                  </div>
+               </div>
+            </div>
+
+            {/* Rules List */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-3">
+               {billingRules
+                 .filter(r => {
+                   const type = String(r.type || "").toUpperCase();
+                   return type !== "BASE_RENT" && 
+                          r.description.toLowerCase().includes(billingSearch.toLowerCase());
+                 })
+                 .map(rule => {
+                   const isSelected = formData.billingRuleIds.includes(rule.id);
+                   const isRecommended = rule.isGlobal || rule.blockId === formData.blockId || rule.roomId === initialData?.id;
+
+                   return (
+                    <label 
+                      key={rule.id} 
+                      className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all cursor-pointer group ${
+                        isSelected 
+                          ? "border-blue-500 bg-white shadow-md shadow-blue-500/5 translate-x-1" 
+                          : "border-transparent bg-white hover:bg-slate-100 hover:translate-x-1"
+                      }`}
+                    >
+                      <div 
+                        className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
+                          isSelected 
+                            ? "bg-blue-600 border-blue-600 text-white scale-110" 
+                            : "bg-slate-50 border-slate-200 text-transparent"
+                        }`}
+                        onClick={(e) => {
+                          // Prevent event bubbing to label if needed, though checkbox is underlying
+                        }}
+                      >
+                         <Plus size={14} className={isSelected ? "" : "opacity-0"} />
+                      </div>
+                      
+                      <input
+                        type="checkbox"
+                        className="hidden" // Hiding actual checkbox to use our custom design
+                        checked={isSelected}
+                        onChange={() => {
+                          setFormData(prev => ({ 
+                            ...prev, 
+                            billingRuleIds: isSelected 
+                              ? prev.billingRuleIds.filter(id => id !== rule.id) 
+                              : [...prev.billingRuleIds, rule.id] 
+                          }));
+                        }}
+                      />
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                           <span className={`text-sm font-bold truncate ${isSelected ? "text-slate-900" : "text-slate-700"}`}>
+                             {rule.description}
+                           </span>
+                           {isRecommended && (
+                             <span className="text-[9px] font-bold bg-green-50 text-green-600 px-1.5 py-0.5 rounded-md border border-green-100 uppercase tracking-tighter">
+                               Recommended
+                             </span>
+                           )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                           <span className="text-xs font-bold text-blue-600">+₦{rule.amount.toLocaleString()}</span>
+                           <span className="text-[10px] font-medium text-slate-400 border-l border-slate-200 pl-2">
+                             {String(rule.type || "").replace(/_/g, ' ')}
+                           </span>
+                        </div>
+                      </div>
+                    </label>
+                   );
+                 })}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 border-t border-slate-200 bg-white shrink-0">
+               <button 
+                onClick={() => setIsBillingModalOpen(false)}
+                className="w-full py-4 bg-blue-600 text-white rounded-2xl text-sm font-bold hover:bg-blue-700 shadow-xl shadow-blue-500/20 active:translate-y-px transition-all"
+               >
+                 Done Managing Billings
+               </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
