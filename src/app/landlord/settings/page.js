@@ -5,6 +5,7 @@ import { Save, Settings2, CreditCard } from "lucide-react";
 
 export default function SettingsPage() {
   const [fee, setFee] = useState("");
+  const [isEnabled, setIsEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ text: "", type: "" });
@@ -15,6 +16,9 @@ export default function SettingsPage() {
       .then(data => {
         if (data.INSPECTION_FEE) {
           setFee(data.INSPECTION_FEE);
+        }
+        if (data.INSPECTION_FEE_ENABLED !== undefined) {
+          setIsEnabled(data.INSPECTION_FEE_ENABLED === "true");
         }
         setLoading(false);
       })
@@ -30,7 +34,8 @@ export default function SettingsPage() {
     setMessage({ text: "", type: "" });
 
     try {
-      const res = await fetch("/api/settings", {
+      // Save Fee Amount
+      await fetch("/api/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -40,11 +45,18 @@ export default function SettingsPage() {
         }),
       });
 
-      if (res.ok) {
-        setMessage({ text: "Settings saved successfully!", type: "success" });
-      } else {
-        setMessage({ text: "Failed to save settings.", type: "error" });
-      }
+      // Save Enabled Status
+      await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          key: "INSPECTION_FEE_ENABLED",
+          value: isEnabled.toString(),
+          description: "Whether or not to charge for guest inspections.",
+        }),
+      });
+
+      setMessage({ text: "Settings saved successfully!", type: "success" });
     } catch (err) {
       console.error(err);
       setMessage({ text: "An error occurred.", type: "error" });
@@ -65,7 +77,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-500">
         <div className="p-4 sm:p-6 border-b border-slate-100 flex items-center gap-3">
            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
              <Settings2 size={20} />
@@ -73,7 +85,7 @@ export default function SettingsPage() {
            <h2 className="font-bold text-slate-900 text-lg">Financial Configuration</h2>
         </div>
         
-        <form onSubmit={handleSave} className="p-4 sm:p-6 space-y-6">
+        <form onSubmit={handleSave} className="p-4 sm:p-6 space-y-8">
           
           {message.text && (
             <div className={`p-4 rounded-xl text-sm font-bold flex items-center gap-2 ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
@@ -81,31 +93,57 @@ export default function SettingsPage() {
             </div>
           )}
 
-          <div className="max-w-md">
-            <label className="block text-sm font-bold text-slate-700 mb-2">Guest Inspection Fee (₦)</label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <CreditCard size={18} className="text-slate-400" />
+          {/* Toggle Section */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-slate-50 rounded-2xl border border-slate-100">
+            <div className="flex items-center gap-4">
+              <div className={`p-3 rounded-xl ${isEnabled ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-slate-200 text-slate-500'}`}>
+                <CreditCard size={20} />
               </div>
-              <input
-                type="number"
-                min="0"
-                step="100"
-                value={fee}
-                onChange={(e) => setFee(e.target.value)}
-                className="w-full pl-10 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold text-slate-900"
-                placeholder="e.g. 5000"
-                required
-              />
+              <div>
+                <h3 className="font-bold text-slate-900 leading-none">Inspection Fee</h3>
+                <p className="text-xs text-slate-500 mt-1 font-medium">Toggle whether guests pay to book inspections.</p>
+              </div>
             </div>
-            <p className="text-xs text-slate-500 mt-2 font-medium">This amount will be charged via Paystack on the public booking form.</p>
+            
+            <button
+               type="button"
+               onClick={() => setIsEnabled(!isEnabled)}
+               className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${isEnabled ? 'bg-blue-600' : 'bg-slate-200'}`}
+            >
+              <span
+                className={`${isEnabled ? 'translate-x-6' : 'translate-x-1'} inline-block h-5 w-5 transform rounded-full bg-white transition-transform`}
+              />
+            </button>
           </div>
 
-          <div className="pt-4 border-t border-slate-100">
+          <div className={`max-w-md space-y-4 transition-all duration-300 ${isEnabled ? 'opacity-100 scale-100' : 'opacity-40 scale-95 pointer-events-none'}`}>
+            <div>
+              <label className="block text-xs font-bold text-slate-900 uppercase tracking-widest mb-2">Guest Inspection Fee (₦)</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <span className="text-slate-400 font-bold text-sm">₦</span>
+                </div>
+                <input
+                  type="number"
+                  min="0"
+                  step="100"
+                  value={fee}
+                  onChange={(e) => setFee(e.target.value)}
+                  className="w-full pl-10 px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-bold text-slate-900"
+                  placeholder="e.g. 5000"
+                  required={isEnabled}
+                />
+              </div>
+              <p className="text-xs text-slate-400 mt-2 font-medium italic">Amount to be charged via Paystack on the registration form.</p>
+            </div>
+          </div>
+
+          <div className="pt-6 border-t border-slate-100 flex items-center justify-between">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Global Provider Management • (C) 2026</p>
             <button 
               type="submit" 
               disabled={saving}
-              className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all text-sm flex items-center gap-2 disabled:opacity-50"
+              className="px-8 py-3 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all text-sm flex items-center gap-2 disabled:bg-slate-100 disabled:text-slate-400 shadow-xl shadow-blue-500/10 active:scale-95"
             >
               {saving ? (
                 <span className="flex items-center gap-2">
@@ -115,7 +153,7 @@ export default function SettingsPage() {
               ) : (
                 <>
                   <Save size={18} />
-                  Save Changes
+                  Save Settings
                 </>
               )}
             </button>

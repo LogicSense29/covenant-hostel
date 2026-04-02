@@ -13,10 +13,17 @@ export async function POST(request) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    const feeSetting = await prisma.systemSetting.findUnique({
-      where: { key: "INSPECTION_FEE" }
+    const settings = await prisma.systemSetting.findMany({
+      where: { key: { in: ["INSPECTION_FEE", "INSPECTION_FEE_ENABLED"] } }
     });
-    const feeAmount = feeSetting ? parseFloat(feeSetting.value) : 5000;
+
+    const settingsObj = settings.reduce((acc, curr) => {
+      acc[curr.key] = curr.value;
+      return acc;
+    }, {});
+
+    const isEnabled = settingsObj.INSPECTION_FEE_ENABLED !== "false";
+    const feeAmount = isEnabled ? parseFloat(settingsObj.INSPECTION_FEE || "5000") : 0;
     const isFree = feeAmount === 0;
 
     const inspection = await prisma.guestInspection.create({

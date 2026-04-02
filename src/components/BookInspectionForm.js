@@ -35,10 +35,14 @@ export default function BookInspectionForm() {
     fetch("/api/settings")
       .then((res) => res.json())
       .then((data) => {
-        if (data.INSPECTION_FEE) {
+        const isEnabled = data.INSPECTION_FEE_ENABLED !== "false";
+        if (isEnabled && data.INSPECTION_FEE) {
           const val = parseFloat(data.INSPECTION_FEE);
           setFee(val);
           feeRef.current = val;
+        } else {
+          setFee(0);
+          feeRef.current = 0;
         }
       })
       .catch(console.error);
