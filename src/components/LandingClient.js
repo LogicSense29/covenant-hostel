@@ -47,7 +47,7 @@ export default function LandingClient({ initialRooms }) {
           </Link>
 
           {/* Center search pill (desktop) */}
-          <div className="hidden md:flex items-center border border-gray-300 rounded-full shadow-sm hover:shadow-md transition-shadow px-4 py-2 gap-3 cursor-pointer flex-1 max-w-md">
+          {/* <div className="hidden md:flex items-center border border-gray-300 rounded-full shadow-sm hover:shadow-md transition-shadow px-4 py-2 gap-3 cursor-pointer flex-1 max-w-md">
             <Search size={16} className="text-gray-500 shrink-0" />
             <input
               type="text"
@@ -61,7 +61,7 @@ export default function LandingClient({ initialRooms }) {
                 <X size={14} />
               </button>
             )}
-          </div>
+          </div> */}
 
           {/* Right actions */}
           <div className="flex items-center gap-2 shrink-0">
