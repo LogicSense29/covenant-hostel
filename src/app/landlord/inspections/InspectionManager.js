@@ -253,8 +253,8 @@ export default function InspectionManager({ initialInspections, tenants, rooms }
             </div>
             
             <form onSubmit={handleAdd} className="p-8 space-y-5">
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 px-1">Tenant</label>
+              <div className="text-slate-500">
+                <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-2 px-1">Tenant</label>
                 <select
                   required
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white transition-all"
@@ -272,20 +272,20 @@ export default function InspectionManager({ initialInspections, tenants, rooms }
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 px-1">Inspection Date</label>
+                <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-2 px-1">Inspection Date</label>
                 <input
                   type="date"
                   required
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white transition-all"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white transition-all text-slate-500"
                   value={formData.date}
                   onChange={(e) => setFormData({...formData, date: e.target.value})}
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 px-1">Internal Notes</label>
+                <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-2 px-1">Internal Notes</label>
                 <textarea
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white transition-all"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white transition-all text-slate-500"
                   placeholder="Items to check, specific concerns..."
                   rows={3}
                   value={formData.notes}
