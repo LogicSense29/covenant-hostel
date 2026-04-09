@@ -292,3 +292,89 @@ export async function sendAdminRentSummary({ expiries }) {
     return { success: false, error };
   }
 }
+
+export async function sendPartialPaymentDueReminder({ email, name, roomNumber, dueDate, amount, installmentNumber, totalInstallments }) {
+  try {
+    const transporter = nodemailer.createTransport({
+      host: smtpHost, port: smtpPort, secure: smtpPort == 465,
+      auth: { user: smtpUser, pass: smtpPass },
+    });
+
+    await transporter.sendMail({
+      from: `"Covenant Hostel" <${smtpUser}>`,
+      to: email,
+      subject: `Installment ${installmentNumber}/${totalInstallments} Due — Room ${roomNumber}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
+          <h2 style="color: #0b69ff;">Installment Payment Reminder</h2>
+          <p>Hi ${name},</p>
+          <p>This is a reminder that installment <strong>${installmentNumber} of ${totalInstallments}</strong> for your rent on <strong>Room ${roomNumber}</strong> is due on <strong>${new Date(dueDate).toLocaleDateString()}</strong>.</p>
+          <div style="background: #f0f7ff; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 4px solid #0b69ff;">
+            <p style="margin: 0; font-size: 18px; font-weight: bold; color: #102a43;">Amount Due: ₦${Number(amount).toLocaleString()}</p>
+          </div>
+          <p>Please log in to your tenant portal to make your payment before the due date.</p>
+          <p>Best regards,<br/>The Covenant Hostel Management Team</p>
+        </div>
+      `,
+    });
+    return { success: true };
+  } catch (error) {
+    console.error("Error sending partial payment reminder:", error);
+    return { success: false, error };
+  }
+}
+
+export async function sendAdminPartialPaymentAlert({ adminEmail, tenantName, roomNumber, amount, installmentNumber, totalInstallments, dueDate }) {
+  if (!adminEmail) return;
+  try {
+    const transporter = nodemailer.createTransport({
+      host: smtpHost, port: smtpPort, secure: smtpPort == 465,
+      auth: { user: smtpUser, pass: smtpPass },
+    });
+
+    await transporter.sendMail({
+      from: `"Covenant Hostel" <${smtpUser}>`,
+      to: adminEmail,
+      subject: `Installment Due: ${tenantName} — Room ${roomNumber}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px;">
+          <h3>Upcoming Installment Payment</h3>
+          <p>Tenant <strong>${tenantName}</strong> (Room ${roomNumber}) has installment <strong>${installmentNumber}/${totalInstallments}</strong> due on <strong>${new Date(dueDate).toLocaleDateString()}</strong>.</p>
+          <p>Amount: <strong>₦${Number(amount).toLocaleString()}</strong></p>
+        </div>
+      `,
+    });
+    return { success: true };
+  } catch (error) {
+    console.error("Error sending admin partial payment alert:", error);
+    return { success: false, error };
+  }
+}
+
+export async function sendReceiptUploadedAlert({ adminEmail, tenantName, roomNumber, amount, receiptUrl }) {
+  if (!adminEmail) return;
+  try {
+    const transporter = nodemailer.createTransport({
+      host: smtpHost, port: smtpPort, secure: smtpPort == 465,
+      auth: { user: smtpUser, pass: smtpPass },
+    });
+
+    await transporter.sendMail({
+      from: `"Covenant Hostel" <${smtpUser}>`,
+      to: adminEmail,
+      subject: `Receipt Uploaded — ${tenantName} (Room ${roomNumber})`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
+          <h3 style="color: #0b69ff;">Payment Receipt Uploaded</h3>
+          <p><strong>${tenantName}</strong> (Room ${roomNumber}) has uploaded a payment receipt of <strong>₦${Number(amount).toLocaleString()}</strong> awaiting your approval.</p>
+          ${receiptUrl ? `<p><a href="${receiptUrl}" style="color: #0b69ff;">View Receipt</a></p>` : ""}
+          <p>Please log in to the landlord portal to approve or reject this payment.</p>
+        </div>
+      `,
+    });
+    return { success: true };
+  } catch (error) {
+    console.error("Error sending receipt uploaded alert:", error);
+    return { success: false, error };
+  }
+}

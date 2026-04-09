@@ -20,7 +20,8 @@ import {
   Globe,
   Database,
   Briefcase,
-  Layers
+  Layers,
+  CheckCircle
 } from "lucide-react";
 
 
@@ -63,6 +64,7 @@ export default function LandlordLayout({ children }) {
     { name: "Room Management", href: "/landlord/rooms", icon: Home },
     { name: "Tenant Directory", href: "/landlord/tenants", icon: Users },
     { name: "Billing & Rules", href: "/landlord/billing", icon: CreditCard },
+    { name: "Payment Approvals", href: "/landlord/payments", icon: CheckCircle },
     { name: "Maintenance", href: "/landlord/maintenance", icon: Wrench },
     // { name: "Service Providers", href: "/landlord/maintenance/providers", icon: Users },
     { name: "Inspections", href: "/landlord/inspections", icon: ClipboardCheck },

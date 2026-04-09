@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import ApprovalActions from "./ApprovalActions";
 import AssignRoomActions from "./AssignRoomActions";
+import PartialPaymentToggle from "@/components/PartialPaymentToggle";
 
 export default function TenantDirectoryClient({ tenants, availableRooms }) {
   const [searchTerm, setSearchTerm] = useState("");
@@ -399,6 +400,16 @@ export default function TenantDirectoryClient({ tenants, availableRooms }) {
                  </div>
                  <span className="text-xs font-bold text-slate-700">{new Date(selectedTenant.createdAt).toLocaleDateString()}</span>
                </div>
+
+               {/* Partial payment toggle — only for active/awaiting payment tenants */}
+               {(selectedTenant.user?.status === "ACTIVE" || selectedTenant.user?.status === "AWAITING_PAYMENT" || selectedTenant.user?.status === "PAYMENT_MADE") && (
+                 <PartialPaymentToggle
+                   tenantProfileId={selectedTenant.id}
+                   allowPartialPayment={selectedTenant.allowPartialPayment}
+                   partialPaymentInstallments={selectedTenant.partialPaymentInstallments}
+                   totalDue={selectedTenant.room?.rentAmount || null}
+                 />
+               )}
                
                {/* Actions */}
                <div className="flex gap-2 w-full [&>*]:flex-1">

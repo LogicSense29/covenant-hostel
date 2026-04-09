@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { sendRentExpiryReminder, sendAdminRentSummary } from "@/lib/email";
+import {
+  sendRentExpiryReminder,
+  sendAdminRentSummary,
+  sendPartialPaymentDueReminder,
+  sendAdminPartialPaymentAlert,
+} from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
-// This endpoint should be triggered daily by a cron service (e.g. Vercel Cron, GitHub Actions)
 export async function GET(req) {
-  // Simple security check (Optional: Add a CRON_SECRET header check)
   const authHeader = req.headers.get("authorization");
   if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return new NextResponse("Unauthorized", { status: 401 });
@@ -15,29 +18,20 @@ export async function GET(req) {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-
-    const thresholds = [7, 3, 1]; // Days before expiry to send reminder
+    const adminEmail = process.env.ADMIN_EMAIL;
+    const thresholds = [7, 3, 1];
     let adminSummaryList = [];
 
+    // ── 1. Standard rent expiry reminders ──
     for (const days of thresholds) {
       const targetDate = new Date(today);
       targetDate.setDate(today.getDate() + days);
-      
       const nextDay = new Date(targetDate);
       nextDay.setDate(targetDate.getDate() + 1);
 
-      // 1. Check TenantProfile Expiries
       const expiringTenants = await prisma.tenantProfile.findMany({
-        where: {
-          rentExpiryDate: {
-            gte: targetDate,
-            lt: nextDay
-          }
-        },
-        include: {
-          user: true,
-          room: true
-        }
+        where: { rentExpiryDate: { gte: targetDate, lt: nextDay } },
+        include: { user: true, room: true },
       });
 
       for (const tenant of expiringTenants) {
@@ -47,47 +41,86 @@ export async function GET(req) {
             name: tenant.user.name,
             roomNumber: tenant.room?.roomNumber || "N/A",
             expiryDate: tenant.rentExpiryDate,
-            daysLeft: days
+            daysLeft: days,
           });
-
           adminSummaryList.push({
             roomNumber: tenant.room?.roomNumber || "N/A",
             tenantName: tenant.user.name,
-            expiryDate: tenant.rentExpiryDate
+            expiryDate: tenant.rentExpiryDate,
           });
         }
       }
 
-      // 2. Check Room-level Expiries (for units where individual tenants might not be set or for general room alerts)
       const expiringRooms = await prisma.room.findMany({
-        where: {
-          rentExpiryDate: {
-            gte: targetDate,
-            lt: nextDay
-          }
-        }
+        where: { rentExpiryDate: { gte: targetDate, lt: nextDay } },
       });
-
       for (const room of expiringRooms) {
-         adminSummaryList.push({
-            roomNumber: room.roomNumber,
-            tenantName: "General Room Expiry",
-            expiryDate: room.rentExpiryDate
-         });
+        adminSummaryList.push({
+          roomNumber: room.roomNumber,
+          tenantName: "General Room Expiry",
+          expiryDate: room.rentExpiryDate,
+        });
       }
     }
 
-    // Send consolidated summary to Admin if there are any expiries
     if (adminSummaryList.length > 0) {
       await sendAdminRentSummary({ expiries: adminSummaryList });
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      processed: adminSummaryList.length,
-      timestamp: new Date().toISOString() 
-    });
+    // ── 2. Partial payment installment reminders ──
+    for (const days of thresholds) {
+      const targetDate = new Date(today);
+      targetDate.setDate(today.getDate() + days);
+      const nextDay = new Date(targetDate);
+      nextDay.setDate(targetDate.getDate() + 1);
 
+      // Find pending partial payments with a due date in the threshold window
+      const upcomingInstallments = await prisma.payment.findMany({
+        where: {
+          paymentType: "PARTIAL",
+          status: "PENDING",
+          dueDate: { gte: targetDate, lt: nextDay },
+        },
+        include: {
+          tenant: {
+            include: { user: true, room: true },
+          },
+        },
+      });
+
+      for (const payment of upcomingInstallments) {
+        const { tenant } = payment;
+        if (tenant.user?.email) {
+          await sendPartialPaymentDueReminder({
+            email: tenant.user.email,
+            name: tenant.user.name,
+            roomNumber: tenant.room?.roomNumber || "N/A",
+            dueDate: payment.dueDate,
+            amount: payment.amount,
+            installmentNumber: payment.installmentNumber,
+            totalInstallments: payment.totalInstallments,
+          });
+        }
+
+        if (adminEmail) {
+          await sendAdminPartialPaymentAlert({
+            adminEmail,
+            tenantName: tenant.user?.name || "Unknown",
+            roomNumber: tenant.room?.roomNumber || "N/A",
+            amount: payment.amount,
+            installmentNumber: payment.installmentNumber,
+            totalInstallments: payment.totalInstallments,
+            dueDate: payment.dueDate,
+          });
+        }
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      processed: adminSummaryList.length,
+      timestamp: new Date().toISOString(),
+    });
   } catch (error) {
     console.error("Cron Rent Reminder Error:", error);
     return new NextResponse("Internal Server Error", { status: 500 });

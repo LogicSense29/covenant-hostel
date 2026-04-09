@@ -47,6 +47,7 @@ model TenantProfile {
   rentStartDate       DateTime?
   rentExpiryDate      DateTime?
   allowPartialPayment Boolean             @default(false)
+  partialPaymentInstallments Int?
   rulesSigned       Boolean             @default(false)
   rulesSignedAt     DateTime?
   rulesSignedName   String?
@@ -120,15 +121,21 @@ model StayHistory {
 }
 
 model Payment {
-  id         String        @id @default(cuid())
-  amount     Float
-  receiptUrl String?
-  isPartial  Boolean       @default(false)
-  tenantId   String
-  createdAt  DateTime      @default(now())
-  reference  String?       @unique
-  status     String?       @default("PENDING")
-  tenant     TenantProfile @relation(fields: [tenantId], references: [id])
+  id                 String        @id @default(cuid())
+  amount             Float
+  receiptUrl         String?
+  isPartial          Boolean       @default(false)
+  paymentType        String        @default("FULL") // FULL | PARTIAL
+  installmentNumber  Int?
+  totalInstallments  Int?
+  dueDate            DateTime?
+  approvedAt         DateTime?
+  approvedBy         String?
+  tenantId           String
+  createdAt          DateTime      @default(now())
+  reference          String?       @unique
+  status             String?       @default("PENDING")
+  tenant             TenantProfile @relation(fields: [tenantId], references: [id])
 }
 
 model MaintenanceTicket {

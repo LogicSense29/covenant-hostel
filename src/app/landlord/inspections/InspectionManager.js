@@ -208,7 +208,7 @@ export default function InspectionManager({ initialInspections, tenants, rooms }
               <p className="text-slate-500 mt-1 max-w-xs mx-auto text-sm">Prospective tenants booking via the public portal will appear here.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-4 gap-4">
               {guestInspections.map((guest) => (
                 <div key={guest.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 relative">
                   {guest.feePaid && (
