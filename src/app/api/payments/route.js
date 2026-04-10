@@ -48,13 +48,14 @@ export async function POST(req) {
       // Only update user status if it's a receipt upload (landlord will confirm later)
       // or if it's a direct full payment
       if (receiptUrl) {
+        // Receipt upload — keep user at PAYMENT_MADE so landlord knows to review,
+        // but payment itself stays PENDING until landlord approves
         await tx.user.update({
           where: { id: tenant.userId },
           data: { status: "PAYMENT_MADE" },
         });
       }
-
-      return p;
+      // Note: Paystack payments go through /api/payments/verify which handles status update
     });
 
     return NextResponse.json(payment);

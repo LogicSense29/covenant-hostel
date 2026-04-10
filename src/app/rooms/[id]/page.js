@@ -229,7 +229,7 @@ export default async function RoomDetailPage({ params }) {
               {/* CTAs */}
               <div className="flex flex-col gap-3">
                 <Link
-                  href="/register"
+                  href={`/register?roomId=${room.id}`}
                   className="w-full py-4 bg-[#0b69ff] hover:bg-blue-700 text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 transition-colors shadow-lg shadow-blue-500/20"
                 >
                   Reserve this room <ChevronRight size={16} />

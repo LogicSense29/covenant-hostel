@@ -201,12 +201,12 @@ export default function LandingClient({ initialRooms }) {
                   <p className="text-sm text-gray-500 leading-relaxed">{step.desc}</p>
                 </div>
 
-                <Link
+                {/* <Link
                   href={step.href}
                   className="inline-flex items-center gap-1.5 text-xs font-black text-[#0b69ff] uppercase tracking-widest hover:gap-3 transition-all duration-200"
                 >
                   {step.cta} <ChevronRight size={14} />
-                </Link>
+                </Link> */}
               </div>
             ))}
           </div>

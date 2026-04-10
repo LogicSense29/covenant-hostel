@@ -401,6 +401,20 @@ export default function TenantDirectoryClient({ tenants, availableRooms }) {
                  <span className="text-xs font-bold text-slate-700">{new Date(selectedTenant.createdAt).toLocaleDateString()}</span>
                </div>
 
+               {/* Requested room */}
+               {selectedTenant.room && (
+                 <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex items-center gap-3">
+                   <Building size={16} className="text-[#0b69ff] shrink-0" />
+                   <div>
+                     <p className="text-[10px] font-black text-[#0b69ff] uppercase tracking-widest">Requested Room</p>
+                     <p className="text-sm font-bold text-[#102a43]">
+                       Room {selectedTenant.room.roomNumber}
+                       {selectedTenant.room.block?.name && ` · ${selectedTenant.room.block.name}`}
+                     </p>
+                   </div>
+                 </div>
+               )}
+
                {/* Partial payment toggle — only for active/awaiting payment tenants */}
                {(selectedTenant.user?.status === "ACTIVE" || selectedTenant.user?.status === "AWAITING_PAYMENT" || selectedTenant.user?.status === "PAYMENT_MADE") && (
                  <PartialPaymentToggle

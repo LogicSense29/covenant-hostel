@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { 
   User, 
@@ -14,13 +14,18 @@ import {
   Lock,
   Phone,
   Mail,
-  Loader2
+  Loader2,
+  Building2
 } from "lucide-react";
 import { toast, Toaster } from "react-hot-toast";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const roomId = searchParams.get("roomId");
+
   const [step, setStep] = useState(1);
+  const [roomInfo, setRoomInfo] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -50,8 +55,16 @@ export default function RegisterPage() {
 
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
-
   const [registered, setRegistered] = useState(false);
+
+  // Fetch room info if coming from a room page
+  useEffect(() => {
+    if (!roomId) return;
+    fetch(`/api/rooms/${roomId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setRoomInfo(data); })
+      .catch(() => {});
+  }, [roomId]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -142,7 +155,7 @@ export default function RegisterPage() {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, roomId: roomId || null }),
       });
 
       const data = await res.json();
@@ -208,6 +221,21 @@ export default function RegisterPage() {
            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Create Account</h1>
            <p className="text-sm text-slate-500 mt-1 font-medium">Join Covenant Hostel Management System</p>
         </div>
+
+        {/* Room reservation banner */}
+        {roomInfo && (
+          <div className="mb-6 flex items-center gap-3 bg-blue-50 border border-blue-100 rounded-2xl px-4 py-3">
+            <div className="p-2 bg-[#0b69ff] rounded-xl shrink-0">
+              <Building2 size={16} className="text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-black text-[#0b69ff] uppercase tracking-widest">Reserving</p>
+              <p className="text-sm font-bold text-[#102a43] truncate">
+                Room {roomInfo.roomNumber}{roomInfo.block?.name ? ` · ${roomInfo.block.name}` : ""}
+              </p>
+            </div>
+          </div>
+        )}
 
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden transition-all">
           <div className="flex h-1.5 w-full bg-slate-100">

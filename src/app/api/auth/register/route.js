@@ -29,7 +29,8 @@ export async function POST(req) {
       guarantorIdUrl,
       workType,
       workAddress,
-      companyName
+      companyName,
+      roomId
     } = body;
 
     // Basic validation
@@ -103,6 +104,8 @@ export async function POST(req) {
             workType: !isStudent ? workType : null,
             workAddress: !isStudent ? workAddress : null,
             companyName: !isStudent ? companyName : null,
+            // Store the requested room — landlord will confirm on approval
+            roomId: roomId || null,
           }
         });
       }

@@ -11,7 +11,9 @@ import {
   Mail, 
   Phone,
   ArrowRight,
-  AlertCircle
+  AlertCircle,
+  Clock,
+  CreditCard
 } from "lucide-react";
 import Link from "next/link";
 
@@ -23,8 +25,14 @@ export default async function TenantDashboard() {
   const profile = await prisma.tenantProfile.findUnique({
     where: { userId: session.user.id },
     include: {
-      room: true,
-      user: true
+      room: {
+        include: { block: true },
+      },
+      user: true,
+      payments: {
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      },
     }
   });
 
@@ -42,7 +50,7 @@ export default async function TenantDashboard() {
     );
   }
 
-  const { room, user } = profile;
+  const { room, user, payments } = profile;
 
   if (user.status === "PENDING") {
     return (
@@ -86,23 +94,90 @@ export default async function TenantDashboard() {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 bg-white rounded-3xl border border-slate-200 shadow-xl border-t-4 border-t-emerald-500 animate-in fade-in duration-700">
         <div className="bg-emerald-50 p-4 rounded-2xl mb-6">
-          <AlertCircle size={48} className="text-emerald-600" />
+          <Clock size={48} className="text-emerald-600" />
         </div>
-        <h1 className="text-3xl font-extrabold text-slate-900 text-center">Payment Verification</h1>
+        <h1 className="text-3xl font-extrabold text-slate-900 text-center">Payment Under Review</h1>
         <p className="text-slate-500 mt-4 text-center max-w-md leading-relaxed">
-          We've received your payment! The administration is currently verifying the receipt. Your tenancy will be activated shortly.
+          Your receipt has been submitted and is awaiting landlord confirmation. Your tenancy will be activated once approved.
         </p>
         <div className="mt-8 p-4 bg-slate-50 rounded-xl border border-slate-100 w-full max-w-sm text-center">
             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Current Status</p>
-            <p className="text-sm font-bold text-emerald-600 uppercase tracking-tight">Payment Made - Awaiting Activation</p>
+            <p className="text-sm font-bold text-amber-600 uppercase tracking-tight">Pending Approval</p>
         </div>
       </div>
     );
   }
+
+  // ── ACTIVE tenant ──
   const isExpired = profile.rentExpiryDate && new Date(profile.rentExpiryDate) < new Date();
 
+  // Derive payment status from actual payment records
+  const latestPayment = payments[0] || null;
+  const hasPendingReceipt = payments.some(p => p.status === "PENDING" && p.receiptUrl);
+  const hasVerifiedPayment = payments.some(p => p.status === "VERIFIED" || p.status === "SUCCESS");
+  const hasNoPayment = payments.length === 0;
+
+  // Rent status label + color
+  let rentStatusLabel = "Active";
+  let rentStatusColor = "text-green-600";
+  let rentStatusBg = "bg-green-50 text-green-600";
+  let rentStatusIcon = <ShieldCheck size={20} />;
+
+  if (isExpired) {
+    rentStatusLabel = "Expired";
+    rentStatusColor = "text-red-600";
+    rentStatusBg = "bg-red-50 text-red-600";
+    rentStatusIcon = <ShieldAlert size={20} />;
+  } else if (hasPendingReceipt && !hasVerifiedPayment) {
+    rentStatusLabel = "Pending";
+    rentStatusColor = "text-amber-600";
+    rentStatusBg = "bg-amber-50 text-amber-600";
+    rentStatusIcon = <Clock size={20} />;
+  } else if (hasNoPayment) {
+    rentStatusLabel = "Unpaid";
+    rentStatusColor = "text-red-600";
+    rentStatusBg = "bg-red-50 text-red-600";
+    rentStatusIcon = <AlertCircle size={20} />;
+  }
+
+  const showPaymentAlert = hasNoPayment || (hasPendingReceipt && !hasVerifiedPayment);
+
   return (
-    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+
+      {/* ── Payment alert banner ── */}
+      {showPaymentAlert && (
+        <div className={`rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border ${
+          hasNoPayment
+            ? "bg-red-50 border-red-200"
+            : "bg-amber-50 border-amber-200"
+        }`}>
+          <div className="flex items-start gap-3">
+            <div className={`p-2 rounded-xl shrink-0 ${hasNoPayment ? "bg-red-100 text-red-600" : "bg-amber-100 text-amber-600"}`}>
+              {hasNoPayment ? <AlertCircle size={20} /> : <Clock size={20} />}
+            </div>
+            <div>
+              <p className={`text-sm font-bold ${hasNoPayment ? "text-red-800" : "text-amber-800"}`}>
+                {hasNoPayment ? "Payment required" : "Receipt pending approval"}
+              </p>
+              <p className={`text-xs mt-0.5 ${hasNoPayment ? "text-red-600" : "text-amber-600"}`}>
+                {hasNoPayment
+                  ? "Your rent has not been paid yet. Please make a payment to keep your tenancy active."
+                  : "Your uploaded receipt is awaiting landlord confirmation. You'll be notified once approved."}
+              </p>
+            </div>
+          </div>
+          {hasNoPayment && (
+            <Link
+              href="/tenant/payments"
+              className="shrink-0 flex items-center gap-2 px-5 py-2.5 bg-red-600 text-white text-sm font-bold rounded-xl hover:bg-red-700 transition-colors"
+            >
+              Pay Now <ArrowRight size={16} />
+            </Link>
+          )}
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-slate-200 pb-8">
         <div>
           <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">Welcome, {user.name}</h1>
@@ -114,18 +189,15 @@ export default async function TenantDashboard() {
         <div className="bg-white px-5 py-3 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
            <div className="text-right">
              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Rent Status</p>
-             <p className={`text-sm font-bold ${isExpired ? 'text-red-600' : 'text-green-600'}`}>
-               {isExpired ? 'Expired' : 'Active'}
-             </p>
+             <p className={`text-sm font-bold ${rentStatusColor}`}>{rentStatusLabel}</p>
            </div>
-           <div className={`p-2 rounded-xl ${isExpired ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
-             <ShieldCheck size={20} />
+           <div className={`p-2 rounded-xl ${rentStatusBg}`}>
+             {rentStatusIcon}
            </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Room Info Card */}
         <div className="lg:col-span-2 space-y-8">
           <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden group">
             <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-8 text-white relative">
@@ -135,9 +207,12 @@ export default async function TenantDashboard() {
                   {room ? `Room ${room.roomNumber}` : 'Not Allocated'}
                 </h2>
                 {room && (
-                  <div className="flex items-center gap-4 text-blue-100/80 text-sm font-medium">
-                    <span className="flex items-center gap-1"><MapPin size={16} /> Block A, Floor 2</span>
-                    <span className="flex items-center gap-1"><Home size={16} /> Standard Single</span>
+                  <div className="flex items-center gap-4 text-blue-100/80 text-sm font-medium flex-wrap">
+                    {room.block?.name && <span className="flex items-center gap-1"><MapPin size={16} /> {room.block.name}</span>}
+                    {room.block?.address && <span className="flex items-center gap-1"><Home size={16} /> {room.block.address}</span>}
+                    {user.status !== "ACTIVE" && (
+                      <span className="text-[10px] font-black bg-white/20 px-2 py-1 rounded-full uppercase tracking-widest">Requested — Pending Approval</span>
+                    )}
                   </div>
                 )}
               </div>
@@ -149,7 +224,7 @@ export default async function TenantDashboard() {
             <div className="p-8 grid grid-cols-2 md:grid-cols-4 gap-6">
               <div className="space-y-1">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Rent Amount</p>
-                <p className="text-lg font-bold text-slate-900">{room ? `$${room.rentAmount.toLocaleString()}` : 'N/A'}</p>
+                <p className="text-lg font-bold text-slate-900">{room ? `₦${room.rentAmount.toLocaleString()}` : 'N/A'}</p>
                 <p className="text-[10px] text-slate-400">per annum</p>
               </div>
               <div className="space-y-1">

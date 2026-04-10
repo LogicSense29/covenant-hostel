@@ -257,6 +257,7 @@ enum MaintenanceStatus {
   OPEN
   IN_PROGRESS
   RESOLVED
+  CANCELLED
 }
 
 enum TicketCategory {

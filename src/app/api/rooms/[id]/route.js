@@ -5,8 +5,26 @@ import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-
-export async function PUT(req, { params }) {
+// Public GET — used by register page to show room info
+export async function GET(req, { params }) {
+  const { id } = await params;
+  try {
+    const room = await prisma.room.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        roomNumber: true,
+        rentAmount: true,
+        capacity: true,
+        block: { select: { name: true, address: true } },
+      },
+    });
+    if (!room) return new NextResponse("Not found", { status: 404 });
+    return NextResponse.json(room);
+  } catch {
+    return new NextResponse("Internal Server Error", { status: 500 });
+  }
+}
   const session = await getServerSession(authOptions);
 
   if (!session || (session.user.role !== "LANDLORD" && session.user.role !== "ADMIN")) {
