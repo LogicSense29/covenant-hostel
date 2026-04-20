@@ -25,6 +25,8 @@ export async function GET(req, { params }) {
     return new NextResponse("Internal Server Error", { status: 500 });
   }
 }
+
+export async function PUT(req, { params }) {
   const session = await getServerSession(authOptions);
 
   if (!session || (session.user.role !== "LANDLORD" && session.user.role !== "ADMIN")) {
