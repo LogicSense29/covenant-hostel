@@ -14,7 +14,7 @@ export async function GET() {
 
   try {
     let inspections;
-    if (session.user.role === "LANDLORD") {
+    if (session.user.role === "LANDLORD" || session.user.role === "ADMIN") {
       inspections = await prisma.inspection.findMany({
         include: {
           tenant: { include: { user: true } },
@@ -41,7 +41,7 @@ export async function GET() {
 
 export async function POST(req) {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "LANDLORD") {
+  if (!session || (session.user.role !== "LANDLORD" && session.user.role !== "ADMIN")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

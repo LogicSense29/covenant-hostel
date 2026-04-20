@@ -210,9 +210,6 @@ export default async function TenantDashboard() {
                   <div className="flex items-center gap-4 text-blue-100/80 text-sm font-medium flex-wrap">
                     {room.block?.name && <span className="flex items-center gap-1"><MapPin size={16} /> {room.block.name}</span>}
                     {room.block?.address && <span className="flex items-center gap-1"><Home size={16} /> {room.block.address}</span>}
-                    {user.status !== "ACTIVE" && (
-                      <span className="text-[10px] font-black bg-white/20 px-2 py-1 rounded-full uppercase tracking-widest">Requested — Pending Approval</span>
-                    )}
                   </div>
                 )}
               </div>

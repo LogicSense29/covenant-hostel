@@ -37,6 +37,23 @@ export default async function LandlordDashboard() {
   const totalOccupants = rooms.reduce((acc, r) => acc + r.tenants.length, 0);
   const openTickets = await prisma.maintenanceTicket.count({ where: { status: "OPEN" } });
   
+  // Room reservation requests (tenants with roomId but status PENDING or AWAITING_PAYMENT)
+  const roomReservations = await prisma.tenantProfile.count({
+    where: {
+      roomId: { not: null },
+      user: {
+        status: { in: ["PENDING", "AWAITING_PAYMENT"] }
+      }
+    }
+  });
+
+  // Inspection requests (guest inspections with PENDING or CONFIRMED status)
+  const inspectionRequests = await prisma.guestInspection.count({
+    where: {
+      status: { in: ["PENDING", "CONFIRMED"] }
+    }
+  });
+  
   const occupancyRate = totalCapacity > 0 ? (totalOccupants / totalCapacity) * 100 : 0;
 
   // Payment Totals
@@ -86,6 +103,8 @@ export default async function LandlordDashboard() {
     { name: "Vacant Rooms", value: vacantRooms, icon: AlertCircle, color: "text-amber-600", bg: "bg-amber-50", href: "/landlord/rooms" },
     { name: "Rent Expired", value: expiredRooms, icon: Clock, color: "text-red-600", bg: "bg-red-50", href: "/landlord/rooms" },
     { name: "Open Tickets", value: openTickets, icon: Wrench, color: "text-purple-600", bg: "bg-purple-50", href: "/landlord/maintenance" },
+    { name: "Room Reservations", value: roomReservations, icon: Home, color: "text-blue-600", bg: "bg-blue-50", href: "/landlord/tenants" },
+    { name: "Inspection Requests", value: inspectionRequests, icon: Users, color: "text-indigo-600", bg: "bg-indigo-50", href: "/landlord/inspections" },
   ];
 
 
@@ -122,7 +141,7 @@ export default async function LandlordDashboard() {
       {/* Property Stats Grid */}
       <div className="space-y-4">
         {isAdmin && <h2 className="text-xl font-bold text-slate-900 px-1">Property Management</h2>}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {stats.map((stat) => (
             <Link 
               key={stat.name} 

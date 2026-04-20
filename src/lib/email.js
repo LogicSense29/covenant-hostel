@@ -55,10 +55,55 @@ export async function sendInspectionReceipt({ email, name, date, reference, amou
   }
 }
 
-export async function sendAdminInspectionAlert({ name, email, phone, date, reference, amount }) {
+export async function sendGuestInspectionConfirmation({ email, name, date, roomNumber, blockName, address, amount }) {
+  try {
+    const transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpPort == 465,
+      auth: { user: smtpUser, pass: smtpPass },
+    });
+
+    const roomInfo = roomNumber ? `<p><strong>Room:</strong> Room ${roomNumber}${blockName ? ` · ${blockName}` : ""}</p>${address ? `<p><strong>Address:</strong> ${address}</p>` : ""}` : "";
+
+    const info = await transporter.sendMail({
+      from: `"Covenant Hostel" <${smtpUser}>`,
+      to: email,
+      subject: "Inspection Booking Confirmed - Covenant Hostel",
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
+          <h2 style="color: #0b69ff;">Inspection Booking Confirmed!</h2>
+          <p>Hi ${name},</p>
+          <p>Your inspection booking has been confirmed. We look forward to showing you around!</p>
+          
+          <div style="background: #f0f7ff; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 4px solid #0b69ff;">
+            <h3 style="margin: 0 0 12px; color: #102a43;">Booking Details:</h3>
+            <p style="margin: 8px 0;"><strong>Inspection Date:</strong> ${new Date(date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+            ${roomInfo}
+            <p style="margin: 8px 0;"><strong>Amount Paid:</strong> ${amount === 0 ? "FREE" : `₦${Number(amount).toLocaleString()}`}</p>
+          </div>
+          
+          <p>Please arrive on time for your scheduled inspection. If you need to reschedule or have any questions, feel free to contact us.</p>
+          <p>Best regards,<br/>The Covenant Hostel Management Team</p>
+        </div>
+      `,
+    });
+
+    if (smtpHost === "smtp.ethereal.email") {
+      console.log("Guest inspection email preview: %s", nodemailer.getTestMessageUrl(info));
+    }
+
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("Error sending guest inspection confirmation:", error);
+    return { success: false, error };
+  }
+}
+
+export async function sendLandlordInspectionAlert({ name, email, phone, date, roomNumber, blockName, address, amount }) {
   const adminEmail = process.env.ADMIN_EMAIL;
   if (!adminEmail) {
-    console.warn("ADMIN_EMAIL not set — skipping admin notification.");
+    console.warn("ADMIN_EMAIL not set — skipping landlord notification.");
     return;
   }
 
@@ -70,24 +115,29 @@ export async function sendAdminInspectionAlert({ name, email, phone, date, refer
       auth: { user: smtpUser, pass: smtpPass },
     });
 
+    const roomInfo = roomNumber ? `
+      <tr><td style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; color: #64748b; font-size: 13px;">Room</td><td style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-weight: bold;">Room ${roomNumber}${blockName ? ` · ${blockName}` : ""}</td></tr>
+      ${address ? `<tr><td style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; color: #64748b; font-size: 13px;">Address</td><td style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-weight: bold;">${address}</td></tr>` : ""}
+    ` : "";
+
     await transporter.sendMail({
       from: `"Covenant Hostel" <${smtpUser}>`,
       to: adminEmail,
       subject: `New Inspection Booked — ${name}`,
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: auto; background: #f4f7fb; padding: 30px; border-radius: 12px;">
-          <div style="background: #1e3a5f; color: white; padding: 20px 24px; border-radius: 8px; margin-bottom: 24px;">
+          <div style="background: #0b69ff; color: white; padding: 20px 24px; border-radius: 8px; margin-bottom: 24px;">
             <h2 style="margin: 0;">New Inspection Booking</h2>
-            <p style="margin: 4px 0 0; opacity: 0.7; font-size: 14px;">A guest has paid for an inspection tour.</p>
+            <p style="margin: 4px 0 0; opacity: 0.9; font-size: 14px;">A guest has booked an inspection tour.</p>
           </div>
           <div style="background: white; padding: 24px; border-radius: 8px; border: 1px solid #e2e8f0;">
             <table style="width: 100%; border-collapse: collapse;">
               <tr><td style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; color: #64748b; font-size: 13px;">Guest Name</td><td style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-weight: bold;">${name}</td></tr>
               <tr><td style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; color: #64748b; font-size: 13px;">Email</td><td style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-weight: bold;">${email}</td></tr>
               <tr><td style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; color: #64748b; font-size: 13px;">Phone</td><td style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-weight: bold;">${phone || 'N/A'}</td></tr>
-              <tr><td style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; color: #64748b; font-size: 13px;">Inspection Date</td><td style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-weight: bold; color: #2563eb;">${new Date(date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</td></tr>
-              <tr><td style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; color: #64748b; font-size: 13px;">Amount Paid</td><td style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-weight: bold; color: #16a34a;">&#8358;${Number(amount).toLocaleString()}</td></tr>
-              <tr><td style="padding: 10px 0; color: #64748b; font-size: 13px;">Payment Ref</td><td style="padding: 10px 0; font-weight: bold; font-family: monospace;">${reference}</td></tr>
+              <tr><td style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; color: #64748b; font-size: 13px;">Inspection Date</td><td style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-weight: bold; color: #0b69ff;">${new Date(date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</td></tr>
+              ${roomInfo}
+              <tr><td style="padding: 10px 0; color: #64748b; font-size: 13px;">Amount Paid</td><td style="padding: 10px 0; font-weight: bold; color: #16a34a;">${amount === 0 ? "FREE" : `₦${Number(amount).toLocaleString()}`}</td></tr>
             </table>
           </div>
           <p style="text-align: center; color: #94a3b8; font-size: 12px; margin-top: 20px;">Covenant Hostel Management System</p>
@@ -95,9 +145,9 @@ export async function sendAdminInspectionAlert({ name, email, phone, date, refer
       `,
     });
 
-    console.log(`Admin notification sent to ${adminEmail}`);
+    console.log(`Landlord inspection notification sent to ${adminEmail}`);
   } catch (error) {
-    console.error("Error sending admin notification email:", error);
+    console.error("Error sending landlord inspection notification:", error);
   }
 }
 

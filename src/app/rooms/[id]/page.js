@@ -122,7 +122,7 @@ export default async function RoomDetailPage({ params }) {
 
             {/* Quick stats */}
             <div className="flex flex-wrap gap-6 py-6 border-b border-gray-200">
-              <Stat label="Capacity" value={`${room.capacity} beds`} />
+              <Stat label="Maximum Capacity" value={`${room.capacity} person${room.capacity !== 1 ? "s" : ""}`} />
               <Stat label="Available" value={`${availableBeds} space${availableBeds !== 1 ? "s" : ""}`} />
               <Stat label="Block" value={room.block?.name || "Main Campus"} />
               <Stat label="Status" value="Available" highlight />
@@ -140,17 +140,26 @@ export default async function RoomDetailPage({ params }) {
             <div className="py-8 border-b border-gray-200">
               <h2 className="text-lg font-black text-[#102a43] mb-6">What's included</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {[
-                  { icon: <ShieldCheck size={20} className="text-[#0b69ff]" />, label: "Secure premises" },
-                  { icon: <Zap size={20} className="text-[#0b69ff]" />, label: "Electricity supply" },
-                  { icon: <Users size={20} className="text-[#0b69ff]" />, label: "Shared facilities" },
-                  { icon: <Calendar size={20} className="text-[#0b69ff]" />, label: "Annual tenancy" },
-                ].map((item, i) => (
-                  <div key={i} className="flex items-center gap-3 text-sm text-gray-700">
-                    {item.icon}
-                    <span className="font-medium">{item.label}</span>
-                  </div>
-                ))}
+                {room.features && room.features.length > 0 ? (
+                  room.features.map((feature, i) => (
+                    <div key={i} className="flex items-center gap-3 text-sm text-gray-700">
+                      <CheckCircle2 size={18} className="text-[#0b69ff] shrink-0" />
+                      <span className="font-medium">{feature}</span>
+                    </div>
+                  ))
+                ) : (
+                  [
+                    { label: "Secure premises" },
+                    { label: "Electricity supply" },
+                    { label: "Shared facilities" },
+                    { label: "Annual tenancy" },
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-center gap-3 text-sm text-gray-700">
+                      <CheckCircle2 size={18} className="text-[#0b69ff] shrink-0" />
+                      <span className="font-medium">{item.label}</span>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
@@ -165,7 +174,10 @@ export default async function RoomDetailPage({ params }) {
                       className="flex items-center justify-between p-4 rounded-xl border border-gray-100 bg-gray-50"
                     >
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold text-gray-800 truncate">{rule.description}</p>
+                        <p className="text-sm font-semibold text-gray-800 truncate">{rule.title || rule.description}</p>
+                        {rule.title && rule.description && (
+                          <p className="text-xs text-gray-500 mt-0.5 truncate">{rule.description}</p>
+                        )}
                         <p className="text-xs text-gray-400 mt-0.5 capitalize">{rule.frequency?.toLowerCase() ?? "once"}</p>
                       </div>
                       <span className="text-sm font-black text-[#0b69ff] shrink-0 ml-4">
@@ -185,13 +197,6 @@ export default async function RoomDetailPage({ params }) {
                 <div>
                   <p className="font-bold text-sm">{room.block?.name || "Main Campus"}</p>
                   <p className="text-gray-400 text-sm mt-0.5">{room.block?.address || "Campus grounds"}</p>
-                  <div className="flex flex-wrap gap-2 mt-4">
-                    {["Quiet Zone", "Near Library", "Secure Access"].map((tag) => (
-                      <span key={tag} className="text-xs font-semibold bg-white/10 px-3 py-1 rounded-full">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
                 </div>
               </div>
             </div>
@@ -217,8 +222,8 @@ export default async function RoomDetailPage({ params }) {
                   <span className="text-sm font-bold text-gray-900">Room {room.roomNumber}</span>
                 </div>
                 <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Capacity</span>
-                  <span className="text-sm font-bold text-gray-900">{room.capacity} beds</span>
+                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Maximum Capacity</span>
+                  <span className="text-sm font-bold text-gray-900">{room.capacity} person{room.capacity !== 1 ? "s" : ""}</span>
                 </div>
                 <div className="flex items-center justify-between px-4 py-3">
                   <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Available</span>
@@ -235,7 +240,7 @@ export default async function RoomDetailPage({ params }) {
                   Reserve this room <ChevronRight size={16} />
                 </Link>
                 <Link
-                  href="/book-inspection"
+                  href={`/book-inspection?roomId=${room.id}&roomNumber=${room.roomNumber}&blockName=${encodeURIComponent(room.block?.name || "")}&address=${encodeURIComponent(room.block?.address || "")}`}
                   className="w-full py-4 border-2 border-gray-200 hover:border-[#0b69ff] text-gray-800 font-bold text-sm rounded-xl flex items-center justify-center gap-2 transition-colors"
                 >
                   Book an inspection
@@ -243,7 +248,7 @@ export default async function RoomDetailPage({ params }) {
               </div>
 
               {/* Trust signals */}
-              <div className="mt-6 space-y-2">
+              <div className="mt-6 space-y-2 pt-6 border-t border-gray-100">
                 <div className="flex items-center gap-2 text-xs text-gray-500">
                   <CheckCircle2 size={14} className="text-green-500" />
                   No reservation fees required
@@ -256,23 +261,16 @@ export default async function RoomDetailPage({ params }) {
 
               {/* Price breakdown */}
               <div className="mt-6 pt-6 border-t border-gray-100 space-y-2">
-                <div className="flex justify-between text-sm text-gray-600">
-                  <span>Annual rent</span>
-                  <span className="font-semibold">₦{room.rentAmount.toLocaleString()}</span>
-                </div>
-                {allRules.slice(0, 2).map((rule) => (
+                {allRules.map((rule) => (
                   <div key={rule.id} className="flex justify-between text-sm text-gray-600">
-                    <span className="truncate mr-4">{rule.description}</span>
+                    <span className="truncate mr-4">{rule.title || rule.description}</span>
                     <span className="font-semibold shrink-0">₦{rule.amount.toLocaleString()}</span>
                   </div>
                 ))}
                 <div className="flex justify-between text-sm font-black text-[#102a43] pt-2 border-t border-gray-100">
-                  <span>Base total</span>
+                  <span>Total</span>
                   <span>
-                    ₦{(
-                      room.rentAmount +
-                      allRules.slice(0, 2).reduce((s, r) => s + r.amount, 0)
-                    ).toLocaleString()}
+                    ₦{allRules.reduce((s, r) => s + r.amount, 0).toLocaleString()}
                   </span>
                 </div>
               </div>

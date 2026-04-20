@@ -1,31 +1,77 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { usePaystackPayment } from "react-paystack";
 import {
   Calendar,
   CheckCircle2,
   AlertCircle,
   ChevronRight,
-  ArrowRight
+  ArrowRight,
+  Building2
 } from "lucide-react";
 import { toast, Toaster } from "react-hot-toast";
 
 export default function BookInspectionForm() {
 
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [fee, setFee] = useState(5000);
+
+  // Get room details from URL
+  const roomNumber = searchParams.get("roomNumber");
+  const blockName = searchParams.get("blockName");
+  const address = searchParams.get("address");
 
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     phone: "",
     date: "",
+    roomNumber: roomNumber || "",
+    blockName: blockName || "",
+    address: address || "",
   });
+
+  // Email validation function
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  // Phone validation function
+  const validatePhone = (phone) => {
+    // Should be +234 followed by 10 digits
+    const phoneRegex = /^\+234\d{10}$/;
+    return phoneRegex.test(phone);
+  };
+
+  const handlePhoneChange = (e) => {
+    const value = e.target.value;
+    // Remove all non-digit characters
+    const digitsOnly = value.replace(/\D/g, "");
+    
+    // If user is typing and has digits
+    if (digitsOnly.length > 0) {
+      // Remove +234 prefix if present to get the actual number
+      let phoneNumber = digitsOnly;
+      if (phoneNumber.startsWith("234")) {
+        phoneNumber = phoneNumber.substring(3);
+      }
+      
+      // Limit to 10 digits (Nigerian phone numbers)
+      phoneNumber = phoneNumber.substring(0, 10);
+      
+      // Format with +234 prefix
+      setFormData({ ...formData, phone: phoneNumber ? `+234${phoneNumber}` : "" });
+    } else {
+      setFormData({ ...formData, phone: "" });
+    }
+  };
 
   const bookingDetailsRef = useRef(null);
   const feeRef = useRef(5000);
@@ -92,6 +138,19 @@ export default function BookInspectionForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validate email
+    if (!validateEmail(formData.email)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+    
+    // Validate phone if provided
+    if (formData.phone && !validatePhone(formData.phone)) {
+      toast.error("Please enter a valid 10-digit phone number");
+      return;
+    }
+    
     setLoading(true);
 
     try {
@@ -178,7 +237,7 @@ export default function BookInspectionForm() {
           <p className="text-slate-400 text-xs mb-8">Your booking has been received. Please check your inbox for details.</p>
 
           <button
-            onClick={() => router.push("/book-inspection")}
+            onClick={() => router.push("/")}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-200 hover:-translate-y-0.5 active:scale-95"
           >
             Go back  <ChevronRight size={18} />
@@ -211,6 +270,22 @@ export default function BookInspectionForm() {
           </div>
         </div>
 
+        {/* Room info banner */}
+        {roomNumber && (
+          <div className="mb-6 flex items-center gap-3 bg-blue-50 border border-blue-100 rounded-2xl px-4 py-3">
+            <div className="p-2 bg-[#0b69ff] rounded-xl shrink-0">
+              <Building2 size={16} className="text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-black text-[#0b69ff] uppercase tracking-widest">Inspecting</p>
+              <p className="text-sm font-bold text-[#102a43] truncate">
+                Room {roomNumber}{blockName ? ` · ${blockName}` : ""}
+              </p>
+              {address && <p className="text-xs text-gray-500 truncate">{address}</p>}
+            </div>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
 
             <input
@@ -234,21 +309,32 @@ export default function BookInspectionForm() {
               setFormData({ ...formData, email: e.target.value })
             }
           />
+          {formData.email && !validateEmail(formData.email) && (
+            <p className="text-[10px] text-red-500 ml-1 flex items-center gap-1 -mt-2">
+              <span className="w-1 h-1 rounded-full bg-red-500"></span>
+              Please enter a valid email address
+            </p>
+          )}
 
-            <input
-              type="tel"
-              placeholder="Phone Number"
-              className="w-full border border-slate-200 bg-white text-slate-900 rounded-xl px-4 py-3 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all"
-            value={formData.phone}
-            onChange={(e) =>
-              setFormData({ ...formData, phone: e.target.value })
-            }
-          />
+            <div className="relative">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 flex items-center gap-1">
+                <span className="text-xs font-bold">+234</span>
+              </div>
+              <input
+                type="tel"
+                placeholder="7061608636"
+                className="w-full border border-slate-200 bg-white text-slate-900 rounded-xl pl-16 pr-4 py-3 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all"
+                value={formData.phone.replace("+234", "")}
+                onChange={handlePhoneChange}
+                maxLength={10}
+              />
+            </div>
+            <p className="text-[10px] text-slate-400 ml-1 -mt-2">Enter 10-digit phone number (optional)</p>
 
             <input
               required
               type="date"
-              min={new Date().toISOString().split("T")[0]}
+              min={new Date(Date.now() + 86400000).toISOString().split("T")[0]}
               className="w-full border border-slate-200 bg-white text-slate-900 rounded-xl px-4 py-3 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all"
             value={formData.date}
             onChange={(e) =>

@@ -95,6 +95,7 @@ model Room {
   blockId      String?
   imageUrl     String?
   photos       String[]
+  features     String[]       @default([])
   rentExpiryDate DateTime?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
@@ -194,6 +195,7 @@ enum RuleFrequency {
 
 model BillingRule {
   id          String   @id @default(cuid())
+  title       String?
   description String
   amount      Float
   type        String   @default("ADDITIONAL_CHARGE")
@@ -214,6 +216,9 @@ model GuestInspection {
   email      String
   phone      String?
   date       DateTime
+  roomNumber String?
+  blockName  String?
+  address    String?
   status     InspectionStatus @default(PENDING)
   notes      String?
   feePaid    Boolean          @default(false)

@@ -68,10 +68,53 @@ export default function RegisterPage() {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData({
-      ...formData,
-      [name]: type === "checkbox" ? checked : value
-    });
+    
+    // Handle phone number fields with +234 prefix
+    if (name === "phone" || name === "guarantorPhone") {
+      // Remove all non-digit characters
+      const digitsOnly = value.replace(/\D/g, "");
+      
+      // If user is typing and has digits
+      if (digitsOnly.length > 0) {
+        // Remove +234 prefix if present to get the actual number
+        let phoneNumber = digitsOnly;
+        if (phoneNumber.startsWith("234")) {
+          phoneNumber = phoneNumber.substring(3);
+        }
+        
+        // Limit to 10 digits (Nigerian phone numbers)
+        phoneNumber = phoneNumber.substring(0, 10);
+        
+        // Format with +234 prefix
+        setFormData({
+          ...formData,
+          [name]: phoneNumber ? `+234${phoneNumber}` : ""
+        });
+      } else {
+        setFormData({
+          ...formData,
+          [name]: ""
+        });
+      }
+    } else {
+      setFormData({
+        ...formData,
+        [name]: type === "checkbox" ? checked : value
+      });
+    }
+  };
+
+  // Email validation function
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  // Phone validation function
+  const validatePhone = (phone) => {
+    // Should be +234 followed by 10 digits
+    const phoneRegex = /^\+234\d{10}$/;
+    return phoneRegex.test(phone);
   };
 
   const handleFileUpload = async (e, targetField = "guarantorIdUrl") => {
@@ -109,6 +152,17 @@ export default function RegisterPage() {
       if (!formData.name || !formData.email || !formData.phone) {
         return toast.error("Please fill all account information");
       }
+      
+      // Validate email
+      if (!validateEmail(formData.email)) {
+        return toast.error("Please enter a valid email address");
+      }
+      
+      // Validate phone
+      if (!validatePhone(formData.phone)) {
+        return toast.error("Please enter a valid 10-digit phone number");
+      }
+      
       if (formData.role !== "TENANT") {
         setStep(3); // Go to Security
       } else if (formData.isStudent) {
@@ -130,6 +184,12 @@ export default function RegisterPage() {
       if (!formData.guarantorName || !formData.guarantorPhone || !formData.guarantorAddress || !formData.guarantorIdUrl || !formData.guarantorRelationship) {
         return toast.error("Please provide all guarantor details and relationship");
       }
+      
+      // Validate guarantor phone
+      if (!validatePhone(formData.guarantorPhone)) {
+        return toast.error("Please enter a valid 10-digit guarantor phone number");
+      }
+      
       handleSubmitInternal();
     }
   };
@@ -275,16 +335,43 @@ export default function RegisterPage() {
                     <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Email Address</label>
                     <div className="relative group">
                       <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={18} />
-                      <input required name="email" type="email" className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all text-sm font-semibold text-slate-900" placeholder="samuel@hostel.com" value={formData.email} onChange={handleChange} />
+                      <input 
+                        required 
+                        name="email" 
+                        type="email" 
+                        className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all text-sm font-semibold text-slate-900" 
+                        placeholder="samuel@example.com" 
+                        value={formData.email} 
+                        onChange={handleChange}
+                      />
                     </div>
+                    {formData.email && !validateEmail(formData.email) && (
+                      <p className="text-[10px] text-red-500 ml-1 flex items-center gap-1">
+                        <span className="w-1 h-1 rounded-full bg-red-500"></span>
+                        Please enter a valid email address
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Phone Number</label>
                     <div className="relative group">
-                      <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={18} />
-                      <input required name="phone" type="tel" className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all text-sm font-semibold text-slate-900" placeholder="080 000 0000" value={formData.phone} onChange={handleChange} />
+                      <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors flex items-center gap-1">
+                        <Phone size={18} />
+                        <span className="text-xs font-bold">+234</span>
+                      </div>
+                      <input 
+                        required 
+                        name="phone" 
+                        type="tel" 
+                        className="w-full pl-20 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all text-sm font-semibold text-slate-900" 
+                        placeholder="7061608636" 
+                        value={formData.phone.replace("+234", "")} 
+                        onChange={handleChange}
+                        maxLength={10}
+                      />
                     </div>
+                    <p className="text-[10px] text-slate-400 ml-1">Enter 10-digit phone number without +234</p>
                   </div>
 
                   <div className="space-y-4 pt-3 border-t border-slate-100">
@@ -458,18 +545,33 @@ export default function RegisterPage() {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="space-y-1.5">
+                    <div className="space-y-1.5">
                       <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Phone</label>
-                      <input required name="guarantorPhone" type="tel" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all text-sm font-semibold text-slate-900" placeholder="080..." value={formData.guarantorPhone} onChange={handleChange} />
+                      <div className="relative group">
+                        <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors flex items-center gap-1">
+                          <Phone size={14} />
+                          <span className="text-xs font-bold">+234</span>
+                        </div>
+                        <input 
+                          required 
+                          name="guarantorPhone" 
+                          type="tel" 
+                          className="w-full pl-20 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all text-sm font-semibold text-slate-900" 
+                          placeholder="8012345678" 
+                          value={formData.guarantorPhone.replace("+234", "")} 
+                          onChange={handleChange}
+                          maxLength={10}
+                        />
+                      </div>
                     </div>
 
-                                                        <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Relationship</label>
-                    <div className="relative group">
-                       <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={14} />
-                       <input required name="guarantorRelationship" type="text" className="w-full pl-9 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all text-sm font-semibold text-slate-900" placeholder="e.g. Father" value={formData.guarantorRelationship} onChange={handleChange} />
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Relationship</label>
+                      <div className="relative group">
+                         <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={14} />
+                         <input required name="guarantorRelationship" type="text" className="w-full pl-9 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all text-sm font-semibold text-slate-900" placeholder="e.g. Father" value={formData.guarantorRelationship} onChange={handleChange} />
+                      </div>
                     </div>
-                  </div>
                   </div>
 
                                     <div className="space-y-1.5">

@@ -110,8 +110,8 @@ export async function DELETE(req, { params }) {
       return new NextResponse("Room not found", { status: 404 });
     }
 
-    if (room.tenants.length > 0 && room.status === "OCCUPIED") {
-       return new NextResponse("Cannot delete an occupied room", { status: 400 });
+    if (room.tenants.length > 0 || room.status === "OCCUPIED") {
+       return new NextResponse("Occupied room cannot be deleted", { status: 400 });
     }
 
     await prisma.room.delete({

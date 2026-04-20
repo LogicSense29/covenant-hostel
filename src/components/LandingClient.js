@@ -2,8 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { Search, Building2, X, Star, Users, ChevronDown, MapPin, Menu, Shield, Zap, CalendarCheck, ChevronRight } from "lucide-react";
-import PublicRoomCard from "@/components/PublicRoomCard";
+import { Search, Building2, X, Star, MapPin, Menu, Shield, CalendarCheck, ChevronRight } from "lucide-react";
 
 export default function LandingClient({ initialRooms }) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -332,31 +331,80 @@ export default function LandingClient({ initialRooms }) {
 
 // ── Airbnb-style room card ──
 function AirbnbRoomCard({ room }) {
-  const photo = room.photos?.length > 0 ? room.photos[0] : room.imageUrl;
-  const isVideo = photo && /\.(mp4|mov|webm|ogg|avi)(\?|$)/i.test(photo);
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const photos = room.photos?.length > 0 ? room.photos : (room.imageUrl ? [room.imageUrl] : []);
+  const isVideo = photos[currentPhotoIndex] && /\.(mp4|mov|webm|ogg|avi)(\?|$)/i.test(photos[currentPhotoIndex]);
   const bedsLeft = room.capacity - (room.tenants?.length ?? 0);
+  
+  // Get base rent frequency from billing rules
+  const baseRentRule = [...(room.billingRules || []), ...(room.specificRules || [])].find(r => r.type === "BASE_RENT");
+  const frequency = baseRentRule?.frequency?.toLowerCase() || "year";
+
+  const nextPhoto = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCurrentPhotoIndex((prev) => (prev + 1) % photos.length);
+  };
+
+  const prevPhoto = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCurrentPhotoIndex((prev) => (prev - 1 + photos.length) % photos.length);
+  };
 
   return (
     <Link href={`/rooms/${room.id}`} className="group block">
       {/* Photo */}
       <div className="relative aspect-square rounded-2xl overflow-hidden bg-gray-100 mb-3">
-        {photo ? (
-          isVideo ? (
-            <video
-              src={photo}
-              muted
-              playsInline
-              loop
-              autoPlay
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-            />
-          ) : (
-            <img
-              src={photo}
-              alt={`Room ${room.roomNumber}`}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-            />
-          )
+        {photos.length > 0 ? (
+          <>
+            {isVideo ? (
+              <video
+                src={photos[currentPhotoIndex]}
+                muted
+                playsInline
+                loop
+                autoPlay
+                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              />
+            ) : (
+              <img
+                src={photos[currentPhotoIndex]}
+                alt={`Room ${room.roomNumber}`}
+                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              />
+            )}
+
+            {/* Carousel navigation */}
+            {photos.length > 1 && (
+              <>
+                <button
+                  onClick={prevPhoto}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                >
+                  <ChevronRight size={16} className="rotate-180 text-gray-800" />
+                </button>
+                <button
+                  onClick={nextPhoto}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                >
+                  <ChevronRight size={16} className="text-gray-800" />
+                </button>
+
+                {/* Photo indicators */}
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+                  {photos.map((_, idx) => (
+                    <div
+                      key={idx}
+                      className={`w-1.5 h-1.5 rounded-full transition-all ${
+                        idx === currentPhotoIndex ? "bg-white w-4" : "bg-white/60"
+                      }`}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </>
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center text-gray-300">
             <Building2 size={36} strokeWidth={1.5} />
@@ -364,15 +412,8 @@ function AirbnbRoomCard({ room }) {
           </div>
         )}
 
-        {/* Beds left badge */}
-        {bedsLeft <= 2 && bedsLeft > 0 && (
-          <div className="absolute top-3 left-3 bg-white text-gray-900 text-xs font-bold px-3 py-1 rounded-full shadow">
-            Only {bedsLeft} bed{bedsLeft > 1 ? "s" : ""} left
-          </div>
-        )}
-
         {/* Available dot */}
-        <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+        <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-sm z-10">
           <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
           <span className="text-[10px] font-bold text-gray-700 uppercase tracking-wide">Available</span>
         </div>
@@ -389,7 +430,7 @@ function AirbnbRoomCard({ room }) {
               {room.block?.address || "Main Campus"}
             </p>
             <p className="text-gray-400 text-xs mt-0.5">
-              {room.capacity} bed room · {bedsLeft} space{bedsLeft !== 1 ? "s" : ""} free
+              Max Capacity: {room.capacity} person{room.capacity !== 1 ? "s" : ""}
             </p>
           </div>
           <div className="flex items-center gap-1 shrink-0 text-xs text-gray-700 font-semibold">
@@ -398,8 +439,26 @@ function AirbnbRoomCard({ room }) {
           </div>
         </div>
         <p className="text-sm text-gray-900 font-bold mt-2">
-          ₦{room.rentAmount.toLocaleString()} <span className="font-normal text-gray-500">/ year</span>
+          ₦{room.rentAmount.toLocaleString()} <span className="font-normal text-gray-500">/ {frequency}</span>
         </p>
+        
+        {/* Action buttons */}
+        <div className="flex gap-2 mt-3">
+          <Link
+            href={`/register?roomId=${room.id}`}
+            onClick={(e) => e.stopPropagation()}
+            className="flex-1 py-2 bg-[#0b69ff] hover:bg-blue-700 text-white text-xs font-bold rounded-lg text-center transition-colors"
+          >
+            Reserve Room
+          </Link>
+          <Link
+            href="/book-inspection"
+            onClick={(e) => e.stopPropagation()}
+            className="flex-1 py-2 border border-gray-300 hover:border-[#0b69ff] text-gray-700 text-xs font-bold rounded-lg text-center transition-colors"
+          >
+            Book Inspection
+          </Link>
+        </div>
       </div>
     </Link>
   );
