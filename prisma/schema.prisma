@@ -274,6 +274,7 @@ enum TicketCategory {
 
 enum InspectionStatus {
   PENDING
+  CONFIRMED
   PASSED
   FAILED
 }
