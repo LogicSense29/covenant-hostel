@@ -452,7 +452,7 @@ function AirbnbRoomCard({ room }) {
             Reserve Room
           </Link>
           <Link
-            href="/book-inspection"
+            href={`/book-inspection?roomNumber=${room.roomNumber}&blockName=${encodeURIComponent(room.block?.name || "")}&address=${encodeURIComponent(room.block?.address || "")}`}
             onClick={(e) => e.stopPropagation()}
             className="flex-1 py-2 border border-gray-300 hover:border-[#0b69ff] text-gray-700 text-xs font-bold rounded-lg text-center transition-colors"
           >

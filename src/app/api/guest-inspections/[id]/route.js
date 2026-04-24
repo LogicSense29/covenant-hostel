@@ -15,29 +15,20 @@ export async function PUT(req, { params }) {
   try {
     const { id } = await params;
     const body = await req.json();
-    const { name, address, description, imageUrl, features } = body;
+    const { status } = body;
 
-    if (!name) {
-      return new NextResponse("Missing block name", { status: 400 });
+    if (!status) {
+      return new NextResponse("Status is required", { status: 400 });
     }
 
-    const block = await prisma.block.update({
+    const guestInspection = await prisma.guestInspection.update({
       where: { id },
-      data: {
-        name,
-        address,
-        description,
-        imageUrl: imageUrl !== undefined ? imageUrl : undefined,
-        features: features !== undefined ? features : undefined
-      }
+      data: { status }
     });
 
-    return NextResponse.json(block);
+    return NextResponse.json(guestInspection);
   } catch (error) {
-    console.error("Update block error", error);
-    if (error.code === 'P2002') {
-      return new NextResponse("Block with this name already exists", { status: 400 });
-    }
+    console.error("Update guest inspection error", error);
     return new NextResponse("Internal Server Error", { status: 500 });
   }
 }
@@ -52,22 +43,13 @@ export async function DELETE(req, { params }) {
   try {
     const { id } = await params;
 
-    // Check if block has rooms
-    const roomCount = await prisma.room.count({
-      where: { blockId: id }
-    });
-
-    if (roomCount > 0) {
-      return new NextResponse("Cannot delete block with associated rooms. Please move or delete the rooms first.", { status: 400 });
-    }
-
-    await prisma.block.delete({
+    await prisma.guestInspection.delete({
       where: { id }
     });
 
-    return new NextResponse("Block deleted", { status: 200 });
+    return new NextResponse("Guest inspection deleted successfully", { status: 200 });
   } catch (error) {
-    console.error("Delete block error", error);
+    console.error("Delete guest inspection error", error);
     return new NextResponse("Internal Server Error", { status: 500 });
   }
 }

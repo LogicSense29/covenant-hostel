@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2, Plus, Edit, Folder, Info, Camera, Loader2, Upload } from "lucide-react";
+import { Trash2, Plus, Edit, Folder, Info, Camera, Loader2, Upload, X, Home } from "lucide-react";
 import { toast } from "react-hot-toast";
 
 export default function BlockManager({ initialBlocks }) {
@@ -11,8 +11,20 @@ export default function BlockManager({ initialBlocks }) {
   const [loading, setLoading] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [editingBlock, setEditingBlock] = useState(null);
-  const [formData, setFormData] = useState({ name: "", address: "", description: "", imageUrl: "" });
+  const [formData, setFormData] = useState({ name: "", address: "", description: "", imageUrl: "", features: [] });
   const [uploading, setUploading] = useState(false);
+  const [showFeaturesModal, setShowFeaturesModal] = useState(false);
+  const [customFeature, setCustomFeature] = useState("");
+
+  // Available features (same as rooms)
+  const availableFeatures = [
+    "WiFi", "Air Conditioning", "Heating", "Desk & Chair", "Wardrobe",
+    "Private Bathroom", "Shared Bathroom", "Kitchen Access", "Laundry",
+    "Security", "24/7 Security", "CCTV", "Generator/Backup Power", "Water Supply",
+    "Parking Space", "Study Area", "Common Room", "Balcony", "Window View",
+    "Ceiling Fan", "Reading Lamp", "Mattress Included", "Bedding Included",
+    "Bin Disposal", "Close Proximity to University", "Block Cleaning Services"
+  ];
 
   const handleEdit = (block) => {
     setEditingBlock(block);
@@ -20,7 +32,8 @@ export default function BlockManager({ initialBlocks }) {
       name: block.name, 
       address: block.address || "",
       description: block.description || "",
-      imageUrl: block.imageUrl || ""
+      imageUrl: block.imageUrl || "",
+      features: block.features || []
     });
     setIsAdding(true);
   };
@@ -28,7 +41,34 @@ export default function BlockManager({ initialBlocks }) {
   const handleCancel = () => {
     setIsAdding(false);
     setEditingBlock(null);
-    setFormData({ name: "", address: "", description: "", imageUrl: "" });
+    setFormData({ name: "", address: "", description: "", imageUrl: "", features: [] });
+  };
+
+  const toggleFeature = (feature) => {
+    setFormData(prev => ({
+      ...prev,
+      features: prev.features.includes(feature)
+        ? prev.features.filter(f => f !== feature)
+        : [...prev.features, feature]
+    }));
+  };
+
+  const addCustomFeature = () => {
+    const trimmed = customFeature.trim();
+    if (trimmed && !formData.features.includes(trimmed)) {
+      setFormData(prev => ({
+        ...prev,
+        features: [...prev.features, trimmed]
+      }));
+      setCustomFeature("");
+    }
+  };
+
+  const removeFeature = (feature) => {
+    setFormData(prev => ({
+      ...prev,
+      features: prev.features.filter(f => f !== feature)
+    }));
   };
 
   /* Commented out image upload for blocks as requested
@@ -97,7 +137,35 @@ export default function BlockManager({ initialBlocks }) {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm("Are you sure you want to delete this block? This will not work if there are rooms assigned to it.")) return;
+    toast((t) => (
+      <div className="flex flex-col gap-2">
+        <p className="font-medium text-gray-900">Delete this block?</p>
+        <p className="text-sm text-gray-600">This will not work if there are rooms assigned to it.</p>
+        <div className="flex gap-2 mt-2">
+          <button
+            onClick={() => {
+              toast.dismiss(t.id);
+              confirmDelete(id);
+            }}
+            className="px-3 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-medium transition-colors"
+          >
+            Delete
+          </button>
+          <button
+            onClick={() => toast.dismiss(t.id)}
+            className="px-3 py-1.5 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm font-medium transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    ), {
+      duration: 10000,
+      position: 'top-center',
+    });
+  };
+
+  const confirmDelete = async (id) => {
     setLoading(true);
 
     try {
@@ -260,6 +328,43 @@ export default function BlockManager({ initialBlocks }) {
                     onChange={(e) => setFormData({...formData, description: e.target.value})}
                   />
                 </div>
+
+                {/* Block Features */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">Block Features</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowFeaturesModal(true)}
+                      className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                    >
+                      <Plus size={12} />
+                      Manage
+                    </button>
+                  </div>
+                  {formData.features.length > 0 ? (
+                    <div className="flex flex-wrap gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                      {formData.features.map((feature) => (
+                        <span
+                          key={feature}
+                          className="px-2 py-1 bg-white border border-slate-200 text-slate-700 rounded-lg text-xs font-medium flex items-center gap-1"
+                        >
+                          {feature}
+                          <button
+                            type="button"
+                            onClick={() => removeFeature(feature)}
+                            className="text-slate-400 hover:text-red-600"
+                          >
+                            <X size={12} />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-400 italic p-3 bg-slate-50 rounded-xl border border-slate-200">No features set. Click Manage to add.</p>
+                  )}
+                </div>
+
                 <div className="flex gap-3 pt-2">
                   <button 
                     type="button"
@@ -304,6 +409,126 @@ export default function BlockManager({ initialBlocks }) {
           )}
         </div>
       </div>
+
+      {/* Features Modal */}
+      {showFeaturesModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">Manage Block Features</h2>
+                <p className="text-sm text-slate-500 mt-1">Features will apply to all rooms in this block</p>
+              </div>
+              <button 
+                onClick={() => setShowFeaturesModal(false)} 
+                className="p-2 hover:bg-white rounded-xl text-slate-400 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-1">
+              {/* Common Features */}
+              <div className="mb-6">
+                <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-3">Common Features</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {availableFeatures.map((feature) => (
+                    <label
+                      key={feature}
+                      className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer transition-all group"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={formData.features.includes(feature)}
+                        onChange={() => toggleFeature(feature)}
+                        className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-2 focus:ring-blue-500/20"
+                      />
+                      <span className="text-sm font-medium text-slate-700 group-hover:text-slate-900">
+                        {feature}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Add Custom Feature */}
+              <div className="border-t border-slate-200 pt-6">
+                <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-3">Add Custom Feature</h3>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={customFeature}
+                    onChange={(e) => setCustomFeature(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addCustomFeature();
+                      }
+                    }}
+                    placeholder="e.g., Smart TV, Mini Fridge..."
+                    className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={addCustomFeature}
+                    disabled={!customFeature.trim()}
+                    className="px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    <Plus size={16} />
+                    Add
+                  </button>
+                </div>
+                <p className="text-xs text-slate-400 mt-2">Type a custom feature and press Enter or click Add</p>
+              </div>
+
+              {/* Selected Features Preview */}
+              {formData.features.length > 0 && (
+                <div className="border-t border-slate-200 pt-6 mt-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">
+                      Selected Features ({formData.features.length})
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, features: [] }))}
+                      className="text-xs font-bold text-red-600 hover:text-red-700 transition-colors"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {formData.features.map((feature) => (
+                      <span
+                        key={feature}
+                        className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium flex items-center gap-2"
+                      >
+                        {feature}
+                        <button
+                          type="button"
+                          onClick={() => removeFeature(feature)}
+                          className="text-blue-600 hover:text-blue-800 transition-colors"
+                        >
+                          <X size={14} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 border-t border-slate-100 bg-slate-50/50">
+              <button
+                type="button"
+                onClick={() => setShowFeaturesModal(false)}
+                className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

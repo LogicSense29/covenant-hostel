@@ -9,7 +9,11 @@ export default async function EditRoomPage({ params }) {
 
 
   const room = await prisma.room.findUnique({
-    where: { id }
+    where: { id },
+    include: {
+      billingRules: true,
+      specificRules: true
+    }
   });
 
   if (!room) {

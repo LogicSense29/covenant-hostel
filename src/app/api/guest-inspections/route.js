@@ -13,6 +13,39 @@ export async function POST(request) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
+    // Check for duplicate booking - same email and date within 24 hours
+    const existingBooking = await prisma.guestInspection.findFirst({
+      where: {
+        email: email.toLowerCase(),
+        date: {
+          gte: new Date(new Date(date).setHours(0, 0, 0, 0)),
+          lt: new Date(new Date(date).setHours(23, 59, 59, 999))
+        }
+      }
+    });
+
+    if (existingBooking) {
+      return NextResponse.json({ 
+        error: "You already have an inspection booked for this date. Please choose a different date or contact us to modify your booking." 
+      }, { status: 400 });
+    }
+
+    // Rate limiting - check if email has booked more than 3 times in the last 7 days
+    const recentBookings = await prisma.guestInspection.count({
+      where: {
+        email: email.toLowerCase(),
+        createdAt: {
+          gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // 7 days ago
+        }
+      }
+    });
+
+    if (recentBookings >= 3) {
+      return NextResponse.json({ 
+        error: "You have reached the maximum number of inspection bookings. Please contact us for assistance." 
+      }, { status: 429 });
+    }
+
     const settings = await prisma.systemSetting.findMany({
       where: { key: { in: ["INSPECTION_FEE", "INSPECTION_FEE_ENABLED"] } }
     });
@@ -29,13 +62,13 @@ export async function POST(request) {
     const inspection = await prisma.guestInspection.create({
       data: {
         name,
-        email,
+        email: email.toLowerCase(),
         phone,
         date: new Date(date),
         roomNumber: roomNumber || null,
         blockName: blockName || null,
         address: address || null,
-        status: isFree ? "CONFIRMED" : "PENDING",
+        status: "PENDING",
         feePaid: isFree ? true : false,
       }
     });

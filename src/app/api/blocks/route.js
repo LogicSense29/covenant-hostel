@@ -37,7 +37,7 @@ export async function POST(req) {
 
   try {
     const body = await req.json();
-    const { name, address, description, imageUrl } = body;
+    const { name, address, description, imageUrl, features = [] } = body;
 
     if (!name) {
       return new NextResponse("Missing block name", { status: 400 });
@@ -48,7 +48,8 @@ export async function POST(req) {
         name,
         address,
         description,
-        imageUrl: imageUrl || null
+        imageUrl: imageUrl || null,
+        features: features || []
       }
     });
 

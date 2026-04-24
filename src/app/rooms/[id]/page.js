@@ -123,9 +123,9 @@ export default async function RoomDetailPage({ params }) {
             {/* Quick stats */}
             <div className="flex flex-wrap gap-6 py-6 border-b border-gray-200">
               <Stat label="Maximum Capacity" value={`${room.capacity} person${room.capacity !== 1 ? "s" : ""}`} />
-              <Stat label="Available" value={`${availableBeds} space${availableBeds !== 1 ? "s" : ""}`} />
+              {/* <Stat label="Available" value={`${availableBeds} space${availableBeds !== 1 ? "s" : ""}`} /> */}
               <Stat label="Block" value={room.block?.name || "Main Campus"} />
-              <Stat label="Status" value="Available" highlight />
+              {/* <Stat label="Status" value="Available" highlight /> */}
             </div>
 
             {/* Block description */}

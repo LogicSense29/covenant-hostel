@@ -9,7 +9,8 @@ import {
   AlertCircle,
   ChevronRight,
   ArrowRight,
-  Building2
+  Building2,
+  Share2
 } from "lucide-react";
 import { toast, Toaster } from "react-hot-toast";
 
@@ -20,7 +21,33 @@ export default function BookInspectionForm() {
 
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [fee, setFee] = useState(5000);
+  const [fee, setFee] = useState(0);
+  const [feeEnabled, setFeeEnabled] = useState(true);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+
+  const handleShare = () => {
+    const url = window.location.href;
+    if (navigator.share) {
+      navigator.share({
+        title: `Book Inspection - Room ${roomNumber || ''}`,
+        text: `Check out this room and book an inspection!`,
+        url: url
+      }).catch(() => {
+        // Fallback to copy
+        copyToClipboard(url);
+      });
+    } else {
+      copyToClipboard(url);
+    }
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text).then(() => {
+      toast.success("Link copied to clipboard!", { duration: 2000 });
+    }).catch(() => {
+      toast.error("Failed to copy link", { duration: 2000 });
+    });
+  };
 
   // Get room details from URL
   const roomNumber = searchParams.get("roomNumber");
@@ -74,24 +101,41 @@ export default function BookInspectionForm() {
   };
 
   const bookingDetailsRef = useRef(null);
-  const feeRef = useRef(5000);
+  const feeRef = useRef(0);
 
   // Fetch inspection fee
   useEffect(() => {
-    fetch("/api/settings")
-      .then((res) => res.json())
-      .then((data) => {
-        const isEnabled = data.INSPECTION_FEE_ENABLED !== "false";
-        if (isEnabled && data.INSPECTION_FEE) {
-          const val = parseFloat(data.INSPECTION_FEE);
-          setFee(val);
-          feeRef.current = val;
-        } else {
-          setFee(0);
-          feeRef.current = 0;
-        }
-      })
-      .catch(console.error);
+    const fetchSettings = () => {
+      fetch("/api/settings")
+        .then((res) => res.json())
+        .then((data) => {
+          const isEnabled = data.INSPECTION_FEE_ENABLED === "true";
+          setFeeEnabled(isEnabled);
+          
+          if (isEnabled && data.INSPECTION_FEE) {
+            const val = parseFloat(data.INSPECTION_FEE);
+            setFee(val);
+            feeRef.current = val;
+          } else {
+            setFee(0);
+            feeRef.current = 0;
+          }
+          setSettingsLoaded(true);
+        })
+        .catch((err) => {
+          console.error(err);
+          setSettingsLoaded(true);
+        });
+    };
+
+    // Initial fetch
+    fetchSettings();
+
+    // Poll every 30 seconds for settings updates
+    const interval = setInterval(fetchSettings, 30000);
+
+    // Cleanup interval on unmount
+    return () => clearInterval(interval);
   }, []);
 
   /*
@@ -109,7 +153,7 @@ export default function BookInspectionForm() {
   const handlePaymentSuccess = async (reference) => {
     setSuccess(true);
     toast.success("Payment successful! Booking confirmed.", {
-      duration: 4000,
+      duration: 3000,
     });
 
     try {
@@ -132,7 +176,7 @@ export default function BookInspectionForm() {
   const handlePaymentClose = () => {
     setLoading(false);
     toast.error("Payment cancelled.", {
-      duration: 4000,
+      duration: 3000,
     });
   };
 
@@ -179,7 +223,7 @@ export default function BookInspectionForm() {
 
       if (feeRef.current === 0) {
         setSuccess(true);
-        toast.success("Booking confirmed successfully!", { duration: 4000 });
+        toast.success("Booking confirmed successfully!", { duration: 3000 });
       } else {
         initializePayment({
           onSuccess: handlePaymentSuccess,
@@ -189,7 +233,7 @@ export default function BookInspectionForm() {
     } catch (err) {
       console.error(err);
       toast.error(err.message || "Something went wrong", {
-        duration: 4000,
+        duration: 3000,
       });
       setLoading(false);
     }
@@ -230,7 +274,7 @@ export default function BookInspectionForm() {
             <div className="h-px bg-slate-100" />
             <div className="flex justify-between items-center">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wide">Amount Paid</span>
-              <span className="font-black text-green-600 text-lg">{fee === 0 ? "FREE" : `₦${fee.toLocaleString()}`}</span>
+              <span className="font-black text-green-600 text-lg">{!feeEnabled || fee === 0 ? "FREE" : `₦${fee.toLocaleString()}`}</span>
             </div>
           </div>
 
@@ -250,7 +294,16 @@ export default function BookInspectionForm() {
   return (
     <div className="min-h-screen bg-[#fafcff] flex items-center justify-center p-6">
       <Toaster position="top-center" />
-      <div className="bg-white rounded-3xl p-10 shadow-lg max-w-xl w-full">
+      
+      {!settingsLoaded ? (
+        <div className="bg-white rounded-3xl p-10 shadow-lg max-w-xl w-full">
+          <div className="flex flex-col items-center justify-center py-12">
+            <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+            <p className="text-slate-500 font-medium">Loading booking form...</p>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-white rounded-3xl p-10 shadow-lg max-w-xl w-full">
 
         <div className="flex justify-between items-center mb-8 border-b pb-6">
           <div>
@@ -265,7 +318,7 @@ export default function BookInspectionForm() {
               Booking Fee
             </span>
             <p className="text-2xl font-bold text-blue-600">
-              {fee === 0 ? "FREE" : `₦${fee.toLocaleString()}`}
+              {!feeEnabled || fee === 0 ? "FREE" : `₦${fee.toLocaleString()}`}
             </p>
           </div>
         </div>
@@ -276,13 +329,21 @@ export default function BookInspectionForm() {
             <div className="p-2 bg-[#0b69ff] rounded-xl shrink-0">
               <Building2 size={16} className="text-white" />
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="text-xs font-black text-[#0b69ff] uppercase tracking-widest">Inspecting</p>
               <p className="text-sm font-bold text-[#102a43] truncate">
                 Room {roomNumber}{blockName ? ` · ${blockName}` : ""}
               </p>
               {address && <p className="text-xs text-gray-500 truncate">{address}</p>}
             </div>
+            <button
+              type="button"
+              onClick={handleShare}
+              className="p-2 hover:bg-blue-100 rounded-lg transition-colors shrink-0"
+              title="Share this room"
+            >
+              <Share2 size={18} className="text-[#0b69ff]" />
+            </button>
           </div>
         )}
 
@@ -342,7 +403,7 @@ export default function BookInspectionForm() {
             }
           />
 
-          {fee > 0 && (
+          {feeEnabled && fee > 0 && (
             <div className="bg-amber-50 p-4 rounded-xl border text-sm text-amber-800 flex gap-3">
               <AlertCircle size={18} />
               Non-refundable booking fee. Payment handled by Paystack.
@@ -361,12 +422,13 @@ export default function BookInspectionForm() {
               </>
             ) : (
               <>
-                {fee === 0 ? "Confirm Booking" : "Continue to Payment"} <ArrowRight size={16} />
+                {!feeEnabled || fee === 0 ? "Confirm Booking" : "Continue to Payment"} <ArrowRight size={16} />
               </>
             )}
           </button>
         </form>
       </div>
+      )}
     </div>
   );
 }

@@ -16,7 +16,8 @@ import {
   Calendar,
   Camera,
   Upload,
-  Loader2
+  Loader2,
+  X
 } from "lucide-react";
 import styles from "./RoomForm.module.css";
 
@@ -34,6 +35,7 @@ export default function RoomForm({ initialData }) {
     imageUrl: initialData?.imageUrl || "",
     photos: initialData?.photos || (initialData?.imageUrl ? [initialData.imageUrl] : []),
     billingRuleIds: initialData?.billingRules?.map(r => r.id) || [],
+    features: initialData?.features || [],
   });
   
   const [billingSearch, setBillingSearch] = useState("");
@@ -46,8 +48,47 @@ export default function RoomForm({ initialData }) {
   const [uploading, setUploading] = useState(false);
   const [fetchingData, setFetchingData] = useState(false);
   const [error, setError] = useState("");
+  const [showFeaturesModal, setShowFeaturesModal] = useState(false);
+  const [customFeature, setCustomFeature] = useState("");
 
   const billingSearchRef = useRef(null);
+
+  // Available room features
+  const availableFeatures = [
+    "WiFi", "Air Conditioning", "Heating", "Desk & Chair", "Wardrobe",
+    "Private Bathroom", "Shared Bathroom", "Kitchen Access", "Laundry",
+    "Security", "24/7 Security", "CCTV", "Generator/Backup Power", "Water Supply",
+    "Parking Space", "Study Area", "Common Room", "Balcony", "Window View",
+    "Ceiling Fan", "Reading Lamp", "Mattress Included", "Bedding Included",
+    "Bin Disposal", "Close Proximity to University", "Room Cleaning Services"
+  ];
+
+  const toggleFeature = (feature) => {
+    setFormData(prev => ({
+      ...prev,
+      features: prev.features.includes(feature)
+        ? prev.features.filter(f => f !== feature)
+        : [...prev.features, feature]
+    }));
+  };
+
+  const addCustomFeature = () => {
+    const trimmed = customFeature.trim();
+    if (trimmed && !formData.features.includes(trimmed)) {
+      setFormData(prev => ({
+        ...prev,
+        features: [...prev.features, trimmed]
+      }));
+      setCustomFeature("");
+    }
+  };
+
+  const removeFeature = (feature) => {
+    setFormData(prev => ({
+      ...prev,
+      features: prev.features.filter(f => f !== feature)
+    }));
+  };
 
   const handleMediaUpload = async (e) => {
     const file = e.target.files[0];
@@ -200,8 +241,41 @@ export default function RoomForm({ initialData }) {
     }
   }, [formData.blockId, formData.rentAmount, billingRules, fetchingData]);
 
+  // Auto-tick all global billing rules (non-BASE_RENT)
+  useEffect(() => {
+    if (fetchingData || billingRules.length === 0) return;
+    
+    const globalRules = billingRules.filter(r => {
+      const type = String(r.type || "").toUpperCase();
+      return r.isGlobal && type !== "BASE_RENT";
+    });
+    
+    const globalRuleIds = globalRules.map(r => r.id);
+    const missingGlobalRules = globalRuleIds.filter(id => !formData.billingRuleIds.includes(id));
+    
+    if (missingGlobalRules.length > 0) {
+      setFormData(prev => ({
+        ...prev,
+        billingRuleIds: [...prev.billingRuleIds, ...missingGlobalRules]
+      }));
+    }
+  }, [billingRules, fetchingData]);
+
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    
+    // If changing block, merge block features with existing room features
+    if (name === 'blockId' && value) {
+      const selectedBlock = blocks.find(b => b.id === value);
+      if (selectedBlock && selectedBlock.features) {
+        // Merge block features with existing room features (avoid duplicates)
+        const mergedFeatures = [...new Set([...formData.features, ...selectedBlock.features])];
+        setFormData({ ...formData, [name]: value, features: mergedFeatures });
+        return;
+      }
+    }
+    
+    setFormData({ ...formData, [name]: value });
   };
 
   const handleSubmit = async (e) => {
@@ -409,6 +483,51 @@ export default function RoomForm({ initialData }) {
           </div>
         </div>
 
+        {/* Room Features Section */}
+        <div className="mt-6 p-6 bg-slate-50 rounded-2xl border border-slate-200">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                <Home size={18} />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900">Room Features</h3>
+                <p className="text-xs text-slate-500">Amenities available in this room</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowFeaturesModal(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition-all flex items-center gap-2"
+            >
+              <Plus size={16} />
+              Manage Features
+            </button>
+          </div>
+          
+          {formData.features.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {formData.features.map((feature) => (
+                <span
+                  key={feature}
+                  className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium flex items-center gap-2 group hover:border-red-200 transition-colors"
+                >
+                  {feature}
+                  <button
+                    type="button"
+                    onClick={() => removeFeature(feature)}
+                    className="text-slate-400 hover:text-red-600 transition-colors"
+                  >
+                    <X size={14} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400 italic">No features selected. Click "Manage Features" to add.</p>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className={styles.formGroup}>
             <label htmlFor="status" className={styles.label}>Room Status</label>
@@ -610,25 +729,35 @@ export default function RoomForm({ initialData }) {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {totalRules.map(rule => {
                       const isSelected = formData.billingRuleIds.includes(rule.id);
+                      const isGlobal = rule.isGlobal;
+                      const type = String(rule.type || "").toUpperCase();
+                      const isGlobalNonBaseRent = isGlobal && type !== "BASE_RENT";
+                      
                       return (
                         <label 
                           key={rule.id} 
-                          className={`flex items-center gap-3 p-3 rounded-2xl border-2 transition-all cursor-pointer ${
+                          className={`flex items-center gap-3 p-3 rounded-2xl border-2 transition-all ${
+                            isGlobalNonBaseRent ? "cursor-not-allowed opacity-75" : "cursor-pointer"
+                          } ${
                             isSelected ? "border-blue-500 bg-blue-50/30" : "border-slate-200 bg-white hover:border-blue-200"
                           }`}
+                          title={isGlobalNonBaseRent ? "Global rules are automatically applied to all rooms" : ""}
                         >
                           <input
                             type="checkbox"
                             className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500 transition-all cursor-pointer shrink-0"
                             checked={isSelected}
+                            disabled={isGlobalNonBaseRent}
                             onChange={(e) => {
                               e.stopPropagation();
-                              setFormData(prev => ({ 
-                                ...prev, 
-                                billingRuleIds: isSelected 
-                                  ? prev.billingRuleIds.filter(id => id !== rule.id) 
-                                  : [...prev.billingRuleIds, rule.id] 
-                              }));
+                              if (!isGlobalNonBaseRent) {
+                                setFormData(prev => ({ 
+                                  ...prev, 
+                                  billingRuleIds: isSelected 
+                                    ? prev.billingRuleIds.filter(id => id !== rule.id) 
+                                    : [...prev.billingRuleIds, rule.id] 
+                                }));
+                              }
                             }}
                           />
                           <div className="flex flex-col flex-1 overflow-hidden pointer-events-none">
@@ -720,15 +849,19 @@ export default function RoomForm({ initialData }) {
                  .map(rule => {
                    const isSelected = formData.billingRuleIds.includes(rule.id);
                    const isRecommended = rule.isGlobal || rule.blockId === formData.blockId || rule.roomId === initialData?.id;
+                   const isGlobal = rule.isGlobal;
 
                    return (
                     <label 
                       key={rule.id} 
-                      className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all cursor-pointer group ${
+                      className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all ${
+                        isGlobal ? "cursor-not-allowed opacity-75" : "cursor-pointer"
+                      } group ${
                         isSelected 
                           ? "border-blue-500 bg-white shadow-md shadow-blue-500/5 translate-x-1" 
                           : "border-transparent bg-white hover:bg-slate-100 hover:translate-x-1"
                       }`}
+                      title={isGlobal ? "Global rules are automatically applied to all rooms" : ""}
                     >
                       <div 
                         className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
@@ -747,13 +880,16 @@ export default function RoomForm({ initialData }) {
                         type="checkbox"
                         className="hidden" // Hiding actual checkbox to use our custom design
                         checked={isSelected}
+                        disabled={isGlobal}
                         onChange={() => {
-                          setFormData(prev => ({ 
-                            ...prev, 
-                            billingRuleIds: isSelected 
-                              ? prev.billingRuleIds.filter(id => id !== rule.id) 
-                              : [...prev.billingRuleIds, rule.id] 
-                          }));
+                          if (!isGlobal) {
+                            setFormData(prev => ({ 
+                              ...prev, 
+                              billingRuleIds: isSelected 
+                                ? prev.billingRuleIds.filter(id => id !== rule.id) 
+                                : [...prev.billingRuleIds, rule.id] 
+                            }));
+                          }
                         }}
                       />
 
@@ -762,7 +898,12 @@ export default function RoomForm({ initialData }) {
                            <span className={`text-sm font-bold truncate ${isSelected ? "text-slate-900" : "text-slate-700"}`}>
                              {rule.description}
                            </span>
-                           {isRecommended && (
+                           {isGlobal && (
+                             <span className="text-[9px] font-bold bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-md border border-blue-100 uppercase tracking-tighter">
+                               Global • Auto-applied
+                             </span>
+                           )}
+                           {!isGlobal && isRecommended && (
                              <span className="text-[9px] font-bold bg-green-50 text-green-600 px-1.5 py-0.5 rounded-md border border-green-100 uppercase tracking-tighter">
                                Recommended
                              </span>
@@ -791,6 +932,126 @@ export default function RoomForm({ initialData }) {
             </div>
           </div>
         </>
+      )}
+
+      {/* Features Modal */}
+      {showFeaturesModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">Manage Room Features</h2>
+                <p className="text-sm text-slate-500 mt-1">Select from common features or add custom ones</p>
+              </div>
+              <button 
+                onClick={() => setShowFeaturesModal(false)} 
+                className="p-2 hover:bg-white rounded-xl text-slate-400 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-1">
+              {/* Common Features */}
+              <div className="mb-6">
+                <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-3">Common Features</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {availableFeatures.map((feature) => (
+                    <label
+                      key={feature}
+                      className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer transition-all group"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={formData.features.includes(feature)}
+                        onChange={() => toggleFeature(feature)}
+                        className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-2 focus:ring-blue-500/20"
+                      />
+                      <span className="text-sm font-medium text-slate-700 group-hover:text-slate-900">
+                        {feature}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Add Custom Feature */}
+              <div className="border-t border-slate-200 pt-6">
+                <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-3">Add Custom Feature</h3>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={customFeature}
+                    onChange={(e) => setCustomFeature(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addCustomFeature();
+                      }
+                    }}
+                    placeholder="e.g., Smart TV, Mini Fridge..."
+                    className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={addCustomFeature}
+                    disabled={!customFeature.trim()}
+                    className="px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    <Plus size={16} />
+                    Add
+                  </button>
+                </div>
+                <p className="text-xs text-slate-400 mt-2">Type a custom feature and press Enter or click Add</p>
+              </div>
+
+              {/* Selected Features Preview */}
+              {formData.features.length > 0 && (
+                <div className="border-t border-slate-200 pt-6 mt-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">
+                      Selected Features ({formData.features.length})
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, features: [] }))}
+                      className="text-xs font-bold text-red-600 hover:text-red-700 transition-colors"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {formData.features.map((feature) => (
+                      <span
+                        key={feature}
+                        className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium flex items-center gap-2"
+                      >
+                        {feature}
+                        <button
+                          type="button"
+                          onClick={() => removeFeature(feature)}
+                          className="text-blue-600 hover:text-blue-800 transition-colors"
+                        >
+                          <X size={14} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 border-t border-slate-100 bg-slate-50/50">
+              <button
+                type="button"
+                onClick={() => setShowFeaturesModal(false)}
+                className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

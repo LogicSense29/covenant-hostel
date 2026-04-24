@@ -13,6 +13,7 @@ export default function BillingRulesManager({ defaultRules, rooms, blocks = [] }
   const [editingId, setEditingId] = useState(null);
   
   const [formData, setFormData] = useState({
+    title: "",
     description: "",
     amount: "",
     type: "Additional Charge",
@@ -26,6 +27,7 @@ export default function BillingRulesManager({ defaultRules, rooms, blocks = [] }
     setIsEditing(true);
     setEditingId(rule.id);
     setFormData({
+      title: rule.title || "",
       description: rule.description,
       amount: rule.amount.toString(),
       type: rule.type || "Additional Charge",
@@ -42,6 +44,7 @@ export default function BillingRulesManager({ defaultRules, rooms, blocks = [] }
     setIsEditing(false);
     setEditingId(null);
     setFormData({
+      title: "",
       description: "",
       amount: "",
       type: "Additional Charge",
@@ -95,7 +98,35 @@ export default function BillingRulesManager({ defaultRules, rooms, blocks = [] }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm("Delete this billing rule?")) return;
+    toast((t) => (
+      <div className="flex flex-col gap-2">
+        <p className="font-medium text-gray-900">Delete this billing rule?</p>
+        <p className="text-sm text-gray-600">This action cannot be undone.</p>
+        <div className="flex gap-2 mt-2">
+          <button
+            onClick={() => {
+              toast.dismiss(t.id);
+              confirmDelete(id);
+            }}
+            className="px-3 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-medium transition-colors"
+          >
+            Delete
+          </button>
+          <button
+            onClick={() => toast.dismiss(t.id)}
+            className="px-3 py-1.5 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm font-medium transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    ), {
+      duration: 10000,
+      position: 'top-center',
+    });
+  };
+
+  const confirmDelete = async (id) => {
     setLoading(true);
     try {
       const res = await fetch(`/api/billing/${id}`, {
@@ -148,11 +179,14 @@ export default function BillingRulesManager({ defaultRules, rooms, blocks = [] }
                     <div className="flex flex-col gap-1">
                       <span className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">
                         <span className="text-blue-600 text-xs font-bold mr-2 uppercase tracking-tight">[{String(rule.type || "Additional Charge").replace(/_/g, ' ')}]</span>
-                        {rule.description}
+                        {rule.title || rule.description}
                         <span className="text-blue-500 text-[10px] font-bold uppercase ml-3 bg-blue-50 px-1.5 py-0.5 rounded-md border border-blue-100">
                           {rule.frequency?.replace(/_/g, ' ') || "ONCE"}
                         </span>
                       </span>
+                      {rule.title && rule.description && (
+                        <span className="text-xs text-slate-500 ml-0">{rule.description}</span>
+                      )}
                       <div className="flex items-center gap-2">
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider border ${
                           rule.isGlobal 
@@ -216,7 +250,19 @@ export default function BillingRulesManager({ defaultRules, rooms, blocks = [] }
           
           <form onSubmit={handleSubmit} className="p-6 space-y-5">
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Rule Type</label>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Bill Title *</label>
+              <input
+                type="text"
+                required
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white focus:border-blue-500 transition-all placeholder:text-slate-300"
+                placeholder="e.g. Electricity Bill, Water Bill"
+                value={formData.title}
+                onChange={(e) => setFormData({...formData, title: e.target.value})}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Bill Type *</label>
               <div className="relative group/type">
                 <input
                   list="rule-types"
@@ -258,22 +304,14 @@ export default function BillingRulesManager({ defaultRules, rooms, blocks = [] }
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Description</label>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Description (Optional)</label>
               <textarea
-                required
-                rows="1"
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white focus:border-blue-500 transition-all placeholder:text-slate-300 resize-none overflow-hidden"
-                placeholder="e.g. Utility Charge, Tax"
+                rows="2"
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white focus:border-blue-500 transition-all placeholder:text-slate-300 resize-none"
+                placeholder="Additional details about this charge..."
                 value={formData.description}
                 onChange={(e) => {
                   setFormData({...formData, description: e.target.value});
-                  // Auto-resize
-                  e.target.style.height = 'auto';
-                  e.target.style.height = (e.target.scrollHeight) + 'px';
-                }}
-                onFocus={(e) => {
-                  e.target.style.height = 'auto';
-                  e.target.style.height = (e.target.scrollHeight) + 'px';
                 }}
               />
             </div>

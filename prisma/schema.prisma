@@ -80,6 +80,7 @@ model Block {
   address     String?
   description String?
   imageUrl    String?
+  features    String[] @default([])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   rooms       Room[]

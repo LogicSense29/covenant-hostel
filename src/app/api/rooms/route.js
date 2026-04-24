@@ -42,6 +42,7 @@ export async function POST(req) {
         blockId: blockId || null,
         imageUrl: photos.length > 0 ? photos[0] : (imageUrl || null),
         photos: photos || [],
+        features: features || [],
         billingRules: {
           connect: billingRuleIds.map(id => ({ id }))
         }

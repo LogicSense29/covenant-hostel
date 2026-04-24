@@ -36,7 +36,7 @@ export async function PUT(req, { params }) {
   try {
     const { id } = await params;
     const body = await req.json();
-    const { roomNumber, rentAmount, status, capacity, rentExpiryDate, blockId, imageUrl, photos, billingRuleIds = [] } = body;
+    const { roomNumber, rentAmount, status, capacity, rentExpiryDate, blockId, imageUrl, photos, billingRuleIds = [], features = [] } = body;
 
     const existingRoom = await prisma.room.findUnique({ 
       where: { id },
@@ -76,6 +76,7 @@ export async function PUT(req, { params }) {
         blockId: blockId || null,
         imageUrl: photos && photos.length > 0 ? photos[0] : (imageUrl !== undefined ? imageUrl : existingRoom.imageUrl),
         photos: photos !== undefined ? photos : existingRoom.photos,
+        features: features !== undefined ? features : existingRoom.features,
         billingRules: {
           disconnect: toDisconnect.map(id => ({ id })),
           connect: toConnect.map(id => ({ id }))
@@ -105,19 +106,55 @@ export async function DELETE(req, { params }) {
 
     const room = await prisma.room.findUnique({
       where: { id },
-      include: { tenants: true }
+      include: { 
+        tenants: true,
+        stayHistory: true,
+        inspections: true,
+        billingRules: true
+      }
     });
 
     if (!room) {
       return new NextResponse("Room not found", { status: 404 });
     }
 
+    // Check if room is currently occupied
     if (room.tenants.length > 0 || room.status === "OCCUPIED") {
-       return new NextResponse("Occupied room cannot be deleted", { status: 400 });
+       return new NextResponse("Cannot delete occupied room. Please unassign tenants first.", { status: 400 });
     }
 
-    await prisma.room.delete({
-      where: { id }
+    // Delete related records in a transaction
+    await prisma.$transaction(async (tx) => {
+      // Delete stay history
+      if (room.stayHistory.length > 0) {
+        await tx.stayHistory.deleteMany({
+          where: { roomId: id }
+        });
+      }
+
+      // Delete inspections
+      if (room.inspections.length > 0) {
+        await tx.inspection.deleteMany({
+          where: { roomId: id }
+        });
+      }
+
+      // Disconnect billing rules
+      if (room.billingRules.length > 0) {
+        await tx.room.update({
+          where: { id },
+          data: {
+            billingRules: {
+              set: []
+            }
+          }
+        });
+      }
+
+      // Finally delete the room
+      await tx.room.delete({
+        where: { id }
+      });
     });
 
     return new NextResponse("Room deleted successfully", { status: 200 });

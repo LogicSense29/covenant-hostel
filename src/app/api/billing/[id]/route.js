@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 
 export async function PUT(req, { params }) {
   const session = await getServerSession(authOptions);
-  const { id } = params;
+  const { id } = await params;
 
   if (!session || (session.user.role !== "LANDLORD" && session.user.role !== "ADMIN")) {
     return new NextResponse("Unauthorized", { status: 403 });
@@ -73,7 +73,7 @@ export async function PUT(req, { params }) {
 
 export async function DELETE(req, { params }) {
   const session = await getServerSession(authOptions);
-  const { id } = params;
+  const { id } = await params;
 
   if (!session || (session.user.role !== "LANDLORD" && session.user.role !== "ADMIN")) {
     return new NextResponse("Unauthorized", { status: 403 });
