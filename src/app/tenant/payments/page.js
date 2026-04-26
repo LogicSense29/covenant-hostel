@@ -17,7 +17,13 @@ export default async function TenantPaymentsPage() {
     include: { room: true },
   });
 
-  if (!profile || !profile.room) {
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { status: true },
+  });
+
+  // Show locked state only if there's genuinely no room linked AND user isn't in an active payment flow
+  if (!profile || (!profile.room && !["AWAITING_PAYMENT", "PAYMENT_MADE", "ACTIVE"].includes(user?.status))) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 bg-white rounded-3xl border border-slate-200 shadow-xl border-t-4 border-t-blue-500">
         <div className="bg-blue-50 p-4 rounded-2xl mb-6">
@@ -32,6 +38,21 @@ export default async function TenantPaymentsPage() {
   }
 
   const room = profile.room;
+
+  // If room isn't linked yet (edge case), show a pending state
+  if (!room) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 bg-white rounded-3xl border border-slate-200 shadow-xl border-t-4 border-t-amber-400">
+        <div className="bg-amber-50 p-4 rounded-2xl mb-6">
+          <CreditCard size={48} className="text-amber-500" />
+        </div>
+        <h1 className="text-3xl font-extrabold text-slate-900 text-center">Room Pending Assignment</h1>
+        <p className="text-slate-500 mt-4 text-center max-w-md leading-relaxed">
+          Your application has been approved. Your room assignment is being finalised — payment details will appear here shortly.
+        </p>
+      </div>
+    );
+  }
 
   const [globalRules, roomRules, paymentHistory] = await Promise.all([
     prisma.billingRule.findMany({ where: { isGlobal: true } }),

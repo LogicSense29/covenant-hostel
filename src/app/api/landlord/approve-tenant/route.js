@@ -58,7 +58,10 @@ export async function POST(req) {
       })
     ]);
 
-    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+    // Derive base URL from request headers so it works in both dev and production
+    const host = req.headers.get("host");
+    const protocol = req.headers.get("x-forwarded-proto") || (host?.includes("localhost") ? "http" : "https");
+    const baseUrl = process.env.NEXTAUTH_URL || `${protocol}://${host}`;
     const setupLink = `${baseUrl}/setup-password/${token}`;
 
     await sendAccountApprovedEmail({

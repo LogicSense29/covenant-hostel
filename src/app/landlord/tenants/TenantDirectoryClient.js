@@ -13,15 +13,18 @@ import {
   X,
   CreditCard,
   Building,
-  Calendar
+  Calendar,
+  Mail
 } from "lucide-react";
 import ApprovalActions from "./ApprovalActions";
 import AssignRoomActions from "./AssignRoomActions";
 import PartialPaymentToggle from "@/components/PartialPaymentToggle";
+import TenantEmailModal from "./TenantEmailModal";
 
 export default function TenantDirectoryClient({ tenants, availableRooms }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTenant, setSelectedTenant] = useState(null);
+  const [emailTenant, setEmailTenant] = useState(null);
 
   useEffect(() => {
     if (selectedTenant) {
@@ -185,6 +188,13 @@ export default function TenantDirectoryClient({ tenants, availableRooms }) {
                       {/* Actions */}
                       <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
                         <div className="flex justify-end items-center gap-1.5">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setEmailTenant(profile); }}
+                            title="Send email"
+                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg border border-transparent hover:border-blue-100 transition-all"
+                          >
+                            <Mail size={14} />
+                          </button>
                           <ApprovalActions userId={profile.userId} status={status} />
                           {status === "ACTIVE" && (
                             <AssignRoomActions 
@@ -429,10 +439,23 @@ export default function TenantDirectoryClient({ tenants, availableRooms }) {
                <div className="flex gap-2 w-full [&>*]:flex-1">
                  <ApprovalActions userId={selectedTenant.userId} status={selectedTenant.user?.status} />
                </div>
+               <button
+                 onClick={() => setEmailTenant(selectedTenant)}
+                 className="w-full flex items-center justify-center gap-2 py-3 border border-slate-200 text-slate-700 text-sm font-bold rounded-2xl hover:bg-slate-50 hover:border-slate-300 transition-all"
+               >
+                 <Mail size={16} />
+                 Send Email to Tenant
+               </button>
             </div>
             
           </div>
         </>
+      )}
+      {emailTenant && (
+        <TenantEmailModal
+          tenant={emailTenant}
+          onClose={() => setEmailTenant(null)}
+        />
       )}
     </div>
   );

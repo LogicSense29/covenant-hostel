@@ -9,33 +9,54 @@ export default function ApprovalActions({ userId, status }) {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectNote, setRejectNote] = useState("");
 
-  const handleApprove = async () => {
-    if (!confirm("Are you sure you want to approve this tenant? An email with a setup link will be sent.")) {
-      return;
-    }
+  const confirmAction = (message, onConfirm) => {
+    toast((t) => (
+      <div className="flex flex-col gap-3">
+        <p className="text-sm font-semibold text-slate-800">{message}</p>
+        <div className="flex gap-2">
+          <button
+            onClick={() => { toast.dismiss(t.id); onConfirm(); }}
+            className="flex-1 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 transition-colors"
+          >
+            Confirm
+          </button>
+          <button
+            onClick={() => toast.dismiss(t.id)}
+            className="flex-1 py-1.5 bg-slate-100 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-200 transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    ), { duration: 10000 });
+  };
 
-    setLoading(true);
-    const toastId = toast.loading("Approving tenant...");
-
-    try {
-      const res = await fetch("/api/landlord/approve-tenant", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId }),
-      });
-
-      if (res.ok) {
-        toast.success("Tenant approved successfully!", { id: toastId });
-        window.location.reload();
-      } else {
-        const errorText = await res.text();
-        toast.error(errorText || "Approval failed", { id: toastId });
+  const handleApprove = () => {
+    confirmAction(
+      "Approve this tenant? An email with a setup link will be sent.",
+      async () => {
+        setLoading(true);
+        const toastId = toast.loading("Approving tenant...");
+        try {
+          const res = await fetch("/api/landlord/approve-tenant", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId }),
+          });
+          if (res.ok) {
+            toast.success("Tenant approved successfully!", { id: toastId });
+            window.location.reload();
+          } else {
+            const errorText = await res.text();
+            toast.error(errorText || "Approval failed", { id: toastId });
+          }
+        } catch {
+          toast.error("An unexpected error occurred", { id: toastId });
+        } finally {
+          setLoading(false);
+        }
       }
-    } catch (err) {
-      toast.error("An unexpected error occurred", { id: toastId });
-    } finally {
-      setLoading(false);
-    }
+    );
   };
 
   const handleReject = async (e) => {
@@ -63,40 +84,39 @@ export default function ApprovalActions({ userId, status }) {
         const errorText = await res.text();
         toast.error(errorText || "Rejection failed", { id: toastId });
       }
-    } catch (err) {
+    } catch {
       toast.error("An error occurred during rejection", { id: toastId });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleActivate = async () => {
-    if (!confirm("Are you sure you want to activate this tenancy? This will set the tenancy start date to today.")) {
-      return;
-    }
-
-    setLoading(true);
-    const toastId = toast.loading("Activating tenancy...");
-
-    try {
-      const res = await fetch("/api/landlord/activate-tenancy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId }),
-      });
-
-      if (res.ok) {
-        toast.success("Tenancy activated successfully!", { id: toastId });
-        window.location.reload();
-      } else {
-        const errorText = await res.text();
-        toast.error(errorText || "Activation failed", { id: toastId });
+  const handleActivate = () => {
+    confirmAction(
+      "Activate this tenancy? The tenancy start date will be set to today.",
+      async () => {
+        setLoading(true);
+        const toastId = toast.loading("Activating tenancy...");
+        try {
+          const res = await fetch("/api/landlord/activate-tenancy", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId }),
+          });
+          if (res.ok) {
+            toast.success("Tenancy activated successfully!", { id: toastId });
+            window.location.reload();
+          } else {
+            const errorText = await res.text();
+            toast.error(errorText || "Activation failed", { id: toastId });
+          }
+        } catch {
+          toast.error("An unexpected error occurred", { id: toastId });
+        } finally {
+          setLoading(false);
+        }
       }
-    } catch (err) {
-      toast.error("An unexpected error occurred", { id: toastId });
-    } finally {
-      setLoading(false);
-    }
+    );
   };
 
   if (status === "ACTIVE") return null;
