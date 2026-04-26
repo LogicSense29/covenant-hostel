@@ -1,9 +1,21 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import nodemailer from "nodemailer";
 
 export const dynamic = "force-dynamic";
 
+const smtpHost = process.env.SMTP_HOST || "smtp.ethereal.email";
+const smtpPort = Number(process.env.SMTP_PORT || 587);
+const smtpUser = process.env.SMTP_USER || "ethereal.user@ethereal.email";
+const smtpPass = process.env.SMTP_PASS || "ethereal_password";
+
+function createTransporter() {
+  return nodemailer.createTransport({
+    host: smtpHost, port: smtpPort, secure: smtpPort === 465,
+    auth: { user: smtpUser, pass: smtpPass },
+  });
+}
 
 export async function POST(req) {
   try {
@@ -36,15 +48,54 @@ export async function POST(req) {
     await prisma.$transaction([
       prisma.user.update({
         where: { id: setupToken.userId },
-        data: {
-          hashedPassword,
-          status: "ACTIVE"
-        }
+        data: { hashedPassword, status: "ACTIVE" }
       }),
-      prisma.setupToken.delete({
-        where: { token }
-      })
+      prisma.setupToken.delete({ where: { token } })
     ]);
+
+    // Fetch user details for emails
+    const user = await prisma.user.findUnique({
+      where: { id: setupToken.userId },
+      include: { tenantProfile: { include: { room: true } } },
+    });
+
+    const roomNumber = user?.tenantProfile?.room?.roomNumber;
+
+    // Notify tenant
+    Promise.allSettled([
+      createTransporter().sendMail({
+        from: `"Covenant Hostel" <${smtpUser}>`,
+        to: user.email,
+        subject: "Account Activated — Covenant Hostel",
+        html: `
+          <div style="font-family:sans-serif;max-width:600px;margin:auto;padding:20px;border:1px solid #e2e8f0;border-radius:12px;">
+            <h2 style="color:#16a34a;">✅ Account Activated</h2>
+            <p>Hi ${user.name},</p>
+            <p>Your password has been set and your Covenant Hostel account is now fully active. You can log in to your tenant portal at any time.</p>
+            ${roomNumber ? `<p><strong>Your Room:</strong> Room ${roomNumber}</p>` : ""}
+            <p>Best regards,<br/>The Covenant Hostel Management Team</p>
+          </div>
+        `,
+      }),
+      // Notify admin
+      process.env.ADMIN_EMAIL ? createTransporter().sendMail({
+        from: `"Covenant Hostel" <${smtpUser}>`,
+        to: process.env.ADMIN_EMAIL,
+        subject: `Account Activated — ${user.name}`,
+        html: `
+          <div style="font-family:sans-serif;max-width:600px;margin:auto;padding:20px;border:1px solid #e2e8f0;border-radius:12px;">
+            <h3 style="color:#0b69ff;">Tenant Account Activated</h3>
+            <p>A tenant has set their password and activated their account.</p>
+            <table style="width:100%;border-collapse:collapse;margin-top:12px;">
+              <tr><td style="padding:8px 0;color:#64748b;font-size:13px;">Name</td><td style="padding:8px 0;font-weight:bold;">${user.name}</td></tr>
+              <tr><td style="padding:8px 0;color:#64748b;font-size:13px;">Email</td><td style="padding:8px 0;font-weight:bold;">${user.email}</td></tr>
+              ${roomNumber ? `<tr><td style="padding:8px 0;color:#64748b;font-size:13px;">Room</td><td style="padding:8px 0;font-weight:bold;">Room ${roomNumber}</td></tr>` : ""}
+            </table>
+            <p style="margin-top:16px;color:#94a3b8;font-size:12px;">Covenant Hostel Management System</p>
+          </div>
+        `,
+      }) : Promise.resolve(),
+    ]).catch(console.error);
 
     return NextResponse.json({ success: true, message: "Password set and account activated." });
 
