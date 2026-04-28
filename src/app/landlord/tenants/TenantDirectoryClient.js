@@ -14,7 +14,9 @@ import {
   CreditCard,
   Building,
   Calendar,
-  Mail
+  Mail,
+  ChevronUp,
+  ChevronDown
 } from "lucide-react";
 import ApprovalActions from "./ApprovalActions";
 import AssignRoomActions from "./AssignRoomActions";
@@ -25,6 +27,7 @@ export default function TenantDirectoryClient({ tenants, availableRooms }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTenant, setSelectedTenant] = useState(null);
   const [emailTenant, setEmailTenant] = useState(null);
+  const [actionsOpen, setActionsOpen] = useState(true);
 
   useEffect(() => {
     if (selectedTenant) {
@@ -90,7 +93,7 @@ export default function TenantDirectoryClient({ tenants, availableRooms }) {
                   return (
                     <tr 
                       key={profile.id} 
-                      onClick={() => setSelectedTenant(profile)}
+                      onClick={() => { setSelectedTenant(profile); setActionsOpen(true); }}
                       className="hover:bg-blue-50/50 transition-colors cursor-pointer group"
                     >
 
@@ -146,19 +149,19 @@ export default function TenantDirectoryClient({ tenants, availableRooms }) {
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-1.5" onClick={e => e.stopPropagation()}>
                           {profile.guarantorIdUrl && !isSelfEmployed ? (
-                            <div title="Guarantor ID attached" className="p-1.5 bg-slate-100 text-slate-500 rounded-lg border border-slate-200">
+                            <a href={profile.guarantorIdUrl} target="_blank" rel="noopener noreferrer" title="View Guarantor ID" className="p-1.5 bg-slate-100 text-slate-500 rounded-lg border border-slate-200 hover:bg-slate-200 hover:text-slate-700 transition-colors">
                               <FileText size={14} />
-                            </div>
+                            </a>
                           ) : null}
                           {profile.isStudent && profile.studentIdUrl && (
-                            <div title="Student ID attached" className="p-1.5 bg-blue-50 text-blue-600 rounded-lg border border-blue-100">
+                            <a href={profile.studentIdUrl} target="_blank" rel="noopener noreferrer" title="View Student ID" className="p-1.5 bg-blue-50 text-blue-600 rounded-lg border border-blue-100 hover:bg-blue-100 transition-colors">
                               <GraduationCap size={14} />
-                            </div>
+                            </a>
                           )}
                           {!profile.isStudent && profile.workType === "Employee" && profile.workIdUrl && (
-                            <div title="Work ID attached" className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100">
+                            <a href={profile.workIdUrl} target="_blank" rel="noopener noreferrer" title="View Work ID" className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100 hover:bg-emerald-100 transition-colors">
                               <Briefcase size={14} />
-                            </div>
+                            </a>
                           )}
                           {profile.rulesSigned && (
                             <div title="Rules Signed" className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100">
@@ -401,51 +404,68 @@ export default function TenantDirectoryClient({ tenants, availableRooms }) {
             </div>
 
             {/* Drawer Footer Actions (Sticky Bottom) */}
-            <div className="p-6 bg-white border-t border-slate-100 shrink-0 space-y-4">
-               {/* Quick info bar */}
-               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center justify-between">
-                 <div className="flex items-center gap-2">
-                   <Calendar size={14} className="text-slate-400" />
-                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Applied</span>
-                 </div>
-                 <span className="text-xs font-bold text-slate-700">{new Date(selectedTenant.createdAt).toLocaleDateString()}</span>
-               </div>
+            <div className="bg-white border-t border-slate-100 shrink-0">
 
-               {/* Requested room */}
-               {selectedTenant.room && (
-                 <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex items-center gap-3">
-                   <Building size={16} className="text-[#0b69ff] shrink-0" />
-                   <div>
-                     <p className="text-[10px] font-black text-[#0b69ff] uppercase tracking-widest">Requested Room</p>
-                     <p className="text-sm font-bold text-[#102a43]">
-                       Room {selectedTenant.room.roomNumber}
-                       {selectedTenant.room.block?.name && ` · ${selectedTenant.room.block.name}`}
-                     </p>
-                   </div>
-                 </div>
-               )}
+              {/* Accordion Toggle */}
+              <button
+                onClick={() => setActionsOpen(o => !o)}
+                className="w-full flex items-center justify-between px-6 py-4 hover:bg-slate-50 transition-colors"
+              >
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Actions & Details</span>
+                {actionsOpen ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronUp size={16} className="text-slate-400" />}
+              </button>
 
-               {/* Partial payment toggle — only for active/awaiting payment tenants */}
-               {(selectedTenant.user?.status === "ACTIVE" || selectedTenant.user?.status === "AWAITING_PAYMENT" || selectedTenant.user?.status === "PAYMENT_MADE") && (
-                 <PartialPaymentToggle
-                   tenantProfileId={selectedTenant.id}
-                   allowPartialPayment={selectedTenant.allowPartialPayment}
-                   partialPaymentInstallments={selectedTenant.partialPaymentInstallments}
-                   totalDue={selectedTenant.room?.rentAmount || null}
-                 />
-               )}
-               
-               {/* Actions */}
-               <div className="flex gap-2 w-full [&>*]:flex-1">
-                 <ApprovalActions userId={selectedTenant.userId} status={selectedTenant.user?.status} />
-               </div>
-               <button
-                 onClick={() => setEmailTenant(selectedTenant)}
-                 className="w-full flex items-center justify-center gap-2 py-3 border border-slate-200 text-slate-700 text-sm font-bold rounded-2xl hover:bg-slate-50 hover:border-slate-300 transition-all"
-               >
-                 <Mail size={16} />
-                 Send Email to Tenant
-               </button>
+              {/* Collapsible Content */}
+              {actionsOpen && (
+                <div className="px-6 pb-6 space-y-4">
+                  {/* Quick info bar */}
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Calendar size={14} className="text-slate-400" />
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Applied</span>
+                    </div>
+                    <span className="text-xs font-bold text-slate-700">{new Date(selectedTenant.createdAt).toLocaleDateString()}</span>
+                  </div>
+
+                  {/* Requested room */}
+                  {selectedTenant.room && (
+                    <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex items-center gap-3">
+                      <Building size={16} className="text-[#0b69ff] shrink-0" />
+                      <div>
+                        <p className="text-[10px] font-black text-[#0b69ff] uppercase tracking-widest">Requested Room</p>
+                        <p className="text-sm font-bold text-[#102a43]">
+                          Room {selectedTenant.room.roomNumber}
+                          {selectedTenant.room.block?.name && ` · ${selectedTenant.room.block.name}`}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Partial payment toggle */}
+                  {(selectedTenant.user?.status === "ACTIVE" || selectedTenant.user?.status === "AWAITING_PAYMENT" || selectedTenant.user?.status === "PAYMENT_MADE") && (
+                    <PartialPaymentToggle
+                      tenantProfileId={selectedTenant.id}
+                      allowPartialPayment={selectedTenant.allowPartialPayment}
+                      partialPaymentInstallments={selectedTenant.partialPaymentInstallments}
+                      totalDue={selectedTenant.room?.rentAmount || null}
+                    />
+                  )}
+
+                  {/* Approval actions */}
+                  <div className="flex gap-2 w-full [&>*]:flex-1">
+                    <ApprovalActions userId={selectedTenant.userId} status={selectedTenant.user?.status} />
+                  </div>
+
+                  {/* Send email */}
+                  <button
+                    onClick={() => setEmailTenant(selectedTenant)}
+                    className="w-full flex items-center justify-center gap-2 py-3 border border-slate-200 text-slate-700 text-sm font-bold rounded-2xl hover:bg-slate-50 hover:border-slate-300 transition-all"
+                  >
+                    <Mail size={16} />
+                    Send Email to Tenant
+                  </button>
+                </div>
+              )}
             </div>
             
           </div>
