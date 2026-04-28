@@ -48,6 +48,16 @@ export async function POST(req) {
   try {
     const { tenantId, roomId, date, notes } = await req.json();
 
+    if (!tenantId || !roomId || !date) {
+      return NextResponse.json({ error: "tenantId, roomId and date are required" }, { status: 400 });
+    }
+
+    // Verify the room exists
+    const room = await prisma.room.findUnique({ where: { id: roomId } });
+    if (!room) {
+      return NextResponse.json({ error: "Room not found" }, { status: 400 });
+    }
+
     const inspection = await prisma.inspection.create({
       data: {
         tenantId,

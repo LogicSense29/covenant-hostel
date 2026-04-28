@@ -15,7 +15,7 @@ export async function POST(req) {
 
   try {
     const body = await req.json();
-    const { roomNumber, rentAmount, status, capacity, rentExpiryDate, blockId, imageUrl, photos = [], billingRuleIds = [] } = body;
+    const { roomNumber, rentAmount, status, capacity, rentExpiryDate, blockId, imageUrl, photos = [], billingRuleIds = [], features = [] } = body;
 
     if (!roomNumber || !rentAmount) {
       return new NextResponse("Missing fields", { status: 400 });

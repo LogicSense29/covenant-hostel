@@ -30,6 +30,7 @@ export async function POST(req) {
       workType,
       workAddress,
       companyName,
+      workIdUrl,
       roomId
     } = body;
 
@@ -104,6 +105,7 @@ export async function POST(req) {
             workType: !isStudent ? workType : null,
             workAddress: !isStudent ? workAddress : null,
             companyName: !isStudent ? companyName : null,
+            workIdUrl: !isStudent && workType === "Employee" ? workIdUrl : null,
             // Store the requested room — landlord will confirm on approval
             roomId: roomId || null,
           }

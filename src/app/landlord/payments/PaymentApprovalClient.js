@@ -10,7 +10,11 @@ export default function PaymentApprovalClient({ payments }) {
   const [filter, setFilter] = useState("PENDING");
   const [loadingId, setLoadingId] = useState(null);
 
-  const filtered = payments.filter((p) => filter === "ALL" || p.status === filter);
+  const filtered = payments.filter((p) => {
+    if (filter === "ALL") return true;
+    if (filter === "VERIFIED") return p.status === "VERIFIED" || p.status === "SUCCESS";
+    return p.status === filter;
+  });
 
   const counts = {
     ALL: payments.length,
@@ -30,7 +34,28 @@ export default function PaymentApprovalClient({ payments }) {
   };
 
   const handleReject = async (id) => {
-    if (!confirm("Reject this payment? The tenant will be notified.")) return;
+    toast((t) => (
+      <div className="flex flex-col gap-3">
+        <p className="text-sm font-semibold text-slate-800">Reject this payment? The tenant will be notified.</p>
+        <div className="flex gap-2">
+          <button
+            onClick={() => { toast.dismiss(t.id); confirmReject(id); }}
+            className="flex-1 py-1.5 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 transition-colors"
+          >
+            Reject
+          </button>
+          <button
+            onClick={() => toast.dismiss(t.id)}
+            className="flex-1 py-1.5 bg-slate-100 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-200 transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    ), { duration: 10000 });
+  };
+
+  const confirmReject = async (id) => {
     setLoadingId(id);
     try {
       const res = await fetch(`/api/payments/${id}/approve`, { method: "DELETE" });

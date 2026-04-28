@@ -41,8 +41,24 @@ export default function InspectionManager({ initialInspections, tenants, rooms }
       .catch(console.error);
   }, []);
 
+  const getMinDate = () => {
+    const now = new Date();
+    const hour = now.getHours();
+    // If past 1pm, disable today — earliest is tomorrow
+    if (hour >= 13) {
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      return tomorrow.toISOString().split('T')[0];
+    }
+    return now.toISOString().split('T')[0];
+  };
+
   const handleAdd = async (e) => {
     e.preventDefault();
+    if (!formData.roomId) {
+      toast.error("Selected tenant has no room assigned.");
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch("/api/inspections", {
@@ -117,7 +133,10 @@ export default function InspectionManager({ initialInspections, tenants, rooms }
           <p className="text-slate-500 mt-1">Schedule and manage move-in/move-out reports.</p>
         </div>
         <button 
-          onClick={() => setShowAddModal(true)}
+          onClick={() => {
+            setFormData({ tenantId: "", roomId: "", date: getMinDate(), notes: "" });
+            setShowAddModal(true);
+          }}
           className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:translate-y-px transition-all"
         >
           <Plus size={20} />
@@ -370,6 +389,7 @@ export default function InspectionManager({ initialInspections, tenants, rooms }
                 <input
                   type="date"
                   required
+                  min={getMinDate()}
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white transition-all text-slate-500"
                   value={formData.date}
                   onChange={(e) => setFormData({...formData, date: e.target.value})}

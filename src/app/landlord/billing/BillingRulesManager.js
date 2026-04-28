@@ -178,8 +178,8 @@ export default function BillingRulesManager({ defaultRules, rooms, blocks = [] }
                   <div key={rule.id} className="p-5 flex items-center justify-between hover:bg-slate-50/50 transition-colors group">
                     <div className="flex flex-col gap-1">
                       <span className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">
-                        <span className="text-blue-600 text-xs font-bold mr-2 uppercase tracking-tight">[{String(rule.type || "Additional Charge").replace(/_/g, ' ')}]</span>
                         {rule.title || rule.description}
+                        <span className="text-blue-600 text-xs font-bold ml-2 uppercase tracking-tight">[{String(rule.type || "Additional Charge").replace(/_/g, ' ')}]</span>
                         <span className="text-blue-500 text-[10px] font-bold uppercase ml-3 bg-blue-50 px-1.5 py-0.5 rounded-md border border-blue-100">
                           {rule.frequency?.replace(/_/g, ' ') || "ONCE"}
                         </span>
@@ -201,7 +201,7 @@ export default function BillingRulesManager({ defaultRules, rooms, blocks = [] }
                     </div>
                     
                     <div className="flex items-center gap-4">
-                      <span className="text-lg font-bold text-slate-900">+₦{rule.amount.toLocaleString()}</span>
+                      <span className="text-lg font-bold text-slate-900">₦{rule.amount.toLocaleString()}</span>
                       <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
                         <button 
                           onClick={() => handleEdit(rule)}
