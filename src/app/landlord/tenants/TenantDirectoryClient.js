@@ -22,12 +22,15 @@ import ApprovalActions from "./ApprovalActions";
 import AssignRoomActions from "./AssignRoomActions";
 import PartialPaymentToggle from "@/components/PartialPaymentToggle";
 import TenantEmailModal from "./TenantEmailModal";
+import BulkEmailModal from "./BulkEmailModal";
 
 export default function TenantDirectoryClient({ tenants, availableRooms }) {
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [selectedTenant, setSelectedTenant] = useState(null);
   const [emailTenant, setEmailTenant] = useState(null);
   const [actionsOpen, setActionsOpen] = useState(true);
+  const [showBulkEmail, setShowBulkEmail] = useState(false);
 
   useEffect(() => {
     if (selectedTenant) {
@@ -38,11 +41,14 @@ export default function TenantDirectoryClient({ tenants, availableRooms }) {
     return () => { document.body.style.overflow = "unset"; };
   }, [selectedTenant]);
 
-  const filteredTenants = tenants.filter(t => 
-    t.user?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    t.phone?.includes(searchTerm) ||
-    t.guarantorName?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredTenants = tenants.filter(t => {
+    const matchesSearch =
+      t.user?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      t.phone?.includes(searchTerm) ||
+      t.guarantorName?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = !statusFilter || t.user?.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 relative">
@@ -62,6 +68,25 @@ export default function TenantDirectoryClient({ tenants, availableRooms }) {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="bg-slate-50 px-4 py-2.5 rounded-xl border border-slate-100 text-sm font-semibold text-slate-600 outline-none focus:ring-2 focus:ring-blue-500/10 transition-all shrink-0"
+        >
+          <option value="">All Status</option>
+          <option value="PENDING">Pending</option>
+          <option value="AWAITING_PAYMENT">Awaiting Payment</option>
+          <option value="PAYMENT_MADE">Payment Made</option>
+          <option value="ACTIVE">Active</option>
+          <option value="REJECTED">Rejected</option>
+        </select>
+        <button
+          onClick={() => setShowBulkEmail(true)}
+          className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-all shadow-sm shrink-0"
+        >
+          <Mail size={16} />
+          Bulk Email
+        </button>
       </div>
 
       {filteredTenants.length === 0 ? (
@@ -470,6 +495,12 @@ export default function TenantDirectoryClient({ tenants, availableRooms }) {
             
           </div>
         </>
+      )}
+      {showBulkEmail && (
+        <BulkEmailModal
+          tenants={tenants}
+          onClose={() => setShowBulkEmail(false)}
+        />
       )}
       {emailTenant && (
         <TenantEmailModal
