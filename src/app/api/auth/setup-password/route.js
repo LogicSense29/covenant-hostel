@@ -48,7 +48,9 @@ export async function POST(req) {
     await prisma.$transaction([
       prisma.user.update({
         where: { id: setupToken.userId },
-        data: { hashedPassword, status: "ACTIVE" }
+        // Stay at AWAITING_PAYMENT — tenant must pay before becoming ACTIVE
+        // Only update status if currently PENDING (edge case), otherwise preserve AWAITING_PAYMENT
+        data: { hashedPassword }
       }),
       prisma.setupToken.delete({ where: { token } })
     ]);

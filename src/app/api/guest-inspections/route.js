@@ -69,7 +69,8 @@ export async function POST(request) {
         blockName: blockName || null,
         address: address || null,
         status: "PENDING",
-        feePaid: isFree ? true : false,
+        feePaid: false,
+        amountPaid: isFree ? 0 : null,
       }
     });
 

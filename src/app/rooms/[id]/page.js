@@ -26,7 +26,12 @@ export default async function RoomDetailPage({ params }) {
       block: true,
       billingRules: true,
       specificRules: true,
-      tenants: { select: { id: true } },
+      tenants: {
+        where: {
+          user: { status: { in: ["ACTIVE", "PAYMENT_MADE"] } }
+        },
+        select: { id: true }
+      },
     },
   });
 
@@ -175,9 +180,6 @@ export default async function RoomDetailPage({ params }) {
                     >
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-gray-800 truncate">{rule.title || rule.description}</p>
-                        {rule.title && rule.description && (
-                          <p className="text-xs text-gray-500 mt-0.5 truncate">{rule.description}</p>
-                        )}
                         <p className="text-xs text-gray-400 mt-0.5 capitalize">{rule.frequency?.toLowerCase() ?? "once"}</p>
                       </div>
                       <span className="text-sm font-black text-[#0b69ff] shrink-0 ml-4">
@@ -262,8 +264,10 @@ export default async function RoomDetailPage({ params }) {
               {/* Price breakdown */}
               <div className="mt-6 pt-6 border-t border-gray-100 space-y-2">
                 {allRules.map((rule) => (
-                  <div key={rule.id} className="flex justify-between text-sm text-gray-600">
-                    <span className="truncate mr-4">{rule.title || rule.description}</span>
+                  <div key={rule.id} className="flex justify-between items-start text-sm text-gray-600">
+                    <div className="min-w-0 mr-4">
+                      <span className="font-semibold text-gray-800 block truncate">{rule.title || rule.description}</span>
+                    </div>
                     <span className="font-semibold shrink-0">₦{rule.amount.toLocaleString()}</span>
                   </div>
                 ))}

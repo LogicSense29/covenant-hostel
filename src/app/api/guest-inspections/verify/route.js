@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { sendInspectionReceipt, sendAdminInspectionAlert } from "@/lib/email";
+import { sendInspectionReceipt, sendLandlordInspectionAlert } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -72,7 +72,7 @@ export async function POST(request) {
       }).then(() => console.log("Guest receipt sent"))
         .catch(err => console.error("Guest receipt failed:", err));
 
-      sendAdminInspectionAlert({
+      sendLandlordInspectionAlert({
         name: updatedInspection.name,
         email: updatedInspection.email,
         phone: updatedInspection.phone,

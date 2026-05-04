@@ -242,13 +242,15 @@ export default function RoomForm({ initialData }) {
   }, [formData.blockId, formData.rentAmount, billingRules, fetchingData]);
 
   // Auto-tick global and block-specific billing rules (but allow unticking)
+  // On new rooms: auto-tick all applicable rules
+  // On edit: only auto-tick rules not already saved (don't override landlord's saved choices)
   useEffect(() => {
     if (fetchingData || billingRules.length === 0) return;
+    if (isEditing) return; // on edit, respect the saved billingRuleIds — don't auto-add
 
-    // Find rules that should be auto-ticked: global (non-BASE_RENT) + block-specific
     const autoTickRules = billingRules.filter(r => {
       const type = String(r.type || "").toUpperCase();
-      if (type === "BASE_RENT") return false; // BASE_RENT handled separately
+      if (type === "BASE_RENT") return false;
       return r.isGlobal || r.blockId === formData.blockId;
     });
 
@@ -420,7 +422,7 @@ export default function RoomForm({ initialData }) {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className={styles.formGroup}>
+          {/* <div className={styles.formGroup}>
             <div className="flex items-center justify-between mb-2">
               <label htmlFor="rentAmount" className={styles.label + " !mb-0"}>Rent Amount (₦)</label>
               {suggestedRent && (
@@ -466,6 +468,22 @@ export default function RoomForm({ initialData }) {
                 </p>
               </div>
             )}
+          </div> */}
+          <div className={styles.formGroup}>
+            <label htmlFor="status" className={styles.label}>Room Status</label>
+            <select
+              id="status"
+              name="status"
+              className={styles.input}
+              value={formData.status}
+              onChange={handleChange}
+              disabled={isEditing && initialData.status === "OCCUPIED" && formData.status !== "OCCUPIED"} // Logic prevention
+            >
+              <option value="AVAILABLE">Available</option>
+              <option value="OCCUPIED" disabled={!isEditing || initialData.status !== "OCCUPIED"}>Occupied (Assigned by system)</option>
+              <option value="EXPIRED_RENT">Expired Rent</option>
+              <option value="UNDER_MAINTENANCE">Under Maintenance</option>
+            </select>
           </div>
 
 
@@ -475,7 +493,7 @@ export default function RoomForm({ initialData }) {
               id="capacity"
               name="capacity"
               type="number"
-              min="1"
+              min="2"
               required
               className={styles.input}
               placeholder="e.g. 1, 2, 4"
@@ -530,23 +548,7 @@ export default function RoomForm({ initialData }) {
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className={styles.formGroup}>
-            <label htmlFor="status" className={styles.label}>Room Status</label>
-            <select
-              id="status"
-              name="status"
-              className={styles.input}
-              value={formData.status}
-              onChange={handleChange}
-              disabled={isEditing && initialData.status === "OCCUPIED" && formData.status !== "OCCUPIED"} // Logic prevention
-            >
-              <option value="AVAILABLE">Available</option>
-              <option value="OCCUPIED" disabled={!isEditing || initialData.status !== "OCCUPIED"}>Occupied (Assigned by system)</option>
-              <option value="EXPIRED_RENT">Expired Rent</option>
-              <option value="UNDER_MAINTENANCE">Under Maintenance</option>
-            </select>
-          </div>
+        {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
           <div className={styles.formGroup}>
             <label htmlFor="rentExpiryDate" className={styles.label}>Rent Expiry Date (Optional)</label>
@@ -559,7 +561,7 @@ export default function RoomForm({ initialData }) {
               onChange={handleChange}
             />
           </div>
-        </div>
+        </div> */}
 
         {/* Billing Rules Section */}
         <div className="mt-8 border-t border-slate-100 pt-8">
@@ -594,7 +596,7 @@ export default function RoomForm({ initialData }) {
                         key={rule.id}
                         className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-100 rounded-xl text-sm"
                       >
-                        <span className="font-semibold text-slate-900">{rule.description}</span>
+                        <span className="font-semibold text-slate-900">{rule.title || rule.description}</span>
                         <span className="text-xs font-bold text-blue-600">₦{rule.amount.toLocaleString()}</span>
                         {rule.isGlobal && (
                           <span className="text-[9px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded uppercase">Global</span>
@@ -647,7 +649,10 @@ export default function RoomForm({ initialData }) {
               <div>
                 <h2 className="text-xl font-bold text-slate-900">Manage Billing Rules</h2>
                 <p className="text-sm text-slate-500 mt-1">
-                  {formData.billingRuleIds.length} selected · {billingRules.filter(r => r.type !== "BASE_RENT").length} available
+                  {formData.billingRuleIds.length} selected · {billingRules.filter(r => {
+                    const type = String(r.type || "").toUpperCase();
+                    return type !== "BASE_RENT" || (r.blockId === formData.blockId && !!formData.blockId);
+                  }).length} available
                 </p>
               </div>
               <button onClick={() => setIsBillingModalOpen(false)} className="p-2 hover:bg-white rounded-xl text-slate-400 transition-colors">
@@ -673,9 +678,32 @@ export default function RoomForm({ initialData }) {
             <div className="flex-1 overflow-y-auto p-6 space-y-2">
               {billingRules
                 .filter(r => {
+                  const searchMatch = (r.title || r.description || "").toLowerCase().includes(billingSearch.toLowerCase());
+                  if (!searchMatch) return false;
                   const type = String(r.type || "").toUpperCase();
-                  return type !== "BASE_RENT" &&
-                    r.description.toLowerCase().includes(billingSearch.toLowerCase());
+                  // Include BASE_RENT only if it belongs to the selected block
+                  if (type === "BASE_RENT") return r.blockId === formData.blockId && !!formData.blockId;
+                  return true;
+                })
+                .sort((a, b) => {
+                  const typeA = String(a.type || "").toUpperCase();
+                  const typeB = String(b.type || "").toUpperCase();
+                  const blockId = formData.blockId;
+
+                  // 1. Block BASE_RENT first
+                  if (typeA === "BASE_RENT" && a.blockId === blockId) return -1;
+                  if (typeB === "BASE_RENT" && b.blockId === blockId) return 1;
+
+                  // 2. Other block-specific rules next
+                  if (a.blockId === blockId && b.blockId !== blockId) return -1;
+                  if (b.blockId === blockId && a.blockId !== blockId) return 1;
+
+                  // 3. Global rules next
+                  if (a.isGlobal && !b.isGlobal) return -1;
+                  if (b.isGlobal && !a.isGlobal) return 1;
+
+                  // 4. Rest alphabetically
+                  return (a.title || a.description || "").localeCompare(b.title || b.description || "");
                 })
                 .map(rule => {
                   const isSelected = formData.billingRuleIds.includes(rule.id);
@@ -701,7 +729,7 @@ export default function RoomForm({ initialData }) {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <span className={`text-sm font-bold truncate ${isSelected ? "text-slate-900" : "text-slate-700"}`}>
-                            {rule.description}
+                            {rule.title || rule.description}
                           </span>
                           {rule.isGlobal && (
                             <span className="text-[9px] font-bold bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-md border border-blue-100 uppercase">

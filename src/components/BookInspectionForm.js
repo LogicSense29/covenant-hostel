@@ -23,6 +23,7 @@ export default function BookInspectionForm() {
   const [success, setSuccess] = useState(false);
   const [fee, setFee] = useState(0);
   const [feeEnabled, setFeeEnabled] = useState(true);
+  const [paidAmount, setPaidAmount] = useState(0); // locked at booking time
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   const handleShare = () => {
@@ -151,10 +152,9 @@ export default function BookInspectionForm() {
 
   // Payment success — Paystack has confirmed the transaction on their end.
   const handlePaymentSuccess = async (reference) => {
+    setPaidAmount(feeRef.current); // lock the amount that was actually paid
     setSuccess(true);
-    toast.success("Payment successful! Booking confirmed.", {
-      duration: 3000,
-    });
+    toast.dismiss();
 
     try {
       await fetch("/api/guest-inspections/verify", {
@@ -185,13 +185,13 @@ export default function BookInspectionForm() {
     
     // Validate email
     if (!validateEmail(formData.email)) {
-      toast.error("Please enter a valid email address");
+      toast.error("Please enter a valid email address", { duration: 3000 });
       return;
     }
     
     // Validate phone if provided
     if (formData.phone && !validatePhone(formData.phone)) {
-      toast.error("Please enter a valid 10-digit phone number");
+      toast.error("Please enter a valid 10-digit phone number", { duration: 3000 });
       return;
     }
     
@@ -222,6 +222,7 @@ export default function BookInspectionForm() {
       setLoading(false);
 
       if (feeRef.current === 0) {
+        setPaidAmount(0); // lock as free
         setSuccess(true);
         toast.success("Booking confirmed successfully!", { duration: 3000 });
       } else {
@@ -253,7 +254,7 @@ export default function BookInspectionForm() {
             </div>
           </div>
 
-          <h1 className="text-3xl font-black text-slate-900 mb-2 tracking-tight">Payment Successful!</h1>
+          <h1 className="text-3xl font-black text-slate-900 mb-2 tracking-tight">Room Inspection Booked</h1>
           <p className="text-blue-600 font-bold text-sm uppercase tracking-widest mb-6">Inspection Confirmed</p>
 
           <div className="bg-slate-50 rounded-2xl p-5 mb-6 text-left space-y-3 border border-slate-100">
@@ -274,11 +275,13 @@ export default function BookInspectionForm() {
             <div className="h-px bg-slate-100" />
             <div className="flex justify-between items-center">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wide">Amount Paid</span>
-              <span className="font-black text-green-600 text-lg">{!feeEnabled || fee === 0 ? "FREE" : `₦${fee.toLocaleString()}`}</span>
+              <span className="font-black text-green-600 text-lg">{paidAmount === 0 ? "FREE" : `₦${paidAmount.toLocaleString()}`}</span>
             </div>
           </div>
 
-          <p className="text-slate-400 text-xs mb-8">Your booking has been received. Please check your inbox for details.</p>
+          {paidAmount > 0 && (
+            <PaymentSuccessMessage amount={paidAmount} />
+          )}
 
           <button
             onClick={() => router.push("/")}
@@ -293,7 +296,7 @@ export default function BookInspectionForm() {
 
   return (
     <div className="min-h-screen bg-[#fafcff] flex items-center justify-center p-6">
-      <Toaster position="top-center" />
+      <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
       
       {!settingsLoaded ? (
         <div className="bg-white rounded-3xl p-10 shadow-lg max-w-xl w-full">
@@ -429,6 +432,19 @@ export default function BookInspectionForm() {
         </form>
       </div>
       )}
+    </div>
+  );
+}
+
+// Payment success message — stays permanently on the success screen
+function PaymentSuccessMessage({ amount }) {
+  return (
+    <div className="mb-6 flex items-start gap-3 p-4 bg-green-50 border border-green-100 rounded-2xl text-left animate-in fade-in duration-300">
+      <CheckCircle2 size={18} className="text-green-600 shrink-0 mt-0.5" />
+      <div>
+        <p className="text-sm font-bold text-green-800">Payment of ₦{amount.toLocaleString()} confirmed</p>
+        <p className="text-xs text-green-600 mt-0.5">Your payment was received successfully. A receipt has been sent to your email.</p>
+      </div>
     </div>
   );
 }

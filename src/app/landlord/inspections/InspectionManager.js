@@ -273,11 +273,15 @@ export default function InspectionManager({ initialInspections, tenants, rooms }
                       }`}>
                         {guest.status}
                       </div>
-                      {guest.feePaid && (
+                      {guest.feePaid ? (
                         <div className="bg-green-100 text-green-700 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider flex items-center gap-1">
-                          <CheckCircle2 size={10} /> Paid
+                          <CheckCircle2 size={10} /> ₦{Number(guest.amountPaid || 0).toLocaleString()} Paid
                         </div>
-                      )}
+                      ) : (guest.amountPaid === 0 || guest.amountPaid === null) ? (
+                        <div className="bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider">
+                          Free
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                   

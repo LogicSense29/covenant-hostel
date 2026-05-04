@@ -38,6 +38,11 @@ export default async function RoomsPage({ searchParams }) {
     where,
     include: {
       tenants: {
+        where: {
+          user: {
+            status: { in: ["ACTIVE", "PAYMENT_MADE"] }
+          }
+        },
         include: { user: true }
       },
       block: true
