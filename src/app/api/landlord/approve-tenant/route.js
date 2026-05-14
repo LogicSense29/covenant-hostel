@@ -2,7 +2,6 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { crypto } from "crypto";
 import { sendAccountApprovedEmail } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
@@ -31,8 +30,8 @@ export async function POST(req) {
       return new NextResponse("User not found", { status: 404 });
     }
 
-    if (user.status !== "PENDING") {
-      return new NextResponse("User is not in PENDING status", { status: 400 });
+    if (user.status !== "PENDING" && user.status !== "AWAITING_PAYMENT") {
+      return new NextResponse("User is not in PENDING or AWAITING_PAYMENT status", { status: 400 });
     }
 
     // Generate secure token

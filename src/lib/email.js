@@ -351,3 +351,82 @@ export async function sendReceiptUploadedAlert({ adminEmail, tenantName, roomNum
     return { success: false, error };
   }
 }
+
+export async function sendRecurringChargeDueReminder({ email, name, roomNumber, chargeTitle, amount, dueDate }) {
+  try {
+    const transporter = createTransporter();
+    await transporter.sendMail({
+      from: `"Covenant Hostel" <${smtpUser}>`,
+      to: email,
+      subject: `Charge Due: ${chargeTitle} — Room ${roomNumber}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
+          <h2 style="color: #0b69ff;">Recurring Charge Due</h2>
+          <p>Hi ${name},</p>
+          <p>A recurring charge for your tenancy on <strong>Room ${roomNumber}</strong> is due on <strong>${new Date(dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</strong>.</p>
+          <div style="background: #f0f7ff; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 4px solid #0b69ff;">
+            <p style="margin: 0 0 8px; font-size: 13px; color: #64748b; text-transform: uppercase; font-weight: bold;">Charge</p>
+            <p style="margin: 0 0 12px; font-size: 16px; font-weight: bold; color: #102a43;">${chargeTitle}</p>
+            <p style="margin: 0; font-size: 22px; font-weight: 900; color: #0b69ff;">₦${Number(amount).toLocaleString()}</p>
+          </div>
+          <p>Please log in to your tenant portal to make your payment before the due date.</p>
+          <p>Best regards,<br/>The Covenant Hostel Management Team</p>
+        </div>
+      `,
+    });
+    return { success: true };
+  } catch (error) {
+    console.error("Error sending recurring charge reminder:", error);
+    return { success: false, error };
+  }
+}
+
+export async function sendAdminRecurringChargeAlert({ adminEmail, tenantName, roomNumber, chargeTitle, amount, dueDate }) {
+  if (!adminEmail) return;
+  try {
+    const transporter = createTransporter();
+    await transporter.sendMail({
+      from: `"Covenant Hostel" <${smtpUser}>`,
+      to: adminEmail,
+      subject: `Recurring Charge Due: ${tenantName} — ${chargeTitle}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px;">
+          <h3>Recurring Charge Due</h3>
+          <p>Tenant <strong>${tenantName}</strong> (Room ${roomNumber}) has a recurring charge <strong>${chargeTitle}</strong> of <strong>₦${Number(amount).toLocaleString()}</strong> due on <strong>${new Date(dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</strong>.</p>
+        </div>
+      `,
+    });
+    return { success: true };
+  } catch (error) {
+    console.error("Error sending admin recurring charge alert:", error);
+    return { success: false, error };
+  }
+}
+
+export async function sendRentExpiredNotification({ email, name, roomNumber, expiryDate }) {
+  try {
+    const transporter = createTransporter();
+    await transporter.sendMail({
+      from: `"Covenant Hostel" <${smtpUser}>`,
+      to: email,
+      subject: `Your Tenancy Has Expired — Room ${roomNumber}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
+          <h2 style="color: #e11d48;">Tenancy Expired</h2>
+          <p>Hi ${name},</p>
+          <p>Your tenancy for <strong>Room ${roomNumber}</strong> expired on <strong>${new Date(expiryDate).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</strong>.</p>
+          <div style="background: #fff1f2; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 4px solid #e11d48;">
+            <p style="margin: 0; font-weight: bold; color: #9f1239;">Your portal access has been restricted.</p>
+            <p style="margin: 8px 0 0; color: #b91c1c; font-size: 14px;">Please contact the hostel management office to renew your tenancy and restore full access.</p>
+          </div>
+          <p>If you believe this is an error or have already made a renewal payment, please contact us immediately.</p>
+          <p>Best regards,<br/>The Covenant Hostel Management Team</p>
+        </div>
+      `,
+    });
+    return { success: true };
+  } catch (error) {
+    console.error("Error sending rent expired notification:", error);
+    return { success: false, error };
+  }
+}

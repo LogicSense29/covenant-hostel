@@ -23,7 +23,7 @@ export const authOptions = {
           throw new Error("Invalid credentials");
         }
 
-        if (user.status !== "ACTIVE") {
+        if (user.status === "PENDING" || user.status === "REJECTED") {
           throw new Error("Account is pending approval or activation");
         }
 

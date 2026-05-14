@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { createNotification, getLandlordUserIds } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,7 @@ export async function POST(req) {
 
   try {
     const body = await req.json();
-    const { amount, receiptUrl, isPartial, tenantId, installmentNumber, totalInstallments, dueDate, paymentType } = body;
+    const { amount, receiptUrl, isPartial, tenantId, installmentNumber, totalInstallments, dueDate, paymentType, recurringChargeId } = body;
 
     if (!amount || !tenantId) {
       return new NextResponse("Missing required fields", { status: 400 });
@@ -28,15 +29,13 @@ export async function POST(req) {
       return new NextResponse("Forbidden", { status: 403 });
     }
 
-    // Receipt upload payments start as PENDING (need landlord approval)
-    // Paystack payments are verified separately via /verify
     const payment = await prisma.$transaction(async (tx) => {
       const p = await tx.payment.create({
         data: {
           amount,
           receiptUrl: receiptUrl || null,
           isPartial: !!isPartial,
-          paymentType: paymentType || (isPartial ? "PARTIAL" : "FULL"),
+          paymentType: paymentType || (isPartial ? "PARTIAL" : recurringChargeId ? "RECURRING" : "FULL"),
           installmentNumber: installmentNumber || null,
           totalInstallments: totalInstallments || null,
           dueDate: dueDate ? new Date(dueDate) : null,
@@ -45,18 +44,37 @@ export async function POST(req) {
         },
       });
 
-      // Only update user status if it's a receipt upload (landlord will confirm later)
-      // or if it's a direct full payment
+      if (recurringChargeId) {
+        await tx.recurringCharge.update({
+          where: { id: recurringChargeId },
+          data: {
+            status: receiptUrl ? "PENDING" : "PAID",
+            paymentId: p.id,
+          },
+        });
+      }
+
       if (receiptUrl) {
-        // Receipt upload — keep user at PAYMENT_MADE so landlord knows to review,
-        // but payment itself stays PENDING until landlord approves
         await tx.user.update({
           where: { id: tenant.userId },
           data: { status: "PAYMENT_MADE" },
         });
       }
-      // Note: Paystack payments go through /api/payments/verify which handles status update
+
+      return p;
     });
+
+    // Notify landlord when a receipt is uploaded for approval
+    if (receiptUrl) {
+      const landlordIds = await getLandlordUserIds();
+      await createNotification({
+        userIds: landlordIds,
+        title: "Payment Receipt Uploaded",
+        message: `${tenant.user.name} uploaded a receipt of ₦${amount.toLocaleString()} awaiting your approval.`,
+        type: "PAYMENT",
+        link: "/landlord/payments",
+      });
+    }
 
     return NextResponse.json(payment);
   } catch (error) {

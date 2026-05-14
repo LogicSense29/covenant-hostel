@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { createNotification, getLandlordUserIds } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -65,6 +66,16 @@ export async function POST(req) {
         tenantId: profile.id,
         status: "OPEN"
       }
+    });
+
+    // Notify landlord of new ticket
+    const landlordIds = await getLandlordUserIds();
+    await createNotification({
+      userIds: landlordIds,
+      title: "New Maintenance Ticket",
+      message: `A new ${category || "maintenance"} ticket has been submitted: "${issueDescription.slice(0, 60)}${issueDescription.length > 60 ? "…" : ""}"`,
+      type: "MAINTENANCE",
+      link: "/landlord/maintenance",
     });
 
     return NextResponse.json(ticket, { status: 201 });

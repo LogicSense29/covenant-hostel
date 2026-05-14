@@ -6,6 +6,7 @@ import Link from "next/link";
 import { CreditCard, CheckCircle2, AlertCircle, Loader2, Upload, Calendar, ChevronDown, ChevronUp } from "lucide-react";
 import { usePaystackPayment } from "react-paystack";
 import { useSession } from "next-auth/react";
+import { toast } from "react-hot-toast";
 
 export default function PaymentForm({
   totalDue,
@@ -22,7 +23,6 @@ export default function PaymentForm({
   const [mode, setMode] = useState("paystack"); // "paystack" | "receipt"
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [rulesAgreed, setRulesAgreed] = useState(false);
   const [signature, setSignature] = useState("");
   const [receiptFile, setReceiptFile] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(false);
@@ -83,10 +83,11 @@ export default function PaymentForm({
         setSuccess(true);
         setTimeout(() => { setSuccess(false); router.refresh(); }, 3000);
       } else {
-        alert("Payment verification failed. Please contact support.");
+        const errText = await res.text();
+        toast.error(errText || "Payment verification failed. Please contact support.");
       }
     } catch {
-      alert("An error occurred during verification.");
+      toast.error("An error occurred during verification. Please contact support.");
     } finally {
       setLoading(false);
     }
@@ -94,16 +95,18 @@ export default function PaymentForm({
 
   const handlePaystackClick = (e) => {
     e.preventDefault();
-    if (!rulesAgreed) return alert("Please agree to the Tenancy Rules before proceeding.");
-    if (!signature.trim()) return alert("Please provide your digital signature.");
-    setLoading(true);
-    initializePayment(onPaystackSuccess, () => setLoading(false));
+    if (!signature.trim()) return toast.error("Please provide your digital signature.");
+    // Don't set loading here — Paystack opens its own modal overlay
+    // loading is set inside onPaystackSuccess after Paystack closes
+    initializePayment({
+      onSuccess: onPaystackSuccess,
+      onClose: () => setLoading(false),
+    });
   };
 
   const handleReceiptUpload = async (e) => {
     e.preventDefault();
-    if (!receiptFile) return alert("Please select a receipt file.");
-    if (!rulesAgreed) return alert("Please agree to the Tenancy Rules before proceeding.");
+    if (!receiptFile) return toast.error("Please select a receipt file.");
 
     setUploadProgress(true);
     try {
@@ -112,7 +115,8 @@ export default function PaymentForm({
       formData.append("file", receiptFile);
       const uploadRes = await fetch("/api/upload", { method: "POST", body: formData });
       if (!uploadRes.ok) throw new Error("Upload failed");
-      const { url } = await uploadRes.json();
+      const { fileUrl } = await uploadRes.json();
+      if (!fileUrl) throw new Error("No file URL returned");
 
       // Create payment record
       const res = await fetch("/api/payments", {
@@ -120,7 +124,7 @@ export default function PaymentForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount: payAmount,
-          receiptUrl: url,
+          receiptUrl: fileUrl,
           isPartial: isPartialMode,
           paymentType: isPartialMode ? "PARTIAL" : "FULL",
           installmentNumber: nextInstallment?.number || null,
@@ -134,10 +138,10 @@ export default function PaymentForm({
         setSuccess(true);
         setTimeout(() => { setSuccess(false); router.refresh(); }, 3000);
       } else {
-        alert("Failed to submit receipt. Please try again.");
+        toast.error("Failed to submit receipt. Please try again.");
       }
     } catch {
-      alert("An error occurred during upload.");
+      toast.error("An error occurred during upload.");
     } finally {
       setUploadProgress(false);
     }
@@ -278,34 +282,21 @@ export default function PaymentForm({
           </div>
         )}
 
-        {/* Agreement */}
+        {/* Signature */}
         <div className="space-y-4">
-          <div className="flex items-start gap-3">
-            <input
-              type="checkbox"
-              id="rulesAgreed"
-              className="mt-1 w-4 h-4 rounded border-slate-300 text-blue-600 cursor-pointer"
-              checked={rulesAgreed}
-              onChange={(e) => setRulesAgreed(e.target.checked)}
-            />
-            <label htmlFor="rulesAgreed" className="text-xs text-slate-600 leading-relaxed cursor-pointer">
-              I agree to the{" "}
-              <Link href="/tenant/rules" className="text-blue-600 font-bold hover:underline" target="_blank">
-                Tenancy Rules and Regulations
-              </Link>
-              .
-            </label>
-          </div>
-
-          {rulesAgreed && mode === "paystack" && (
-            <div className="animate-in slide-in-from-top-2 duration-300">
+          {mode === "paystack" && (
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
+                Digital Signature <span className="text-red-400">*</span>
+              </label>
               <input
                 type="text"
-                placeholder="Type your full name as digital signature"
+                placeholder="Type your full name to sign"
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-300 outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white transition-all text-center italic"
                 value={signature}
                 onChange={(e) => setSignature(e.target.value)}
               />
+              <p className="text-xs text-slate-400 mt-1.5">Required before payment can proceed</p>
             </div>
           )}
         </div>
@@ -314,7 +305,7 @@ export default function PaymentForm({
         {mode === "paystack" ? (
           <button
             onClick={handlePaystackClick}
-            disabled={loading || !rulesAgreed || !signature.trim()}
+            disabled={loading || !signature.trim()}
             className="w-full py-4 bg-[#0b69ff] text-white rounded-2xl text-sm font-bold hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:translate-y-px transition-all disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none flex items-center justify-center gap-2"
           >
             {loading ? <><Loader2 size={18} className="animate-spin" /> Processing...</> : `Pay ₦${payAmount.toLocaleString()} via Paystack`}
@@ -322,7 +313,7 @@ export default function PaymentForm({
         ) : (
           <button
             onClick={handleReceiptUpload}
-            disabled={uploadProgress || !receiptFile || !rulesAgreed}
+            disabled={uploadProgress || !receiptFile}
             className="w-full py-4 bg-[#102a43] text-white rounded-2xl text-sm font-bold hover:bg-slate-800 active:translate-y-px transition-all disabled:bg-slate-200 disabled:text-slate-400 flex items-center justify-center gap-2"
           >
             {uploadProgress ? <><Loader2 size={18} className="animate-spin" /> Uploading...</> : "Submit Receipt for Approval"}

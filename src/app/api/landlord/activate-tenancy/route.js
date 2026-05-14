@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import nodemailer from "nodemailer";
+import { createNotification } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -142,6 +143,13 @@ export async function POST(req) {
         roomNumber,
         rentStartDate: now,
         rentExpiryDate: expiryDate,
+      }),
+      createNotification({
+        userId: user.id,
+        title: "Tenancy Activated",
+        message: `Your tenancy for Room ${roomNumber} is now active. Welcome to Covenant Hostel!`,
+        type: "TENANCY",
+        link: "/tenant",
       }),
     ]);
 

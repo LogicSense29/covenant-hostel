@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { createNotification } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
-
 
 export async function PUT(req, { params }) {
   const session = await getServerSession(authOptions);
@@ -18,8 +18,25 @@ export async function PUT(req, { params }) {
 
     const ticket = await prisma.maintenanceTicket.update({
       where: { id },
-      data: { status }
+      data: { status },
+      include: { tenant: { include: { user: true } } },
     });
+
+    // Notify tenant of status change
+    const statusLabels = {
+      IN_PROGRESS: "is now in progress",
+      RESOLVED: "has been resolved",
+      CANCELLED: "has been cancelled",
+    };
+    if (statusLabels[status]) {
+      await createNotification({
+        userId: ticket.tenant.userId,
+        title: "Ticket Update",
+        message: `Your maintenance ticket "${ticket.issueDescription.slice(0, 50)}…" ${statusLabels[status]}.`,
+        type: "MAINTENANCE",
+        link: "/tenant/maintenance",
+      });
+    }
 
     return NextResponse.json(ticket);
   } catch (err) {

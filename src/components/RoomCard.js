@@ -48,13 +48,26 @@ export default function RoomCard({ room }) {
     UNDER_MAINTENANCE: "bg-slate-50 text-slate-600 border-slate-100",
   };
 
-  const displayStatus = room.tenants.length >= room.capacity
+  // Split tenants by status for display
+  const activeTenants = room.tenants.filter(t =>
+    t.user?.status === "ACTIVE" || t.user?.status === "PAYMENT_MADE"
+  );
+  const pendingTenants = room.tenants.filter(t =>
+    t.user?.status === "AWAITING_PAYMENT" || t.user?.status === "PENDING"
+  );
+  const allTenants = room.tenants;
+
+  const displayStatus = allTenants.length >= room.capacity
     ? "FULL"
-    : room.tenants.length > 0
-    ? `${room.tenants.length}/${room.capacity} Beds`
+    : activeTenants.length > 0
+    ? `${activeTenants.length}/${room.capacity} Beds`
+    : pendingTenants.length > 0
+    ? `${pendingTenants.length} Reserved`
     : room.status.replace("_", " ");
 
-  const statusColorClass = room.tenants.length >= room.capacity
+  const statusColorClass = allTenants.length >= room.capacity
+    ? "bg-amber-50 text-amber-700 border-amber-100"
+    : pendingTenants.length > 0 && activeTenants.length === 0
     ? "bg-amber-50 text-amber-700 border-amber-100"
     : statusColors[room.status] || "bg-slate-50 text-slate-600 border-slate-100";
 
@@ -223,25 +236,48 @@ export default function RoomCard({ room }) {
           <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 px-1">Current Occupants</div>
           {room.tenants.length > 0 ? (
             <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
-              {room.tenants.map((tenant) => (
-                <div key={tenant.id} className="flex flex-col gap-1 p-2 bg-indigo-50/50 rounded-xl border border-indigo-100">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-[10px] shrink-0">
-                      {tenant.user?.name?.[0]?.toUpperCase() || "T"}
+              {room.tenants.map((tenant) => {
+                const isPending = tenant.user?.status === "AWAITING_PAYMENT" || tenant.user?.status === "PENDING";
+                return (
+                  <div
+                    key={tenant.id}
+                    className={`flex flex-col gap-1 p-2 rounded-xl border ${
+                      isPending
+                        ? "bg-amber-50/60 border-amber-100"
+                        : "bg-indigo-50/50 border-indigo-100"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-white font-bold text-[10px] shrink-0 ${
+                        isPending ? "bg-amber-500" : "bg-indigo-600"
+                      }`}>
+                        {tenant.user?.name?.[0]?.toUpperCase() || "T"}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-xs font-bold truncate ${isPending ? "text-amber-900" : "text-indigo-900"}`}>
+                          {tenant.user?.name}
+                        </p>
+                        <p className={`text-[10px] truncate ${isPending ? "text-amber-500" : "text-indigo-500"}`}>
+                          {isPending ? (
+                            tenant.user?.status === "PENDING" ? "Pending approval" : "Awaiting payment"
+                          ) : tenant.phone}
+                        </p>
+                      </div>
+                      {isPending && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-full border border-amber-200 shrink-0">
+                          Reserved
+                        </span>
+                      )}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-indigo-900 truncate">{tenant.user?.name}</p>
-                      <p className="text-[10px] text-indigo-500 truncate">{tenant.phone}</p>
-                    </div>
+                    {!isPending && tenant.rentExpiryDate && (
+                      <div className="flex items-center gap-1 px-2 py-0.5 bg-white/60 rounded-md border border-indigo-100/50 w-fit">
+                        <Calendar size={9} className="text-indigo-400" />
+                        <span className="text-[9px] font-bold text-indigo-500">Expires: {new Date(tenant.rentExpiryDate).toLocaleDateString()}</span>
+                      </div>
+                    )}
                   </div>
-                  {tenant.rentExpiryDate && (
-                    <div className="flex items-center gap-1 px-2 py-0.5 bg-white/60 rounded-md border border-indigo-100/50 w-fit">
-                      <Calendar size={9} className="text-indigo-400" />
-                      <span className="text-[9px] font-bold text-indigo-500">Expires: {new Date(tenant.rentExpiryDate).toLocaleDateString()}</span>
-                    </div>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="flex items-center justify-center p-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">
@@ -258,7 +294,7 @@ export default function RoomCard({ room }) {
             href={`/landlord/tenants?search=${room.tenants.map(t => t.user?.name).join(",")}`}
             className="text-xs font-bold text-blue-600 hover:underline transition-all"
           >
-            View All Occupants ({room.tenants.length})
+            All Occupants ({room.tenants.length})
           </Link>
         ) : (
           <span className="text-xs font-bold text-slate-400 italic">No occupants</span>

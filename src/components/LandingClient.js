@@ -64,8 +64,8 @@ export default function LandingClient({ initialRooms }) {
 
           {/* Right actions */}
           <div className="flex items-center gap-2 shrink-0">
-            <Link href="/book-inspection" className="hidden md:block text-sm font-semibold text-gray-700 hover:bg-gray-100 px-4 py-2 rounded-full transition-colors">
-              Book Inspection
+            <Link href="#availableRooms" className="hidden md:block text-sm font-semibold text-gray-700 hover:bg-gray-100 px-4 py-2 rounded-full transition-colors">
+              Available Rooms
             </Link>
             {/* <Link href="/login" className="hidden md:block text-sm font-semibold text-gray-700 hover:bg-gray-100 px-4 py-2 rounded-full transition-colors">
               Log in
@@ -95,125 +95,104 @@ export default function LandingClient({ initialRooms }) {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            <Link href="/book-inspection" className="text-sm font-semibold text-gray-700 py-2">Book Inspection</Link>
+            {/* <Link href="/book-inspection" className="text-sm font-semibold text-gray-700 py-2">Book Inspection</Link> */}
             <Link href="/login" className="text-sm font-semibold text-gray-700 py-2">Log in</Link>
           </div>
         )}
       </header>
 
-      {/* ── Hero ── */}
-      <section className="relative h-[360px] md:h-[420px] overflow-hidden">
+      {/* ── Hero — background image + How It Works overlay ── */}
+      <section className="relative overflow-hidden">
         <img
           src="/hostel_hero_bg.png"
           alt="Hostel hero"
           className="absolute inset-0 w-full h-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/50 to-black/60" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/55 to-black/70" />
 
-        <div className="relative z-10 h-[360px] md:h-[420px] flex flex-col items-center justify-center text-center px-4 space-y-4">
+        <div className="relative z-10 flex flex-col items-center justify-center text-center px-4 pt-16 pb-20 space-y-4">
           <p className="text-white/80 text-sm font-semibold uppercase tracking-widest">Housing & Living</p>
-          {/* Student Housing · Campus Living */}
           <h1 className="text-4xl md:text-5xl font-black text-white leading-tighter tracking-none drop-shadow-lg">
-            Find Your Perfect {' '}
-            <span className="text-[]">Space</span>
+            Find Your Perfect{' '}
+            <span>Space</span>
           </h1>
           <p className="text-white/80 text-base md:text-lg max-w-xl font-medium">
             Browse available rooms across all blocks. Transparent pricing, instant availability.
           </p>
 
-          {/* Hero search bar */}
-          <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl p-2 flex flex-col sm:flex-row gap-2">
-            <div className="flex items-center gap-3 flex-1 px-4 py-2">
-              <MapPin size={18} className="text-[#0b69ff] shrink-0" />
-              <input
-                type="text"
-                placeholder="Search by location..."
-                className="flex-1 outline-none text-sm text-gray-800 placeholder:text-gray-400 font-medium"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              {searchQuery && (
-                <button onClick={() => setSearchQuery("")} className="text-gray-300 hover:text-gray-600">
-                  <X size={16} />
-                </button>
-              )}
-            </div>
-            <button className="flex items-center justify-center gap-2 bg-[#0b69ff] hover:bg-blue-700 text-white font-bold text-sm px-8 py-3 rounded-xl transition-colors">
-              <Search size={16} />
-              Search
-            </button>
-          </div>
-        </div>
-      </section>
+          {/* How It Works — inside hero */}
+          <div className="w-full max-w-5xl mt-8">
+            {/* <div className="mb-6">
+              <p className="text-xs font-black text-blue-300 uppercase tracking-widest mb-2">Simple process</p>
+              <h2 className="text-xl md:text-2xl font-black text-white leading-tight">
+                From browsing to moving in — in 3 steps
+              </h2>
+            </div> */}
 
-      {/* ── How It Works ── */}
-      <section className="pt-15 md:pt-20 px-4 bg-white overflow-hidden">
-        <div className="max-w-5xl mx-auto">
-          <div className="mb-8">
-            <p className="text-xs font-black text-[#0b69ff] uppercase tracking-widest mb-3">Simple process</p>
-            <h2 className="text-2xl md:text-3xl font-black text-[#102a43] leading-tight">
-              From browsing to<br className="block" /> moving in — in 3 steps
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-0 md:gap-0 relative">
-            {/* Connector line (desktop only) */}
-            {/* <div className="hidden md:block absolute top-10 left-[calc(16.66%+1rem)] right-[calc(16.66%+1rem)] h-px bg-gray-200 z-0" /> */}
-
-            {[
-              {
-                step: "01",
-                icon: <Search size={22} className="text-white" />,
-                title: "Browse available rooms",
-                desc: "Filter by block, check real-time bed availability, and view photos and pricing — all before leaving your seat.",
-                cta: "Start browsing",
-                href: "#rooms",
-              },
-              {
-                step: "02",
-                icon: <CalendarCheck size={22} className="text-white" />,
-                title: "Schedule an inspection",
-                desc: "Pick a date, pay the small inspection fee, and come see the room in person. No surprises.",
-                cta: "Book inspection",
-                href: "/book-inspection",
-              },
-              {
-                step: "03",
-                icon: <Shield size={22} className="text-white" />,
-                title: "Register & move in",
-                desc: "Create your account, complete your profile, sign the tenancy agreement, and you're home.",
-                cta: "Create account",
-                href: "/register",
-              },
-            ].map((step, i) => (
-              <div key={i} className="relative z-10 flex flex-col gap-5 p-8 md:p-10 group">
-                {/* Step number + icon */}
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-[#0b69ff] flex items-center justify-center shadow-lg shadow-blue-500/25 group-hover:scale-110 transition-transform duration-300">
-                    {step.icon}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {[
+                {
+                  step: "01",
+                  icon: <Search size={22} className="text-white" />,
+                  title: "Browse available rooms",
+                  desc: "Filter by block, check real-time bed availability, and view photos and pricing — all before leaving your seat.",
+                },
+                {
+                  step: "02",
+                  icon: <CalendarCheck size={22} className="text-white" />,
+                  title: "Schedule an inspection",
+                  desc: "Pick a date, pay the small inspection fee, and come see the room in person. No surprises.",
+                },
+                {
+                  step: "03",
+                  icon: <Shield size={22} className="text-white" />,
+                  title: "Register & move in",
+                  desc: "Create your account, complete your profile, sign the tenancy agreement, and you're home.",
+                },
+              ].map((step, i) => (
+                <div key={i} className="flex flex-col gap-3 p-6 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 text-left group hover:bg-white/15 transition-colors">
+                  <div className="flex items-center gap-3">
+                    {/* <div className="w-10 h-10 rounded-xl bg-[#0b69ff] flex items-center justify-center shadow-lg shadow-blue-500/30 group-hover:scale-110 transition-transform duration-300">
+                      {step.icon}
+                    </div> */}
+                    <span className="text-3xl font-black text-white/20 select-none">{step.step}</span>
                   </div>
-                  <span className="text-4xl font-black text-gray-100 select-none">{step.step}</span>
+                  <h3 className="text-sm font-black text-white">{step.title}</h3>
+                  <p className="text-xs text-white/70 leading-relaxed">{step.desc}</p>
                 </div>
-
-                <div>
-                  <h3 className="text-base font-black text-[#102a43] mb-2">{step.title}</h3>
-                  <p className="text-sm text-gray-500 leading-relaxed">{step.desc}</p>
-                </div>
-
-                {/* <Link
-                  href={step.href}
-                  className="inline-flex items-center gap-1.5 text-xs font-black text-[#0b69ff] uppercase tracking-widest hover:gap-3 transition-all duration-200"
-                >
-                  {step.cta} <ChevronRight size={14} />
-                </Link> */}
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
       {/* ── Block Filter Chips + Room Grid ── */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-15 md:py-20">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-15 md:py-20" id='availableRooms'>
+
+        {/* Search bar — above the listing */}
+<div className="flex justify-center items-center">
+          <div className="mb-8 w-full max-w-2xl bg-white rounded-2xl shadow-lg border border-gray-100 p-2 flex flex-col sm:flex-row gap-2">
+          <div className="flex items-center gap-3 flex-1 px-4 py-2">
+            <MapPin size={18} className="text-[#0b69ff] shrink-0" />
+            <input
+              type="text"
+              placeholder="Search by room, block or location..."
+              className="flex-1 outline-none text-sm text-gray-800 placeholder:text-gray-400 font-medium"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery("")} className="text-gray-300 hover:text-gray-600">
+                <X size={16} />
+              </button>
+            )}
+          </div>
+          <button className="flex items-center justify-center gap-2 bg-[#0b69ff] hover:bg-blue-700 text-white font-bold text-sm px-8 py-3 rounded-xl transition-colors">
+            <Search size={16} />
+            Search
+          </button>
+        </div>
+</div>
 
         {/* Filter chips */}
         <div className="flex items-center gap-3 overflow-x-auto pb-4 scrollbar-hide mb-8">
@@ -237,9 +216,9 @@ export default function LandingClient({ initialRooms }) {
           <p className="text-sm text-gray-500 font-medium">
             <span className="font-black text-gray-900">{filteredRooms.length}</span> rooms available
           </p>
-          <Link href="/book-inspection" className="text-sm font-semibold text-[#0b69ff] hover:underline flex items-center gap-1">
+          {/* <Link href="/book-inspection" className="text-sm font-semibold text-[#0b69ff] hover:underline flex items-center gap-1">
             <CalendarCheck size={14} /> Book an inspection
-          </Link>
+          </Link> */}
         </div>
 
         {/* Room grid */}

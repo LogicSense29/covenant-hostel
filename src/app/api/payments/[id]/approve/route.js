@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { createNotification } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -32,15 +33,34 @@ export async function POST(req, { params }) {
         },
       });
 
-      // If this is a full payment or the first installment, update user status
+      // If this payment is linked to a recurring charge, mark it paid
+      const linkedCharge = await tx.recurringCharge.findUnique({
+        where: { paymentId: id },
+      });
+      if (linkedCharge) {
+        await tx.recurringCharge.update({
+          where: { id: linkedCharge.id },
+          data: { status: "PAID" },
+        });
+      }
+
       if (payment.tenant.user.status === "PAYMENT_MADE") {
         await tx.user.update({
           where: { id: payment.tenant.userId },
-          data: { status: "PAYMENT_MADE" }, // landlord will still activate tenancy separately
+          data: { status: "PAYMENT_MADE" },
         });
       }
 
       return p;
+    });
+
+    // Notify tenant
+    await createNotification({
+      userId: payment.tenant.userId,
+      title: "Payment Approved",
+      message: `Your payment of ₦${payment.amount.toLocaleString()} has been approved.`,
+      type: "PAYMENT",
+      link: "/tenant/payments",
     });
 
     return NextResponse.json(updated);
@@ -72,7 +92,6 @@ export async function DELETE(req, { params }) {
         data: { status: "REJECTED" },
       });
 
-      // Revert user status if this was their only payment
       const otherPayments = await tx.payment.count({
         where: {
           tenantId: payment.tenantId,
@@ -87,6 +106,15 @@ export async function DELETE(req, { params }) {
           data: { status: "AWAITING_PAYMENT" },
         });
       }
+    });
+
+    // Notify tenant
+    await createNotification({
+      userId: payment.tenant.userId,
+      title: "Payment Rejected",
+      message: `Your payment of ₦${payment.amount.toLocaleString()} was rejected. Please re-upload your receipt or contact the office.`,
+      type: "PAYMENT",
+      link: "/tenant/payments",
     });
 
     return NextResponse.json({ success: true });

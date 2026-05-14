@@ -58,10 +58,12 @@ export async function POST(req) {
     // Fetch user details for emails
     const user = await prisma.user.findUnique({
       where: { id: setupToken.userId },
-      include: { tenantProfile: { include: { room: true } } },
+      include: { tenantProfile: { include: { room: { include: { block: true } } } } },
     });
 
     const roomNumber = user?.tenantProfile?.room?.roomNumber;
+    const blockName = user?.tenantProfile?.room?.block?.name;
+    const blockAddress = user?.tenantProfile?.room?.block?.address;
 
     // Notify tenant
     Promise.allSettled([
@@ -74,7 +76,12 @@ export async function POST(req) {
             <h2 style="color:#16a34a;">✅ Account Activated</h2>
             <p>Hi ${user.name},</p>
             <p>Your password has been set and your Covenant Hostel account is now fully active. You can log in to your tenant portal at any time.</p>
-            ${roomNumber ? `<p><strong>Your Room:</strong> Room ${roomNumber}</p>` : ""}
+            ${roomNumber ? `
+            <div style="background:#f0fdf4;padding:16px 20px;border-radius:10px;margin:20px 0;border-left:4px solid #16a34a;">
+              <p style="margin:0 0 6px;"><strong>Room:</strong> Room ${roomNumber}</p>
+              ${blockName ? `<p style="margin:0 0 6px;"><strong>Block:</strong> ${blockName}</p>` : ""}
+              ${blockAddress ? `<p style="margin:0;"><strong>Address:</strong> ${blockAddress}</p>` : ""}
+            </div>` : ""}
             <p>Best regards,<br/>The Covenant Hostel Management Team</p>
           </div>
         `,
@@ -92,6 +99,8 @@ export async function POST(req) {
               <tr><td style="padding:8px 0;color:#64748b;font-size:13px;">Name</td><td style="padding:8px 0;font-weight:bold;">${user.name}</td></tr>
               <tr><td style="padding:8px 0;color:#64748b;font-size:13px;">Email</td><td style="padding:8px 0;font-weight:bold;">${user.email}</td></tr>
               ${roomNumber ? `<tr><td style="padding:8px 0;color:#64748b;font-size:13px;">Room</td><td style="padding:8px 0;font-weight:bold;">Room ${roomNumber}</td></tr>` : ""}
+              ${blockName ? `<tr><td style="padding:8px 0;color:#64748b;font-size:13px;">Block</td><td style="padding:8px 0;font-weight:bold;">${blockName}</td></tr>` : ""}
+              ${blockAddress ? `<tr><td style="padding:8px 0;color:#64748b;font-size:13px;">Address</td><td style="padding:8px 0;font-weight:bold;">${blockAddress}</td></tr>` : ""}
             </table>
             <p style="margin-top:16px;color:#94a3b8;font-size:12px;">Covenant Hostel Management System</p>
           </div>

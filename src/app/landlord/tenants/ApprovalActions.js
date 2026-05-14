@@ -123,8 +123,21 @@ export default function ApprovalActions({ userId, status }) {
 
   if (status === "AWAITING_PAYMENT") {
     return (
-      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-600 rounded-lg border border-amber-100 italic">
-        <span className="text-[10px] font-bold uppercase tracking-wider">Awaiting Payment</span>
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-600 rounded-lg border border-amber-100 italic">
+          <span className="text-[10px] font-bold uppercase tracking-wider">Awaiting Payment</span>
+        </div>
+        {/* Resend Link — temporarily disabled
+        <button
+          onClick={handleApprove}
+          disabled={loading}
+          title="Resend setup link"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg border border-slate-200 text-[10px] font-bold hover:bg-slate-200 transition-all disabled:opacity-50"
+        >
+          {loading ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />}
+          Resend Link
+        </button>
+        */}
       </div>
     );
   }

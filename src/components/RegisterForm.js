@@ -60,6 +60,7 @@ export default function RegisterForm() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [registered, setRegistered] = useState(false);
+  const [rulesAgreed, setRulesAgreed] = useState(false);
 
   // Fetch room info if coming from a room page
   useEffect(() => {
@@ -183,6 +184,7 @@ export default function RegisterForm() {
         if (!formData.workType || !formData.companyName || !formData.workAddress) {
             return toast.error("Please provide all work details");
         }
+        if (!rulesAgreed) return toast.error("Please agree to the Tenancy Rules and Regulations");
         handleSubmitInternal();
     } else if (step === 2) {
       if (!formData.guarantorName || !formData.guarantorPhone || !formData.guarantorAddress || !formData.guarantorIdUrl || !formData.guarantorRelationship) {
@@ -194,6 +196,7 @@ export default function RegisterForm() {
         return toast.error("Please enter a valid 10-digit guarantor phone number");
       }
       
+      if (!rulesAgreed) return toast.error("Please agree to the Tenancy Rules and Regulations");
       handleSubmitInternal();
     }
   };
@@ -645,6 +648,25 @@ export default function RegisterForm() {
                       </button>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Rules agreement — shown on final step for tenants */}
+              {formData.role === "TENANT" && (step === 2 || step === 1.6) && (
+                <div className="flex items-start gap-3 pt-2">
+                  <input
+                    type="checkbox"
+                    id="rulesAgreed"
+                    checked={rulesAgreed}
+                    onChange={(e) => setRulesAgreed(e.target.checked)}
+                    className="mt-1 w-4 h-4 rounded border-slate-300 text-blue-600 cursor-pointer shrink-0"
+                  />
+                  <label htmlFor="rulesAgreed" className="text-xs text-slate-600 leading-relaxed cursor-pointer">
+                    I agree to the{" "}
+                    <a href="/tenant/rules" target="_blank" className="text-blue-600 font-bold hover:underline">
+                      Tenancy Rules and Regulations
+                    </a>
+                  </label>
                 </div>
               )}
 

@@ -99,7 +99,7 @@ export default async function LandlordDashboard() {
   }
 
   const stats = [
-    { name: "Occupancy Rate", value: `${occupancyRate.toFixed(1)}%`, icon: CheckCircle, color: "text-green-600", bg: "bg-green-50", href: "/landlord/rooms" },
+    { name: "Occupancy Rate", value: `${occupancyRate.toFixed(1)}%`, icon: CheckCircle, color: "text-green-600", bg: "bg-green-50", href: "/landlord/analytics" },
     { name: "Vacant Rooms", value: vacantRooms, icon: AlertCircle, color: "text-amber-600", bg: "bg-amber-50", href: "/landlord/rooms" },
     { name: "Rent Expired", value: expiredRooms, icon: Clock, color: "text-red-600", bg: "bg-red-50", href: "/landlord/rooms" },
     { name: "Open Tickets", value: openTickets, icon: Wrench, color: "text-purple-600", bg: "bg-purple-50", href: "/landlord/maintenance" },
@@ -167,7 +167,7 @@ export default async function LandlordDashboard() {
       <div className="space-y-4">
         <h2 className="text-xl font-bold text-slate-900 px-1">Revenue Overview</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Link href="/landlord/billing" className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:border-blue-100 transition-all hover:shadow-md block">
+          <Link href="/landlord/payments" className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:border-blue-100 transition-all hover:shadow-md block">
             <div className="flex items-center justify-between mb-4">
               <div className="p-3 rounded-xl bg-blue-50 text-blue-600">
                 <DollarSign size={24} />

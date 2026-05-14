@@ -19,6 +19,7 @@ model User {
   status                 UserStatus              @default(ACTIVE)
   serviceProviderProfile ServiceProviderProfile?
   tenantProfile          TenantProfile?
+  notifications          Notification[]
 }
 
 model TenantProfile {
@@ -58,6 +59,7 @@ model TenantProfile {
   tickets             MaintenanceTicket[]
   payments            Payment[]
   stayHistory         StayHistory[]
+  recurringCharges    RecurringCharge[]
   room                Room?               @relation("RoomToTenants", fields: [roomId], references: [id])
   user                User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -138,6 +140,7 @@ model Payment {
   reference          String?       @unique
   status             String?       @default("PENDING")
   tenant             TenantProfile @relation(fields: [tenantId], references: [id])
+  recurringCharge    RecurringCharge?
 }
 
 model MaintenanceTicket {
@@ -209,6 +212,30 @@ model BillingRule {
   room        Room?    @relation("SpecificRoomRules", fields: [roomId], references: [id])
   block       Block?   @relation(fields: [blockId], references: [id])
   rooms       Room[]   @relation("RoomToBillingRules")
+  recurringCharges RecurringCharge[]
+}
+
+// Tracks per-tenant instances of a recurring billing rule becoming due
+model RecurringCharge {
+  id            String        @id @default(cuid())
+  tenantId      String
+  billingRuleId String
+  amount        Float
+  dueDate       DateTime
+  status        RecurringChargeStatus @default(UNPAID)
+  paymentId     String?       @unique  // set when paid
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  tenant        TenantProfile @relation(fields: [tenantId], references: [id])
+  billingRule   BillingRule   @relation(fields: [billingRuleId], references: [id])
+  payment       Payment?      @relation(fields: [paymentId], references: [id])
+}
+
+enum RecurringChargeStatus {
+  UNPAID
+  PENDING   // receipt uploaded, awaiting landlord approval
+  PAID
+  OVERDUE
 }
 
 model GuestInspection {
@@ -243,6 +270,18 @@ model SetupToken {
   userId    String   @unique
   expires   DateTime
   createdAt DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      String   // PAYMENT, MAINTENANCE, TENANCY, SYSTEM
+  read      Boolean  @default(false)
+  link      String?  // optional deep link
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 enum Role {
@@ -286,4 +325,5 @@ enum UserStatus {
   PAYMENT_MADE
   ACTIVE
   REJECTED
+  EXPIRED
 }

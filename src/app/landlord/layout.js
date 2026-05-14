@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { 
   LayoutDashboard, 
   Home, 
@@ -11,7 +11,6 @@ import {
   CreditCard, 
   Wrench, 
   LogOut,
-  Bell,
   Search,
   Menu,
   X,
@@ -21,11 +20,10 @@ import {
   Database,
   Briefcase,
   Layers,
-  CheckCircle
+  CheckCircle,
+  TrendingUp
 } from "lucide-react";
-
-
-import { useState } from "react";
+import NotificationBell from "@/components/NotificationBell";
 
 export default function LandlordLayout({ children }) {
   const pathname = usePathname();
@@ -66,8 +64,8 @@ export default function LandlordLayout({ children }) {
     { name: "Billing & Rules", href: "/landlord/billing", icon: CreditCard },
     { name: "Payment Approvals", href: "/landlord/payments", icon: CheckCircle },
     { name: "Maintenance", href: "/landlord/maintenance", icon: Wrench },
-    // { name: "Service Providers", href: "/landlord/maintenance/providers", icon: Users },
     { name: "Inspections", href: "/landlord/inspections", icon: ClipboardCheck },
+    // { name: "Analytics", href: "/landlord/analytics", icon: TrendingUp },
     { name: "Settings", href: "/landlord/settings", icon: Settings },
   ];
 
@@ -178,10 +176,7 @@ export default function LandlordLayout({ children }) {
           </div>
 
           <div className="flex items-center gap-3 md:gap-5">
-            <button className="p-2.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all relative">
-              <Bell size={20} />
-              <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-blue-600 rounded-full border-2 border-white"></span>
-            </button>
+            <NotificationBell />
 
             <div className="h-8 w-px bg-slate-200" />
 

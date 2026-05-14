@@ -24,8 +24,6 @@ export default async function RoomDetailPage({ params }) {
     where: { id },
     include: {
       block: true,
-      billingRules: true,
-      specificRules: true,
       tenants: {
         where: {
           user: { status: { in: ["ACTIVE", "PAYMENT_MADE"] } }
@@ -45,7 +43,30 @@ export default async function RoomDetailPage({ params }) {
       : [];
 
   const availableBeds = room.capacity - room.tenants.length;
-  const allRules = [...(room.billingRules || []), ...(room.specificRules || [])];
+
+  // Fetch all applicable billing rules:
+  // 1. Global rules (isGlobal: true)
+  // 2. Block-level rules (blockId matches this room's block)
+  // 3. Room-specific rules via both relations
+  const allRulesRaw = await prisma.billingRule.findMany({
+    where: {
+      OR: [
+        { isGlobal: true },
+        { blockId: room.blockId ?? undefined },
+        { rooms: { some: { id: room.id } } },
+        { roomId: room.id },
+      ],
+    },
+    orderBy: [{ isGlobal: "desc" }, { type: "asc" }],
+  });
+
+  // Deduplicate by id
+  const seen = new Set();
+  const allRules = allRulesRaw.filter(r => {
+    if (seen.has(r.id)) return false;
+    seen.add(r.id);
+    return true;
+  });
 
   return (
     <div className="min-h-screen bg-white font-sans">
@@ -80,7 +101,44 @@ export default async function RoomDetailPage({ params }) {
           <div className="w-full h-64 md:h-[480px] rounded-2xl overflow-hidden">
             <MediaItem src={photos[0]} alt={`Room ${room.roomNumber}`} className="w-full h-full object-cover" />
           </div>
+        ) : photos.length === 2 ? (
+          /* 2 photos — side by side, equal width */
+          <div className="grid grid-cols-2 gap-2 h-64 md:h-[480px] rounded-2xl overflow-hidden">
+            {photos.map((src, i) => (
+              <div key={i} className="overflow-hidden">
+                <MediaItem src={src} alt={`Room photo ${i + 1}`} className="w-full h-full object-cover hover:opacity-90 transition-opacity" />
+              </div>
+            ))}
+          </div>
+        ) : photos.length === 3 ? (
+          /* 3 photos — 1 large left, 2 stacked right */
+          <div className="grid grid-cols-2 gap-2 h-64 md:h-[480px] rounded-2xl overflow-hidden">
+            <div className="row-span-2 overflow-hidden">
+              <MediaItem src={photos[0]} alt={`Room ${room.roomNumber} main`} className="w-full h-full object-cover" />
+            </div>
+            <div className="overflow-hidden">
+              <MediaItem src={photos[1]} alt="Room photo 2" className="w-full h-full object-cover hover:opacity-90 transition-opacity" />
+            </div>
+            <div className="overflow-hidden">
+              <MediaItem src={photos[2]} alt="Room photo 3" className="w-full h-full object-cover hover:opacity-90 transition-opacity" />
+            </div>
+          </div>
+        ) : photos.length === 4 ? (
+          /* 4 photos — 1 large left, 3 stacked right (top one taller) */
+          <div className="grid grid-cols-2 gap-2 h-64 md:h-[480px] rounded-2xl overflow-hidden">
+            <div className="row-span-2 overflow-hidden">
+              <MediaItem src={photos[0]} alt={`Room ${room.roomNumber} main`} className="w-full h-full object-cover" />
+            </div>
+            <div className="grid grid-rows-3 gap-2 h-full">
+              {photos.slice(1, 4).map((src, i) => (
+                <div key={i} className="overflow-hidden">
+                  <MediaItem src={src} alt={`Room photo ${i + 2}`} className="w-full h-full object-cover hover:opacity-90 transition-opacity" />
+                </div>
+              ))}
+            </div>
+          </div>
         ) : (
+          /* 5+ photos — original Airbnb-style grid: 1 large left, 4 thumbnails right */
           <div className="grid grid-cols-4 grid-rows-2 gap-2 h-64 md:h-[480px] rounded-2xl overflow-hidden">
             {/* Main large photo */}
             <div className="col-span-4 md:col-span-2 row-span-2">
@@ -233,6 +291,24 @@ export default async function RoomDetailPage({ params }) {
                 </div>
               </div>
 
+              {/* Price breakdown */}
+              <div className="mb-6 pt-6 border-t border-gray-100 space-y-2">
+                {allRules.map((rule) => (
+                  <div key={rule.id} className="flex justify-between items-start text-sm text-gray-600">
+                    <div className="min-w-0 mr-4">
+                      <span className="font-semibold text-gray-800 block truncate">{rule.title || rule.description}</span>
+                    </div>
+                    <span className="font-semibold shrink-0">₦{rule.amount.toLocaleString()}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between text-sm font-black text-[#102a43] pt-2 border-t border-gray-100">
+                  <span>Total</span>
+                  <span>
+                    ₦{allRules.reduce((s, r) => s + r.amount, 0).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+
               {/* CTAs */}
               <div className="flex flex-col gap-3">
                 <Link
@@ -258,24 +334,6 @@ export default async function RoomDetailPage({ params }) {
                 <div className="flex items-center gap-2 text-xs text-gray-500">
                   <ShieldCheck size={14} className="text-[#0b69ff]" />
                   Verified listing
-                </div>
-              </div>
-
-              {/* Price breakdown */}
-              <div className="mt-6 pt-6 border-t border-gray-100 space-y-2">
-                {allRules.map((rule) => (
-                  <div key={rule.id} className="flex justify-between items-start text-sm text-gray-600">
-                    <div className="min-w-0 mr-4">
-                      <span className="font-semibold text-gray-800 block truncate">{rule.title || rule.description}</span>
-                    </div>
-                    <span className="font-semibold shrink-0">₦{rule.amount.toLocaleString()}</span>
-                  </div>
-                ))}
-                <div className="flex justify-between text-sm font-black text-[#102a43] pt-2 border-t border-gray-100">
-                  <span>Total</span>
-                  <span>
-                    ₦{allRules.reduce((s, r) => s + r.amount, 0).toLocaleString()}
-                  </span>
                 </div>
               </div>
 

@@ -9,14 +9,13 @@ import {
   CreditCard, 
   Wrench, 
   LogOut,
-  Bell,
-  Search,
   Menu,
   X,
   ClipboardCheck,
   Settings,
   ShieldAlert
 } from "lucide-react";
+import NotificationBell from "@/components/NotificationBell";
 
 
 
@@ -125,10 +124,7 @@ export default function TenantLayout({ children }) {
           </button>
 
           <div className="flex items-center gap-4 ml-auto">
-            <button className="p-2 text-slate-400 hover:text-slate-600 relative">
-              <Bell size={20} />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-blue-600 rounded-full border-2 border-white"></span>
-            </button>
+            <NotificationBell />
             <div className="h-8 w-px bg-slate-200 mx-2" />
             <div className="flex items-center gap-3">
               <span className="text-sm font-bold text-slate-900 hidden sm:inline">{session?.user?.name || "Tenant"}</span>

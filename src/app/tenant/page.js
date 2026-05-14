@@ -8,7 +8,6 @@ import {
   User, 
   ShieldCheck, 
   ShieldAlert,
-  Mail, 
   Phone,
   ArrowRight,
   AlertCircle,
@@ -108,9 +107,37 @@ export default async function TenantDashboard() {
     );
   }
 
-  // ── ACTIVE tenant ──
-  const isExpired = profile.rentExpiryDate && new Date(profile.rentExpiryDate) < new Date();
+  // ── EXPIRED tenant ──
+  if (user.status === "EXPIRED") {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 bg-white rounded-3xl border border-slate-200 shadow-xl border-t-4 border-t-red-500 animate-in fade-in duration-700">
+        <div className="bg-red-50 p-4 rounded-2xl mb-6">
+          <ShieldAlert size={48} className="text-red-600" />
+        </div>
+        <h1 className="text-3xl font-extrabold text-slate-900 text-center">Tenancy Expired</h1>
+        <p className="text-slate-500 mt-4 text-center max-w-md leading-relaxed">
+          Your tenancy expired on{" "}
+          <strong className="text-slate-700">
+            {profile.rentExpiryDate
+              ? new Date(profile.rentExpiryDate).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
+              : "N/A"}
+          </strong>. Please contact the hostel management office to renew your tenancy.
+        </p>
+        <Link
+          href="/tenant/payments"
+          className="mt-8 flex items-center gap-2 px-8 py-4 bg-red-600 text-white text-sm font-bold rounded-2xl hover:bg-red-700 shadow-xl shadow-red-500/20 transition-all"
+        >
+          <CreditCard size={18} /> Renew Tenancy
+        </Link>
+        <div className="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-100 w-full max-w-sm text-center">
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Current Status</p>
+          <p className="text-sm font-bold text-red-600 uppercase tracking-tight">Expired</p>
+        </div>
+      </div>
+    );
+  }
 
+  // ── ACTIVE tenant ──
   // Derive payment status from actual payment records
   const latestPayment = payments[0] || null;
   const hasPendingReceipt = payments.some(p => p.status === "PENDING" && p.receiptUrl);
@@ -123,12 +150,7 @@ export default async function TenantDashboard() {
   let rentStatusBg = "bg-green-50 text-green-600";
   let rentStatusIcon = <ShieldCheck size={20} />;
 
-  if (isExpired) {
-    rentStatusLabel = "Expired";
-    rentStatusColor = "text-red-600";
-    rentStatusBg = "bg-red-50 text-red-600";
-    rentStatusIcon = <ShieldAlert size={20} />;
-  } else if (hasPendingReceipt && !hasVerifiedPayment) {
+  if (hasPendingReceipt && !hasVerifiedPayment) {
     rentStatusLabel = "Pending";
     rentStatusColor = "text-amber-600";
     rentStatusBg = "bg-amber-50 text-amber-600";
@@ -230,7 +252,7 @@ export default async function TenantDashboard() {
               </div>
               <div className="space-y-1">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Expiry Date</p>
-                <p className={`text-lg font-bold ${isExpired ? 'text-red-600' : 'text-slate-900'}`}>
+                <p className="text-lg font-bold text-slate-900">
                   {profile.rentExpiryDate ? new Date(profile.rentExpiryDate).toLocaleDateString() : 'TBD'}
                 </p>
               </div>
@@ -289,10 +311,6 @@ export default async function TenantDashboard() {
                    <div className="flex items-center gap-2 text-xs text-slate-600">
                       <Phone size={14} className="text-slate-400" />
                       {profile.guarantorPhone}
-                   </div>
-                   <div className="flex items-center gap-2 text-xs text-slate-600">
-                      <Mail size={14} className="text-slate-400" />
-                      {profile.guarantorEmail}
                    </div>
                    <div className="flex items-start gap-2 text-xs text-slate-600 pt-1">
                       <MapPin size={14} className="text-slate-400 shrink-0" />

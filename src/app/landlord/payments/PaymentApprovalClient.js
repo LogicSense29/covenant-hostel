@@ -134,6 +134,10 @@ export default function PaymentApprovalClient({ payments }) {
                         <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
                           Installment {pmt.installmentNumber}/{pmt.totalInstallments}
                         </span>
+                      ) : pmt.paymentType === "RECURRING" ? (
+                        <span className="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100">
+                          Recurring
+                        </span>
                       ) : (
                         <span className="text-xs font-bold text-slate-500">Full</span>
                       )}
