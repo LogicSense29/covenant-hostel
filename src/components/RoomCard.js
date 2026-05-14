@@ -271,7 +271,7 @@ export default function RoomCard({ room }) {
               <span className="text-[11px] font-semibold text-slate-600">Base Rent</span>
               <span className="text-[11px] font-bold text-slate-900">
                 ₦{room.rentAmount.toLocaleString()}
-                <span className="text-slate-400 font-normal">/yr</span>
+                <span className="">/yr</span>
               </span>
             </div>
             {/* Additional billing rules */}
@@ -282,7 +282,7 @@ export default function RoomCard({ room }) {
                 </span>
                 <span className="text-[11px] font-bold text-slate-900 shrink-0">
                   ₦{rule.amount.toLocaleString()}
-                  <span className="text-slate-400 font-normal">
+                  <span className="">
                     /{freqLabel(rule.frequency)}
                   </span>
                 </span>

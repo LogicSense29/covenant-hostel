@@ -186,7 +186,7 @@ export default function InspectionManager({ initialInspections, tenants, rooms }
                 <div key={insp.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all overflow-hidden p-6 flex flex-col md:flex-row md:items-center gap-6">
                    <div className={`p-4 rounded-xl shrink-0 ${
                      insp.status === 'PENDING' ? 'bg-amber-50 text-amber-600' :
-                     insp.status === 'PASSED' ? 'bg-green-50 text-green-600' :
+                     insp.status === 'DONE' ? 'bg-green-50 text-green-600' :
                      'bg-red-50 text-red-600'
                    }`}>
                       <ClipboardCheck size={24} />
@@ -196,7 +196,7 @@ export default function InspectionManager({ initialInspections, tenants, rooms }
                       <div className="flex items-center gap-3 mb-1">
                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest ${
                            insp.status === 'PENDING' ? 'bg-amber-100 text-amber-700' :
-                           insp.status === 'PASSED' ? 'bg-green-100 text-green-700' :
+                           insp.status === 'DONE' ? 'bg-green-100 text-green-700' :
                            'bg-red-100 text-red-700'
                          }`}>
                            {insp.status}
@@ -219,10 +219,10 @@ export default function InspectionManager({ initialInspections, tenants, rooms }
                       {insp.status === 'PENDING' && (
                         <>
                           <button 
-                            onClick={() => updateStatus(insp.id, 'PASSED')}
+                            onClick={() => updateStatus(insp.id, 'DONE')}
                             className="px-4 py-2 bg-green-600 text-white rounded-xl text-xs font-bold hover:bg-green-700 transition-all shadow-sm"
                           >
-                            Mark Passed
+                            Mark Done
                           </button>
                           <button 
                             onClick={() => updateStatus(insp.id, 'FAILED')}
@@ -343,7 +343,7 @@ export default function InspectionManager({ initialInspections, tenants, rooms }
                   {guest.status === 'CONFIRMED' && (
                     <div className="p-4 pt-0">
                       <button 
-                        onClick={() => updateGuestStatus(guest.id, 'PASSED')}
+                        onClick={() => updateGuestStatus(guest.id, 'DONE')}
                         disabled={loading}
                         className="w-full px-3 py-2 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 transition-all disabled:opacity-50"
                       >

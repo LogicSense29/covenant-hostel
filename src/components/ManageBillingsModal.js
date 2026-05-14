@@ -182,6 +182,7 @@ export default function ManageBillingsModal({
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-bold text-blue-600">
                         ₦{rule.amount.toLocaleString()}
+                        <span className="text-blue-400 font-normal">/{freqLabel(rule.frequency)}</span>
                       </span>
                       <span className="text-[10px] font-medium text-slate-400 border-l border-slate-200 pl-2">
                         {String(rule.type || "").replace(/_/g, " ")}
@@ -205,4 +206,17 @@ export default function ManageBillingsModal({
       </div>
     </div>
   );
+}
+
+// Frequency label shorthand
+function freqLabel(frequency) {
+  const map = {
+    ONCE: "once",
+    DAILY: "day",
+    MONTHLY: "mo",
+    QUARTERLY: "qtr",
+    YEARLY: "yr",
+    PER_SEMESTER: "sem",
+  };
+  return map[frequency] || frequency?.toLowerCase() || "yr";
 }

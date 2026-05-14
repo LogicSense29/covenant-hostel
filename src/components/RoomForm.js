@@ -613,7 +613,7 @@ export default function RoomForm({ initialData }) {
                         className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-100 rounded-xl text-sm"
                       >
                         <span className="font-semibold text-slate-900">{rule.title || rule.description}</span>
-                        <span className="text-xs font-bold text-blue-600">₦{rule.amount.toLocaleString()}</span>
+                        <span className="text-xs font-bold text-blue-600">₦{rule.amount.toLocaleString()}<span className="text-blue-400 font-normal">/{freqLabel(rule.frequency)}</span></span>
                         {rule.isGlobal && (
                           <span className="text-[9px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded uppercase">Global</span>
                         )}
@@ -786,4 +786,17 @@ export default function RoomForm({ initialData }) {
       )}
     </div>
   );
+}
+
+// Frequency label shorthand
+function freqLabel(frequency) {
+  const map = {
+    ONCE: "once",
+    DAILY: "day",
+    MONTHLY: "mo",
+    QUARTERLY: "qtr",
+    YEARLY: "yr",
+    PER_SEMESTER: "sem",
+  };
+  return map[frequency] || frequency?.toLowerCase() || "yr";
 }

@@ -293,7 +293,10 @@ export default async function TenantPaymentsPage() {
               <p className="text-sm font-semibold text-slate-700">{rule.title || rule.description}</p>
               <span className="text-[9px] font-bold text-blue-600 uppercase">{rule.frequency?.replace(/_/g, " ")}</span>
             </div>
-            <span className="text-sm font-bold text-slate-900 ml-4">₦{rule.amount.toLocaleString()}</span>
+            <span className="text-sm font-bold text-slate-900 ml-4">
+              ₦{rule.amount.toLocaleString()}
+              <span className="text-slate-400 font-normal">/{freqLabel(rule.frequency)}</span>
+            </span>
           </div>
         ))}
       </div>
@@ -427,7 +430,10 @@ export default async function TenantPaymentsPage() {
                     <p className="text-sm font-bold text-slate-900">Base Room Rent</p>
                     <p className="text-xs text-slate-400">Room {room.roomNumber}</p>
                   </div>
-                  <p className="text-xl font-black text-slate-900">₦{room.rentAmount.toLocaleString()}</p>
+                  <p className="text-xl font-black text-slate-900">
+                    ₦{room.rentAmount.toLocaleString()}
+                    <span className="text-sm text-slate-400 font-normal">/yr</span>
+                  </p>
                 </div>
                 <div className="space-y-3">
                   {billingRules.map((rule) => (
@@ -451,7 +457,10 @@ export default async function TenantPaymentsPage() {
                           </div>
                         </div>
                       </div>
-                      <span className="text-sm font-bold text-slate-900">₦{rule.amount.toLocaleString()}</span>
+                      <span className="text-sm font-bold text-slate-900">
+                        ₦{rule.amount.toLocaleString()}
+                        <span className="text-slate-400 font-normal">/{freqLabel(rule.frequency)}</span>
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -509,4 +518,17 @@ export default async function TenantPaymentsPage() {
       )}
     </div>
   );
+}
+
+// Frequency label shorthand
+function freqLabel(frequency) {
+  const map = {
+    ONCE: "once",
+    DAILY: "day",
+    MONTHLY: "mo",
+    QUARTERLY: "qtr",
+    YEARLY: "yr",
+    PER_SEMESTER: "sem",
+  };
+  return map[frequency] || frequency?.toLowerCase() || "yr";
 }
