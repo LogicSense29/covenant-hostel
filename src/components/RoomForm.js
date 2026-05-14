@@ -493,7 +493,7 @@ export default function RoomForm({ initialData }) {
               id="capacity"
               name="capacity"
               type="number"
-              min="2"
+              min="1"
               required
               className={styles.input}
               placeholder="e.g. 1, 2, 4"

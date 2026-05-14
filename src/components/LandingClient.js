@@ -275,7 +275,7 @@ export default function LandingClient({ initialRooms }) {
             <h4 className="text-white font-bold text-sm mb-4">Explore</h4>
             <div className="flex flex-col gap-3 text-sm">
               <Link href="/" className="hover:text-white transition-colors">Available Rooms</Link>
-              <Link href="/book-inspection" className="hover:text-white transition-colors">Book Inspection</Link>
+              {/* <Link href="/book-inspection" className="hover:text-white transition-colors">Book Inspection</Link> */}
             </div>
           </div>
           <div>
