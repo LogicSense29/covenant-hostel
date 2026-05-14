@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { sendGuestInspectionConfirmation } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,19 @@ export async function PUT(req, { params }) {
       where: { id },
       data: { status }
     });
+
+    // Send confirmation email when landlord confirms the inspection
+    if (status === "CONFIRMED" && guestInspection.email) {
+      sendGuestInspectionConfirmation({
+        email: guestInspection.email,
+        name: guestInspection.name,
+        date: guestInspection.date,
+        roomNumber: guestInspection.roomNumber,
+        blockName: guestInspection.blockName,
+        address: guestInspection.address,
+        amount: guestInspection.amountPaid ?? 0,
+      }).catch(err => console.error("Confirmation email error:", err));
+    }
 
     return NextResponse.json(guestInspection);
   } catch (error) {

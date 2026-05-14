@@ -391,7 +391,9 @@ export default function BillingRulesManager({ defaultRules, rooms, blocks = [] }
                 >
                   <option value="">Select Room...</option>
                   {rooms.map(r => (
-                    <option key={r.id} value={r.id}>Room {r.roomNumber}</option>
+                    <option key={r.id} value={r.id}>
+                      Room {r.roomNumber}{r.block ? ` — ${r.block.name}` : ""}
+                    </option>
                   ))}
                 </select>
               </div>

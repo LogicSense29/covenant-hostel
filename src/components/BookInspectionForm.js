@@ -255,7 +255,7 @@ export default function BookInspectionForm() {
           </div>
 
           <h1 className="text-3xl font-black text-slate-900 mb-2 tracking-tight">Room Inspection Booked</h1>
-          <p className="text-blue-600 font-bold text-sm uppercase tracking-widest mb-6">Inspection Confirmed</p>
+          {/* <p className="text-blue-600 font-bold text-sm uppercase tracking-widest mb-6">Inspection Confirmed</p> */}
 
           <div className="bg-slate-50 rounded-2xl p-5 mb-6 text-left space-y-3 border border-slate-100">
             <div className="flex justify-between items-center">
@@ -397,14 +397,27 @@ export default function BookInspectionForm() {
 
             <input
               required
-              type="date"
-              min={new Date(Date.now() + 86400000).toISOString().split("T")[0]}
+              type={formData.date ? "date" : "text"}
+              onFocus={(e) => {
+                e.target.type = "date";
+                // Show the native date picker immediately
+                try {
+                  e.target.showPicker();
+                } catch (err) {
+                  // Fallback for older browsers
+                }
+              }}
+              onBlur={(e) => {
+                if (!e.target.value) e.target.type = "text";
+              }}
+              placeholder="Select Inspection Date"
+              min={new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000 + 86400000).toISOString().split('T')[0]}
               className="w-full border border-slate-200 bg-white text-slate-900 rounded-xl px-4 py-3 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all"
-            value={formData.date}
-            onChange={(e) =>
-              setFormData({ ...formData, date: e.target.value })
-            }
-          />
+              value={formData.date}
+              onChange={(e) =>
+                setFormData({ ...formData, date: e.target.value })
+              }
+            />
 
           {feeEnabled && fee > 0 && (
             <div className="bg-amber-50 p-4 rounded-xl border text-sm text-amber-800 flex gap-3">

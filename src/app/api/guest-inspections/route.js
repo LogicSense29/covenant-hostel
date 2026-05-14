@@ -76,18 +76,18 @@ export async function POST(request) {
 
     // Send email notifications
     try {
-      const { sendGuestInspectionConfirmation, sendLandlordInspectionAlert } = await import("@/lib/email");
+      const { sendLandlordInspectionAlert } = await import("@/lib/email");
       
       // Send confirmation to guest
-      await sendGuestInspectionConfirmation({
-        email,
-        name,
-        date,
-        roomNumber,
-        blockName,
-        address,
-        amount: feeAmount,
-      });
+      // await sendGuestInspectionConfirmation({
+      //   email,
+      //   name,
+      //   date,
+      //   roomNumber,
+      //   blockName,
+      //   address,
+      //   amount: feeAmount,
+      // });
 
       // Send alert to landlord
       await sendLandlordInspectionAlert({

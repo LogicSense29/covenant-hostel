@@ -21,6 +21,10 @@ export async function POST(req) {
       return new NextResponse("Missing fields", { status: 400 });
     }
 
+    if (!blockId) {
+      return new NextResponse("A block must be assigned to the room.", { status: 400 });
+    }
+
     const existing = await prisma.room.findFirst({
       where: { 
         roomNumber,

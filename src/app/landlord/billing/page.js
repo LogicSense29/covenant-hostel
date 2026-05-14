@@ -11,6 +11,7 @@ export default async function BillingPage() {
   });
 
   const rooms = await prisma.room.findMany({
+    include: { block: true },
     orderBy: { roomNumber: "asc" }
   });
 

@@ -20,6 +20,7 @@ import {
   X
 } from "lucide-react";
 import styles from "./RoomForm.module.css";
+import ManageBillingsModal from "./ManageBillingsModal";
 
 export default function RoomForm({ initialData }) {
   const router = useRouter();
@@ -287,6 +288,13 @@ export default function RoomForm({ initialData }) {
     setLoading(true);
     setError("");
 
+    if (!formData.blockId) {
+      setError("A block must be selected. Please assign this room to a block before saving.");
+      setLoading(false);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
     try {
       const url = isEditing ? `/api/rooms/${initialData.id}` : "/api/rooms";
       const method = isEditing ? "PUT" : "POST";
@@ -404,20 +412,28 @@ export default function RoomForm({ initialData }) {
           </div>
 
           <div className={styles.formGroup}>
-            <label htmlFor="blockId" className={styles.label}>Category / Block</label>
+            <label htmlFor="blockId" className={styles.label}>
+              Category / Block <span className="text-red-500">*</span>
+            </label>
             <select
               id="blockId"
               name="blockId"
+              required
               className={styles.input}
               value={formData.blockId}
               onChange={handleChange}
               disabled={fetchingData}
             >
-              <option value="">No Block (Standalone)</option>
+              <option value="" disabled>Select a block...</option>
               {blocks.map(block => (
                 <option key={block.id} value={block.id}>{block.name}</option>
               ))}
             </select>
+            {blocks.length === 0 && !fetchingData && (
+              <p className="text-[11px] text-amber-600 font-semibold mt-1 px-1">
+                No blocks found. <a href="/landlord/blocks" className="underline hover:text-amber-700">Create a block first</a> before adding a room.
+              </p>
+            )}
           </div>
         </div>
 
@@ -640,132 +656,15 @@ export default function RoomForm({ initialData }) {
       </form>
 
       {/* Billing Rules Modal */}
-      {isBillingModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 max-h-[90vh] flex flex-col">
-
-            {/* Header */}
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-              <div>
-                <h2 className="text-xl font-bold text-slate-900">Manage Billing Rules</h2>
-                <p className="text-sm text-slate-500 mt-1">
-                  {formData.billingRuleIds.length} selected · {billingRules.filter(r => {
-                    const type = String(r.type || "").toUpperCase();
-                    return type !== "BASE_RENT" || (r.blockId === formData.blockId && !!formData.blockId);
-                  }).length} available
-                </p>
-              </div>
-              <button onClick={() => setIsBillingModalOpen(false)} className="p-2 hover:bg-white rounded-xl text-slate-400 transition-colors">
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* Search */}
-            <div className="p-4 border-b border-slate-100 bg-white">
-              <div className="relative">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Search billing rules..."
-                  value={billingSearch}
-                  onChange={(e) => setBillingSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                />
-              </div>
-            </div>
-
-            {/* Rules List */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-2">
-              {billingRules
-                .filter(r => {
-                  const searchMatch = (r.title || r.description || "").toLowerCase().includes(billingSearch.toLowerCase());
-                  if (!searchMatch) return false;
-                  const type = String(r.type || "").toUpperCase();
-                  // Include BASE_RENT only if it belongs to the selected block
-                  if (type === "BASE_RENT") return r.blockId === formData.blockId && !!formData.blockId;
-                  return true;
-                })
-                .sort((a, b) => {
-                  const typeA = String(a.type || "").toUpperCase();
-                  const typeB = String(b.type || "").toUpperCase();
-                  const blockId = formData.blockId;
-
-                  // 1. Block BASE_RENT first
-                  if (typeA === "BASE_RENT" && a.blockId === blockId) return -1;
-                  if (typeB === "BASE_RENT" && b.blockId === blockId) return 1;
-
-                  // 2. Other block-specific rules next
-                  if (a.blockId === blockId && b.blockId !== blockId) return -1;
-                  if (b.blockId === blockId && a.blockId !== blockId) return 1;
-
-                  // 3. Global rules next
-                  if (a.isGlobal && !b.isGlobal) return -1;
-                  if (b.isGlobal && !a.isGlobal) return 1;
-
-                  // 4. Rest alphabetically
-                  return (a.title || a.description || "").localeCompare(b.title || b.description || "");
-                })
-                .map(rule => {
-                  const isSelected = formData.billingRuleIds.includes(rule.id);
-                  const isRecommended = rule.isGlobal || rule.blockId === formData.blockId || rule.roomId === initialData?.id;
-                  return (
-                    <label
-                      key={rule.id}
-                      className={`flex items-start gap-3 p-4 rounded-2xl border-2 transition-all cursor-pointer ${isSelected ? "border-blue-500 bg-blue-50/30" : "border-slate-200 hover:border-slate-300"}`}
-                    >
-                      <input
-                        type="checkbox"
-                        className="mt-0.5 w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500 shrink-0"
-                        checked={isSelected}
-                        onChange={() => {
-                          setFormData(prev => ({
-                            ...prev,
-                            billingRuleIds: isSelected
-                              ? prev.billingRuleIds.filter(id => id !== rule.id)
-                              : [...prev.billingRuleIds, rule.id]
-                          }));
-                        }}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className={`text-sm font-bold truncate ${isSelected ? "text-slate-900" : "text-slate-700"}`}>
-                            {rule.title || rule.description}
-                          </span>
-                          {rule.isGlobal && (
-                            <span className="text-[9px] font-bold bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-md border border-blue-100 uppercase">
-                              Global
-                            </span>
-                          )}
-                          {!rule.isGlobal && isRecommended && (
-                            <span className="text-[9px] font-bold bg-green-50 text-green-600 px-1.5 py-0.5 rounded-md border border-green-100 uppercase">
-                              Recommended
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-blue-600">₦{rule.amount.toLocaleString()}</span>
-                          <span className="text-[10px] font-medium text-slate-400 border-l border-slate-200 pl-2">
-                            {String(rule.type || "").replace(/_/g, ' ')}
-                          </span>
-                        </div>
-                      </div>
-                    </label>
-                  );
-                })}
-            </div>
-
-            {/* Footer */}
-            <div className="p-6 border-t border-slate-200 bg-white">
-              <button
-                onClick={() => setIsBillingModalOpen(false)}
-                className="w-full py-3 bg-blue-600 text-white rounded-2xl text-sm font-bold hover:bg-blue-700 shadow-lg shadow-blue-500/20 transition-all"
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ManageBillingsModal
+        isOpen={isBillingModalOpen}
+        onClose={() => setIsBillingModalOpen(false)}
+        billingRules={billingRules}
+        initialSelectedIds={formData.billingRuleIds}
+        onSave={(newIds) => setFormData(prev => ({ ...prev, billingRuleIds: newIds }))}
+        blockId={formData.blockId}
+        roomId={initialData?.id}
+      />
       {/* Features Modal */}
       {showFeaturesModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">

@@ -3,15 +3,18 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import {
-  Home,
   Edit,
   Calendar,
   MapPin,
   ChevronLeft,
   ChevronRight,
-  ImageOff
+  ImageOff,
+  Settings
 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { toast } from "react-hot-toast";
 import RoomActions from "@/app/landlord/rooms/RoomActions";
+import ManageBillingsModal from "./ManageBillingsModal";
 
 export default function RoomCard({ room }) {
   // Build the photos list: prefer photos[], fall back to imageUrl
@@ -25,6 +28,42 @@ export default function RoomCard({ room }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const intervalRef = useRef(null);
+  
+  const router = useRouter();
+  const [isBillingModalOpen, setIsBillingModalOpen] = useState(false);
+  const [savingBillings, setSavingBillings] = useState(false);
+
+  const handleSaveBillings = async (newIds) => {
+    setSavingBillings(true);
+    try {
+      const payload = {
+        roomNumber: room.roomNumber,
+        rentAmount: room.rentAmount,
+        status: room.status,
+        capacity: room.capacity,
+        blockId: room.blockId,
+        billingRuleIds: newIds,
+      };
+
+      const res = await fetch(`/api/rooms/${room.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        toast.success("Billing rules updated!");
+        router.refresh();
+      } else {
+        const text = await res.text();
+        toast.error(text || "Failed to update billing rules");
+      }
+    } catch (err) {
+      toast.error("An error occurred");
+    } finally {
+      setSavingBillings(false);
+    }
+  };
 
   const next = useCallback(() => {
     setCurrentIndex(i => (i + 1) % photos.length);
@@ -195,31 +234,71 @@ export default function RoomCard({ room }) {
       {/* ── CARD BODY ── */}
       <div className="p-5 flex-1 flex flex-col gap-4">
 
-        {/* Room name + block */}
+        {/* Room number + block name on right, address below, billings below that */}
         <div className="flex items-start justify-between gap-2">
-          <div>
+          <div className="min-w-0 flex-1">
             <h3 className="font-bold text-slate-900 text-lg leading-tight">Room {room.roomNumber}</h3>
-            {room.block && (
-              <div className="flex flex-col gap-0.5 mt-1">
-                <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100 w-fit">
-                  {room.block.name}
-                </span>
-                {room.block.address && (
-                  <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
-                    <MapPin size={9} /> {room.block.address}
-                  </span>
-                )}
-              </div>
+            {room.block?.address && (
+              <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1 mt-0.5">
+                <MapPin size={9} /> {room.block.address}
+              </span>
             )}
           </div>
-          {/* Rent */}
-          <div className="text-right shrink-0">
-            <span className="text-slate-900 font-bold block leading-none">₦{room.rentAmount.toLocaleString()}</span>
-            <span className="text-[10px] font-bold text-blue-600 uppercase tracking-tighter">
-              ₦{(room.rentAmount / room.capacity).toLocaleString()}/Bed • {room.capacity} beds
+          {/* Block name top-right */}
+          {room.block && (
+            <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100 shrink-0">
+              {room.block.name}
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between mt-2 mb-1">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Billing & Rules</span>
+          <button
+            onClick={() => setIsBillingModalOpen(true)}
+            disabled={savingBillings}
+            className="text-[10px] font-bold text-blue-600 hover:bg-blue-50 px-2 py-0.5 rounded transition-colors flex items-center gap-1"
+          >
+            {savingBillings ? "Saving..." : <>Manage</>}
+          </button>
+        </div>
+
+        {/* Billing rules */}
+        {room.allBillingRules?.length > 0 ? (
+          <div className="space-y-1.5 max-h-36 overflow-y-auto">
+            {/* Base rent first */}
+            <div className="flex items-center justify-between py-1.5 px-3 bg-slate-50 rounded-lg border border-slate-100">
+              <span className="text-[11px] font-semibold text-slate-600">Base Rent</span>
+              <span className="text-[11px] font-bold text-slate-900">
+                ₦{room.rentAmount.toLocaleString()}
+                <span className="text-slate-400 font-normal">/yr</span>
+              </span>
+            </div>
+            {/* Additional billing rules */}
+            {room.allBillingRules.map(rule => (
+              <div key={rule.id} className="flex items-center justify-between py-1.5 px-3 bg-slate-50 rounded-lg border border-slate-100">
+                <span className="text-[11px] font-semibold text-slate-600 truncate mr-2">
+                  {rule.title || rule.description}
+                </span>
+                <span className="text-[11px] font-bold text-slate-900 shrink-0">
+                  ₦{rule.amount.toLocaleString()}
+                  <span className="text-slate-400 font-normal">
+                    /{freqLabel(rule.frequency)}
+                  </span>
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          /* No billing rules — just show base rent with frequency */
+          <div className="flex items-center justify-between py-1.5 px-3 bg-slate-50 rounded-lg border border-slate-100">
+            <span className="text-[11px] font-semibold text-slate-600">Base Rent</span>
+            <span className="text-[11px] font-bold text-slate-900">
+              ₦{room.rentAmount.toLocaleString()}
+              <span className="text-slate-400 font-normal">/yr</span>
             </span>
           </div>
-        </div>
+        )}
 
         {/* Expiry */}
         {room.rentExpiryDate && (
@@ -301,6 +380,28 @@ export default function RoomCard({ room }) {
         )}
         <RoomActions room={room} />
       </div>
+
+      <ManageBillingsModal
+        isOpen={isBillingModalOpen}
+        onClose={() => setIsBillingModalOpen(false)}
+        initialSelectedIds={room.allBillingRules?.map(r => r.id) || []}
+        onSave={handleSaveBillings}
+        blockId={room.blockId}
+        roomId={room.id}
+      />
     </div>
   );
+}
+
+// Frequency label shorthand
+function freqLabel(frequency) {
+  const map = {
+    ONCE: "once",
+    DAILY: "day",
+    MONTHLY: "mo",
+    QUARTERLY: "qtr",
+    YEARLY: "yr",
+    PER_SEMESTER: "sem",
+  };
+  return map[frequency] || frequency?.toLowerCase() || "yr";
 }

@@ -267,7 +267,7 @@ export default function InspectionManager({ initialInspections, tenants, rooms }
                     <div className="flex flex-col items-end gap-1">
                       <div className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider ${
                         guest.status === 'CONFIRMED' ? 'bg-blue-100 text-blue-700' :
-                        guest.status === 'PASSED' ? 'bg-green-100 text-green-700' :
+                        guest.status === 'DONE' ? 'bg-green-100 text-green-700' :
                         guest.status === 'FAILED' ? 'bg-red-100 text-red-700' :
                         'bg-amber-100 text-amber-700'
                       }`}>

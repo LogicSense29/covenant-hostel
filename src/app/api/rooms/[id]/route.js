@@ -46,6 +46,10 @@ export async function PUT(req, { params }) {
       return new NextResponse("Room not found", { status: 404 });
     }
 
+    if (!blockId) {
+      return new NextResponse("A block must be assigned to the room.", { status: 400 });
+    }
+
     // Check for duplicate room number in the target block
     if (roomNumber !== existingRoom.roomNumber || blockId !== existingRoom.blockId) {
       const duplicate = await prisma.room.findFirst({

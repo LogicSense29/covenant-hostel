@@ -45,9 +45,39 @@ export default async function RoomsPage({ searchParams }) {
         },
         include: { user: true }
       },
-      block: true
+      block: true,
+      billingRules: true,
+      specificRules: true,
     },
     orderBy: { roomNumber: "asc" }
+  });
+
+  // For each room, also fetch global and block-level billing rules
+  // and merge+deduplicate so the card has the full picture
+  const globalAndBlockRules = await prisma.billingRule.findMany({
+    where: {
+      OR: [
+        { isGlobal: true },
+        { blockId: { in: rooms.map(r => r.blockId).filter(Boolean) } },
+      ],
+    },
+  });
+
+  const roomsWithAllRules = rooms.map(room => {
+    const applicable = [
+      ...globalAndBlockRules.filter(r =>
+        r.isGlobal || r.blockId === room.blockId
+      ),
+      ...(room.billingRules || []),
+      ...(room.specificRules || []),
+    ];
+    const seen = new Set();
+    const allBillingRules = applicable.filter(r => {
+      if (seen.has(r.id)) return false;
+      seen.add(r.id);
+      return true;
+    });
+    return { ...room, allBillingRules };
   });
 
   return (
@@ -81,7 +111,7 @@ export default async function RoomsPage({ searchParams }) {
             </Link>
           </div>
         ) : (
-          rooms.map((room) => (
+          roomsWithAllRules.map((room) => (
             <RoomCard key={room.id} room={room} />
           ))
         )}

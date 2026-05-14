@@ -24,9 +24,9 @@ export async function sendInspectionReceipt({ email, name, date, reference, amou
       subject: "Your Booking Receipt - Covenant Hostel Tour",
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: auto;">
-          <h2>Tour Booking Confirmed</h2>
+          <h2>Inspection Booked</h2>
           <p>Hi ${name},</p>
-          <p>Thank you for booking a tour to visit Covenant Hostel. We have successfully received your payment.</p>
+          <p>Thank you for booking an inspection to visit Covenant Hostel. We have successfully received your payment.</p>
           <div style="background: #f4f7fb; padding: 20px; border-radius: 10px; margin: 20px 0;">
             <h3>Booking Details:</h3>
             <p><strong>Inspection Date:</strong> ${new Date(date).toLocaleDateString()}</p>
