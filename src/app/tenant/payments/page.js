@@ -425,7 +425,7 @@ export default async function TenantPaymentsPage() {
                 <div className="flex justify-between items-end pb-6 border-b border-slate-100">
                   <div>
                     <p className="text-sm font-bold text-slate-900">Base Room Rent</p>
-                    <p className="text-xs text-slate-400">Unit {room.roomNumber}</p>
+                    <p className="text-xs text-slate-400">Room {room.roomNumber}</p>
                   </div>
                   <p className="text-xl font-black text-slate-900">₦{room.rentAmount.toLocaleString()}</p>
                 </div>
