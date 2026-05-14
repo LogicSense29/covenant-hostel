@@ -19,7 +19,7 @@ import {
 
 export default function InspectionManager({ initialInspections, tenants, rooms }) {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const [loadingId, setLoadingId] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [viewMode, setViewMode] = useState("TENANT"); // "TENANT" or "GUEST"
   const [guestInspections, setGuestInspections] = useState([]);
@@ -59,7 +59,7 @@ export default function InspectionManager({ initialInspections, tenants, rooms }
       toast.error("Selected tenant has no room assigned.");
       return;
     }
-    setLoading(true);
+    setLoadingId("new_inspection");
     try {
       const res = await fetch("/api/inspections", {
         method: "POST",
@@ -77,12 +77,12 @@ export default function InspectionManager({ initialInspections, tenants, rooms }
     } catch (err) {
       toast.error("Error scheduling inspection");
     } finally {
-      setLoading(false);
+      setLoadingId(null);
     }
   };
 
   const updateStatus = async (id, status) => {
-    setLoading(true);
+    setLoadingId(id);
     try {
       const res = await fetch(`/api/inspections/${id}`, {
         method: "PUT",
@@ -98,12 +98,12 @@ export default function InspectionManager({ initialInspections, tenants, rooms }
     } catch (err) {
       toast.error("Error updating status");
     } finally {
-      setLoading(false);
+      setLoadingId(null);
     }
   };
 
   const updateGuestStatus = async (id, status) => {
-    setLoading(true);
+    setLoadingId(id);
     try {
       const res = await fetch(`/api/guest-inspections/${id}`, {
         method: "PUT",
@@ -121,7 +121,7 @@ export default function InspectionManager({ initialInspections, tenants, rooms }
     } catch (err) {
       toast.error("Error updating status");
     } finally {
-      setLoading(false);
+      setLoadingId(null);
     }
   };
 
@@ -220,13 +220,15 @@ export default function InspectionManager({ initialInspections, tenants, rooms }
                         <>
                           <button 
                             onClick={() => updateStatus(insp.id, 'DONE')}
-                            className="px-4 py-2 bg-green-600 text-white rounded-xl text-xs font-bold hover:bg-green-700 transition-all shadow-sm"
+                            disabled={loadingId === insp.id}
+                            className="px-4 py-2 bg-green-600 text-white rounded-xl text-xs font-bold hover:bg-green-700 transition-all shadow-sm disabled:opacity-50"
                           >
-                            Mark Done
+                            {loadingId === insp.id ? "Saving..." : "Mark Done"}
                           </button>
                           <button 
                             onClick={() => updateStatus(insp.id, 'FAILED')}
-                            className="px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-bold hover:bg-red-700 transition-all shadow-sm"
+                            disabled={loadingId === insp.id}
+                            className="px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-bold hover:bg-red-700 transition-all shadow-sm disabled:opacity-50"
                           >
                             Mark Failed
                           </button>
@@ -325,14 +327,14 @@ export default function InspectionManager({ initialInspections, tenants, rooms }
                     <div className="p-4 pt-0 flex gap-2">
                       <button 
                         onClick={() => updateGuestStatus(guest.id, 'CONFIRMED')}
-                        disabled={loading}
+                        disabled={loadingId === guest.id}
                         className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition-all disabled:opacity-50"
                       >
-                        Confirm
+                        {loadingId === guest.id ? "Processing..." : "Confirm"}
                       </button>
                       <button 
                         onClick={() => updateGuestStatus(guest.id, 'FAILED')}
-                        disabled={loading}
+                        disabled={loadingId === guest.id}
                         className="px-3 py-2 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-200 transition-all disabled:opacity-50"
                       >
                         Cancel
@@ -344,10 +346,10 @@ export default function InspectionManager({ initialInspections, tenants, rooms }
                     <div className="p-4 pt-0">
                       <button 
                         onClick={() => updateGuestStatus(guest.id, 'DONE')}
-                        disabled={loading}
+                        disabled={loadingId === guest.id}
                         className="w-full px-3 py-2 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 transition-all disabled:opacity-50"
                       >
-                        Mark Done
+                        {loadingId === guest.id ? "Processing..." : "Mark Done"}
                       </button>
                     </div>
                   )}
@@ -414,10 +416,10 @@ export default function InspectionManager({ initialInspections, tenants, rooms }
               <div className="pt-4">
                 <button 
                   type="submit" 
-                  disabled={loading}
+                  disabled={loadingId === "new_inspection"}
                   className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 shadow-xl shadow-blue-500/20 transition-all disabled:bg-slate-200"
                 >
-                  {loading ? "Scheduling..." : "Confirm Schedule"}
+                  {loadingId === "new_inspection" ? "Scheduling..." : "Confirm Schedule"}
                 </button>
               </div>
             </form>

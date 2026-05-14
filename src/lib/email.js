@@ -15,7 +15,7 @@ function createTransporter() {
   });
 }
 
-export async function sendInspectionReceipt({ email, name, date, reference, amount }) {
+export async function sendInspectionReceipt({ email, name, date, reference, isFree, amount }) {
   try {
     const transporter = createTransporter();
     const info = await transporter.sendMail({
@@ -31,7 +31,7 @@ export async function sendInspectionReceipt({ email, name, date, reference, amou
             <h3>Booking Details:</h3>
             <p><strong>Inspection Date:</strong> ${new Date(date).toLocaleDateString()}</p>
             <p><strong>Amount Paid:</strong> ₦${amount.toLocaleString()}</p>
-            <p><strong>Payment Reference:</strong> ${reference}</p>
+            ${isFree ? `<p></p>` : `<p><strong>Payment Reference:</strong> ${reference}</p>`}
           </div>
           <p>If you have any questions, feel free to contact us.</p>
           <p>Best regards,<br/>The Covenant Hostel Management Team</p>
