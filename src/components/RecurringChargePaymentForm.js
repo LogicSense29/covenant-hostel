@@ -6,6 +6,18 @@ import { CreditCard, Upload, Loader2, CheckCircle2, AlertCircle } from "lucide-r
 import { usePaystackPayment } from "react-paystack";
 import { toast } from "react-hot-toast";
 
+const freqLabel = (frequency) => {
+  const map = {
+    ONCE: "once",
+    DAILY: "day",
+    MONTHLY: "mo",
+    QUARTERLY: "qtr",
+    YEARLY: "yr",
+    PER_SEMESTER: "sem",
+  };
+  return map[frequency] || "once";
+};
+
 export default function RecurringChargePaymentForm({ charge, tenantEmail, tenantId }) {
   const router = useRouter();
   const [mode, setMode] = useState("paystack");
@@ -116,7 +128,7 @@ export default function RecurringChargePaymentForm({ charge, tenantEmail, tenant
           <p className="text-sm font-bold text-slate-900">{charge.billingRule.title || charge.billingRule.description}</p>
           <p className="text-xs text-slate-400">Due: {new Date(charge.dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</p>
         </div>
-        <p className="text-lg font-black text-slate-900">₦{charge.amount.toLocaleString()}</p>
+        <p className="text-lg font-black text-slate-900">₦{charge.amount.toLocaleString()}/{freqLabel(charge.billingRule?.frequency)}</p>
       </div>
 
       {/* Payment mode tabs */}

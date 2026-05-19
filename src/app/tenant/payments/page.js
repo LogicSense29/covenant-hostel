@@ -11,6 +11,7 @@ import PaymentBreakdownPanel from "@/components/PaymentBreakdownPanel";
 
 export const dynamic = "force-dynamic";
 
+
 // Reusable payment history table rows
 function PaymentRow({ pmt }) {
   return (
@@ -454,7 +455,7 @@ export default async function TenantPaymentsPage() {
                         Due {new Date(charge.dueDate).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}
                       </p>
                     </div>
-                    <span className="text-sm font-bold text-slate-500">₦{charge.amount.toLocaleString()}</span>
+                     <span className="text-sm font-bold text-slate-500">₦{charge.amount.toLocaleString()}/{freqLabel(charge.billingRule?.frequency)}</span>
                   </div>
                 ))}
               </div>

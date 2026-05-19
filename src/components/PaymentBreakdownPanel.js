@@ -7,6 +7,18 @@ import {
 } from "lucide-react";
 import PaymentFormWrapper from "@/components/PaymentFormWrapper";
 
+const freqLabel = (frequency) => {
+  const map = {
+    ONCE: "once",
+    DAILY: "day",
+    MONTHLY: "mo",
+    QUARTERLY: "qtr",
+    YEARLY: "yr",
+    PER_SEMESTER: "sem",
+  };
+  return map[frequency] || "once";
+};
+
 export default function PaymentBreakdownPanel({
   room,
   billingRules,
@@ -169,7 +181,7 @@ export default function PaymentBreakdownPanel({
                 </div>
               </div>
               <span className="text-sm sm:text-base font-black text-slate-900">
-                ₦{rule.amount.toLocaleString()}
+                ₦{rule.amount.toLocaleString()}/{freqLabel(rule.frequency)}
               </span>
             </div>
           ))}
@@ -224,7 +236,7 @@ export default function PaymentBreakdownPanel({
                   </div>
                 </div>
                 <span className="text-sm sm:text-base font-black text-slate-900">
-                  ₦{charge.amount.toLocaleString()}
+                  ₦{charge.amount.toLocaleString()}/{freqLabel(charge.billingRule?.frequency)}
                 </span>
               </div>
             );
@@ -320,7 +332,7 @@ export default function PaymentBreakdownPanel({
                     return (
                       <div key={rule.id} className="flex justify-between py-2 font-medium text-slate-700">
                         <span>{rule.title || rule.description}</span>
-                        <span className="font-bold text-slate-900">₦{rule.amount.toLocaleString()}</span>
+                        <span className="font-bold text-slate-900">₦{rule.amount.toLocaleString()}/{freqLabel(rule.frequency)}</span>
                       </div>
                     );
                   })}
@@ -329,7 +341,7 @@ export default function PaymentBreakdownPanel({
                     return (
                       <div key={charge.id} className="flex justify-between py-2 font-medium text-slate-700">
                         <span>{charge.billingRule?.title || charge.billingRule?.description || "Utility"}</span>
-                        <span className="font-bold text-slate-900">₦{charge.amount.toLocaleString()}</span>
+                        <span className="font-bold text-slate-900">₦{charge.amount.toLocaleString()}/{freqLabel(charge.billingRule?.frequency)}</span>
                       </div>
                     );
                   })}

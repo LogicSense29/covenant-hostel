@@ -202,7 +202,7 @@ export default function PaymentForm({
           </p>
         )}
         {!isPartialMode && (
-          <p className="text-xs text-slate-500 mt-1">Full annual payment required.</p>
+          <p className="text-xs text-slate-500 mt-1">Full payment required.</p>
         )}
       </div>
 
@@ -210,7 +210,7 @@ export default function PaymentForm({
         {/* Amount display */}
         <div className="bg-slate-50 rounded-2xl p-4 flex items-center justify-between">
           <span className="text-sm font-medium text-slate-600">Amount due</span>
-          <span className="text-2xl font-black text-slate-900">₦{payAmount.toLocaleString()}{isRentSelected ? `/${rentFrequencyShorthand}` : ""}</span>
+          <span className="text-2xl font-black text-slate-900">₦{payAmount.toLocaleString()}</span>
         </div>
 
         {/* Installment schedule toggle */}
@@ -300,7 +300,7 @@ export default function PaymentForm({
                   </div>
                 </div>
                 <div className="text-[10px] text-blue-500 font-medium bg-blue-50/60 p-2 rounded-lg text-center mt-2 border border-blue-100/50">
-                  Kindly transfer <strong>₦{payAmount.toLocaleString()}{isRentSelected ? `/${rentFrequencyShorthand}` : ""}</strong> to the details above, then upload your transfer receipt below.
+                  Kindly transfer <strong>₦{payAmount.toLocaleString()}</strong> to the details above, then upload your transfer receipt below.
                 </div>
               </div>
             )}
