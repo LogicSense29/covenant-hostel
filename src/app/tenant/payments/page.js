@@ -142,6 +142,37 @@ export default async function TenantPaymentsPage() {
     }),
   ]);
 
+  // Determine base rent frequency shorthand
+  const matchingRentRules = await prisma.billingRule.findMany({
+    where: {
+      type: { in: ["Base Rent", "Base_Rent", "BaseRent", "Rent", "RENT", "BASE_RENT"] },
+      OR: [
+        { isGlobal: true },
+        { blockId: room.blockId || undefined },
+        { rooms: { some: { id: room.id } } },
+        { roomId: room.id }
+      ]
+    },
+    include: {
+      rooms: true
+    }
+  });
+
+  const rentRule = matchingRentRules.find(r => r.roomId === room.id || r.rooms?.some(rm => rm.id === room.id))
+    || matchingRentRules.find(r => r.blockId === room.blockId)
+    || matchingRentRules.find(r => r.isGlobal)
+    || null;
+
+  const rentFrequencyShorthandMap = {
+    DAILY: "day",
+    MONTHLY: "mo",
+    QUARTERLY: "qtr",
+    YEARLY: "yr",
+    PER_SEMESTER: "sem",
+    ONCE: "once"
+  };
+  const rentFrequencyShorthand = rentFrequencyShorthandMap[rentRule?.frequency || "YEARLY"] || "yr";
+
   const seen = new Set();
   const billingRules = allRules.filter(r => {
     // Filter out Base Rent rules because the room's rentAmount is already used for the base rent
@@ -446,6 +477,7 @@ export default async function TenantPaymentsPage() {
             profile={profile}
             session={session}
             paymentHistory={paymentHistory}
+            rentFrequencyShorthand={rentFrequencyShorthand}
           />
 
           {/* Recent Payments */}

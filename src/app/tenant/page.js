@@ -51,6 +51,49 @@ export default async function TenantDashboard() {
 
   const { room, user, payments } = profile;
 
+  // Determine rent frequency from billing rules, prioritizing specific rules over global ones
+  const matchingRules = profile.roomId ? await prisma.billingRule.findMany({
+    where: {
+      type: { in: ["Base Rent", "Base_Rent", "BaseRent", "Rent", "RENT", "BASE_RENT"] },
+      OR: [
+        { isGlobal: true },
+        { blockId: profile.room?.blockId || undefined },
+        { rooms: { some: { id: profile.roomId } } },
+        { roomId: profile.roomId }
+      ]
+    },
+    include: {
+      rooms: true
+    }
+  }) : [];
+
+  const rentRule = matchingRules.find(r => r.roomId === profile.roomId || r.rooms?.some(rm => rm.id === profile.roomId))
+    || matchingRules.find(r => r.blockId === profile.room?.blockId)
+    || matchingRules.find(r => r.isGlobal)
+    || null;
+
+  const rentFrequency = rentRule?.frequency || "YEARLY";
+
+  const frequencyLabelMap = {
+    DAILY: "per day",
+    MONTHLY: "per month",
+    QUARTERLY: "per quarter",
+    YEARLY: "per annum",
+    PER_SEMESTER: "per semester",
+    ONCE: "one-time"
+  };
+  const rentFrequencyLabel = frequencyLabelMap[rentFrequency] || "per annum";
+
+  const frequencyShorthandMap = {
+    DAILY: "day",
+    MONTHLY: "mo",
+    QUARTERLY: "qtr",
+    YEARLY: "yr",
+    PER_SEMESTER: "sem",
+    ONCE: "once"
+  };
+  const rentFrequencyShorthand = frequencyShorthandMap[rentFrequency] || "yr";
+
   if (user.status === "PENDING") {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 bg-white rounded-3xl border border-slate-200 shadow-xl border-t-4 border-t-amber-500 animate-in fade-in duration-700">
@@ -77,7 +120,7 @@ export default async function TenantDashboard() {
         </div>
         <h1 className="text-3xl font-extrabold text-slate-900 text-center">Action Required: Payment</h1>
         <p className="text-slate-500 mt-4 text-center max-w-md leading-relaxed">
-          Your application has been approved! To finalize your tenancy and activate your portal, please proceed to the payment section to settle your annual rent.
+          Your application has been approved! To finalize your tenancy and activate your portal, please proceed to the payment section.
         </p>
         <Link 
           href="/tenant/payments"
@@ -243,8 +286,9 @@ export default async function TenantDashboard() {
             <div className="p-8 grid grid-cols-2 md:grid-cols-4 gap-6">
               <div className="space-y-1">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Rent Amount</p>
-                <p className="text-lg font-bold text-slate-900">{room ? `₦${room.rentAmount.toLocaleString()}` : 'N/A'}</p>
-                <p className="text-[10px] text-slate-400">per annum</p>
+                <p className="text-lg font-bold text-slate-900">
+                  {room ? `₦${room.rentAmount.toLocaleString()}/${rentFrequencyShorthand}` : 'N/A'}
+                </p>
               </div>
               <div className="space-y-1">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Entry Date</p>

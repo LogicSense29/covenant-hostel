@@ -431,3 +431,63 @@ export async function sendRentExpiredNotification({ email, name, roomNumber, exp
     return { success: false, error };
   }
 }
+
+export async function sendPaymentRejectedEmail({ email, name, amount, reason }) {
+  const adminEmail = process.env.ADMIN_EMAIL;
+  try {
+    const transporter = createTransporter();
+    
+    // Email to tenant
+    const tenantInfo = await transporter.sendMail({
+      from: `"Covenant Hostel" <${smtpUser}>`,
+      to: email,
+      subject: "Payment Receipt Rejected - Covenant Hostel",
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
+          <h2 style="color: #e11d48;">Payment Receipt Rejected</h2>
+          <p>Hi ${name},</p>
+          <p>Your payment receipt of <strong>₦${amount.toLocaleString()}</strong> has been rejected by management.</p>
+          ${reason ? `
+          <div style="margin: 24px 0; padding: 20px; background: #fff1f2; border-radius: 10px; border-left: 4px solid #e11d48;">
+            <p style="margin: 0; font-weight: bold; color: #9f1239; font-size: 14px;">Reason for rejection:</p>
+            <p style="margin: 8px 0 0; color: #b91c1c; font-size: 15px; line-height: 1.5;">${reason}</p>
+          </div>
+          ` : ""}
+          <p>Please log in to your portal to upload a valid payment receipt or contact the hostel management office.</p>
+          <p>Best regards,<br/>The Covenant Hostel Management Team</p>
+        </div>
+      `,
+    });
+
+    if (smtpHost === "smtp.ethereal.email") {
+      console.log("Tenant payment rejection email preview: %s", nodemailer.getTestMessageUrl(tenantInfo));
+    }
+
+    // Email to admin if configured
+    if (adminEmail) {
+      const adminInfo = await transporter.sendMail({
+        from: `"Covenant Hostel" <${smtpUser}>`,
+        to: adminEmail,
+        subject: `Rejected Payment Alert — Tenant: ${name}`,
+        html: `
+          <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
+            <h3 style="color: #e11d48;">Payment Receipt Rejected</h3>
+            <p>You have rejected the payment receipt uploaded by <strong>${name}</strong>.</p>
+            <p><strong>Amount:</strong> ₦${amount.toLocaleString()}</p>
+            ${reason ? `<p><strong>Reason Provided:</strong> ${reason}</p>` : ""}
+            <p>An automated notification and email has been sent to the tenant to upload a new receipt.</p>
+          </div>
+        `,
+      });
+      if (smtpHost === "smtp.ethereal.email") {
+        console.log("Admin payment rejection email preview: %s", nodemailer.getTestMessageUrl(adminInfo));
+      }
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error sending payment rejected email:", error);
+    return { success: false, error };
+  }
+}
+

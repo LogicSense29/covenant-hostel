@@ -19,6 +19,11 @@ export default async function TenantsPage() {
         orderBy: {
           startDate: "desc"
         }
+      },
+      payments: {
+        orderBy: {
+          createdAt: "desc"
+        }
       }
     },
     orderBy: {

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { CheckCircle, XCircle, Loader2, Send } from "lucide-react";
 import { toast } from "react-hot-toast";
 
-export default function ApprovalActions({ userId, status }) {
+export default function ApprovalActions({ userId, status, payments = [] }) {
   const [loading, setLoading] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectNote, setRejectNote] = useState("");
@@ -143,15 +143,25 @@ export default function ApprovalActions({ userId, status }) {
   }
 
   if (status === "PAYMENT_MADE") {
+    const hasUnverifiedPayment = payments.some(p => p.status === "PENDING");
+
     return (
-      <button 
-        onClick={handleActivate} 
-        disabled={loading}
-        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 active:scale-95 disabled:bg-slate-200"
-      >
-        {loading ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
-        Verify & Activate
-      </button>
+      <div className="flex flex-col gap-1 items-center w-full">
+        <button 
+          onClick={handleActivate} 
+          disabled={loading || hasUnverifiedPayment}
+          title={hasUnverifiedPayment ? "Please verify the tenant's payment receipt first on the Payment Approvals page" : "Verify payment and activate tenancy"}
+          className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 active:scale-95 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none w-full"
+        >
+          {loading ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
+          Verify & Activate
+        </button>
+        {hasUnverifiedPayment && (
+          <span className="text-[10px] text-amber-600 font-bold tracking-tight text-center block mt-1">
+            ⚠️ Requires receipt approval
+          </span>
+        )}
+      </div>
     );
   }
 

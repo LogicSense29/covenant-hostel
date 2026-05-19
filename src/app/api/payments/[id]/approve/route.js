@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createNotification } from "@/lib/notifications";
 import { autoCreateNextCharge } from "@/lib/billing";
+import { sendPaymentRejectedEmail } from "@/lib/email";
+
 
 
 export const dynamic = "force-dynamic";
@@ -80,6 +82,11 @@ export async function DELETE(req, { params }) {
   }
 
   const { id } = params;
+  let reason = "";
+  try {
+    const body = await req.json().catch(() => ({}));
+    reason = body.reason || "";
+  } catch (e) {}
 
   try {
     const payment = await prisma.payment.findUnique({
@@ -111,13 +118,21 @@ export async function DELETE(req, { params }) {
       }
     });
 
-    // Notify tenant
+    // Notify tenant in-app
     await createNotification({
       userId: payment.tenant.userId,
       title: "Payment Rejected",
       message: `Your payment of ₦${payment.amount.toLocaleString()} was rejected. Please re-upload your receipt or contact the office.`,
       type: "PAYMENT",
       link: "/tenant/payments",
+    });
+
+    // Send email to both Tenant and Admin
+    await sendPaymentRejectedEmail({
+      email: payment.tenant.user.email,
+      name: payment.tenant.user.name,
+      amount: payment.amount,
+      reason: reason || "Your payment receipt did not meet our requirements. Please ensure you upload a clear and valid receipt."
     });
 
     return NextResponse.json({ success: true });

@@ -96,13 +96,54 @@ export async function GET(req) {
   }
 
   if (action === "activate") {
-    // Restore tenant back to active and sets expiry to 1 year in the future
-    const oneYearLater = new Date();
-    oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+    // Restore tenant back to active and set expiry date dynamically based on rent frequency
+    const matchingRules = tenant.roomId ? await prisma.billingRule.findMany({
+      where: {
+        type: { in: ["Base Rent", "Base_Rent", "BaseRent", "Rent", "RENT", "BASE_RENT"] },
+        OR: [
+          { isGlobal: true },
+          { blockId: tenant.room?.blockId || undefined },
+          { rooms: { some: { id: tenant.roomId } } },
+          { roomId: tenant.roomId }
+        ]
+      },
+      include: {
+        rooms: true
+      }
+    }) : [];
+
+    const rentRule = matchingRules.find(r => r.roomId === tenant.roomId || r.rooms?.some(rm => rm.id === tenant.roomId))
+      || matchingRules.find(r => r.blockId === tenant.room?.blockId)
+      || matchingRules.find(r => r.isGlobal)
+      || null;
+
+    const frequency = rentRule?.frequency || "YEARLY";
+
+    const expiryDate = new Date();
+    switch (frequency) {
+      case "DAILY":
+        expiryDate.setDate(expiryDate.getDate() + 1);
+        break;
+      case "MONTHLY":
+        expiryDate.setMonth(expiryDate.getMonth() + 1);
+        break;
+      case "QUARTERLY":
+        expiryDate.setMonth(expiryDate.getMonth() + 3);
+        break;
+      case "YEARLY":
+        expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+        break;
+      case "PER_SEMESTER":
+        expiryDate.setMonth(expiryDate.getMonth() + 6);
+        break;
+      default:
+        expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+        break;
+    }
 
     await prisma.tenantProfile.update({
       where: { id: tenant.id },
-      data: { rentExpiryDate: oneYearLater },
+      data: { rentExpiryDate: expiryDate },
     });
 
     await prisma.user.update({
@@ -128,7 +169,7 @@ export async function GET(req) {
             <h1>Tenancy Restored!</h1>
             <div class="status">STATUS: ACTIVE</div>
             <p><strong>Tenant:</strong> ${tenant.user.name} (${tenant.user.email})</p>
-            <p><strong>Rent Expiry Date:</strong> reset to 1 year from now (${oneYearLater.toLocaleDateString("en-GB")})</p>
+            <p><strong>Rent Expiry Date:</strong> reset dynamically based on rent frequency (${expiryDate.toLocaleDateString("en-GB")})</p>
             <p>Your tenant profile is now active and the dashboard is unlocked.</p>
             <a href="/tenant" class="btn">Go to Tenant Dashboard</a>
             <a href="/api/test-expiry?action=expire&email=${encodeURIComponent(email)}" class="btn btn-secondary">Simulate Expiry</a>

@@ -160,7 +160,7 @@ export default function TicketChatDrawer({ isOpen, onClose, ticket, currentUser 
       />
       
       {/* Drawer */}
-      <div className="fixed inset-x-0 bottom-0 top-16 md:top-0 md:bottom-0 md:inset-auto md:right-0 md:w-full md:max-w-md bg-slate-50 z-50 rounded-t-3xl md:rounded-none md:rounded-l-3xl shadow-2xl flex flex-col animate-in slide-in-from-bottom md:slide-in-from-right duration-300">
+      <div className="fixed left-0 right-0 bottom-0 top-16 md:top-0 md:bottom-0 md:left-auto md:right-0 md:w-full md:max-w-md bg-slate-50 z-50 rounded-t-3xl md:rounded-none md:rounded-l-3xl shadow-2xl flex flex-col animate-in slide-in-from-bottom md:slide-in-from-right duration-300">
         
         {/* Header */}
         <div className="flex flex-col p-5 border-b border-slate-200 bg-white sticky top-0 rounded-t-3xl md:rounded-tl-3xl z-10 shrink-0 shadow-sm">

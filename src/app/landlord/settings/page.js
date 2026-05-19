@@ -6,6 +6,9 @@ import { Save, Settings2, CreditCard } from "lucide-react";
 export default function SettingsPage() {
   const [fee, setFee] = useState("");
   const [isEnabled, setIsEnabled] = useState(true);
+  const [bankName, setBankName] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [accountName, setAccountName] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ text: "", type: "" });
@@ -19,6 +22,15 @@ export default function SettingsPage() {
         }
         if (data.INSPECTION_FEE_ENABLED !== undefined) {
           setIsEnabled(data.INSPECTION_FEE_ENABLED === "true");
+        }
+        if (data.BANK_NAME) {
+          setBankName(data.BANK_NAME);
+        }
+        if (data.ACCOUNT_NUMBER) {
+          setAccountNumber(data.ACCOUNT_NUMBER);
+        }
+        if (data.ACCOUNT_NAME) {
+          setAccountName(data.ACCOUNT_NAME);
         }
         setLoading(false);
       })
@@ -53,6 +65,37 @@ export default function SettingsPage() {
           key: "INSPECTION_FEE_ENABLED",
           value: isEnabled.toString(),
           description: "Whether or not to charge for guest inspections.",
+        }),
+      });
+
+      // Save Bank Details Settings
+      await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          key: "BANK_NAME",
+          value: bankName,
+          description: "The bank name for manual transfer payments.",
+        }),
+      });
+
+      await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          key: "ACCOUNT_NUMBER",
+          value: accountNumber,
+          description: "The account number for manual transfer payments.",
+        }),
+      });
+
+      await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          key: "ACCOUNT_NAME",
+          value: accountName,
+          description: "The account name for manual transfer payments.",
         }),
       });
 
@@ -135,6 +178,57 @@ export default function SettingsPage() {
                 />
               </div>
               <p className="text-xs text-slate-400 mt-2 font-medium italic">Amount to be charged via Paystack on the registration form.</p>
+            </div>
+          </div>
+          
+          {/* Divider */}
+          <div className="border-t border-slate-100 my-6" />
+
+          {/* Bank Transfer Details Section */}
+          <div className="space-y-4">
+            <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
+              <span className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+                <CreditCard size={18} />
+              </span>
+              Bank Transfer Account Details
+            </h3>
+            <p className="text-xs text-slate-500 font-medium">
+              Specify the bank details that tenants will see when they select the "Upload Receipt" payment option to make manual bank transfers.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <label className="block text-xs font-bold text-slate-900 uppercase tracking-widest mb-2">Bank Name</label>
+                <input
+                  type="text"
+                  value={bankName}
+                  onChange={(e) => setBankName(e.target.value)}
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-bold text-slate-950"
+                  placeholder="e.g. GTBank, Access Bank"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-900 uppercase tracking-widest mb-2">Account Number</label>
+                <input
+                  type="text"
+                  value={accountNumber}
+                  onChange={(e) => setAccountNumber(e.target.value)}
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-bold text-slate-950"
+                  placeholder="e.g. 0123456789"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-900 uppercase tracking-widest mb-2">Account Name</label>
+                <input
+                  type="text"
+                  value={accountName}
+                  onChange={(e) => setAccountName(e.target.value)}
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-bold text-slate-950"
+                  placeholder="e.g. Covenant Hostel Ltd"
+                />
+              </div>
             </div>
           </div>
 

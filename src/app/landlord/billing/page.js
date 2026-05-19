@@ -6,7 +6,12 @@ export const dynamic = "force-dynamic";
 
 export default async function BillingPage() {
   const billingRules = await prisma.billingRule.findMany({
-    include: { room: true, block: true },
+    include: { 
+      room: {
+        include: { block: true }
+      }, 
+      block: true 
+    },
     orderBy: { createdAt: "desc" }
   });
 

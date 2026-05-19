@@ -33,7 +33,7 @@ export default function TenantDirectoryClient({ tenants, availableRooms }) {
   const [showBulkEmail, setShowBulkEmail] = useState(false);
 
   useEffect(() => {
-    if (selectedTenant) {
+    if (selectedTenant && window.innerWidth < 768) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "unset";
@@ -118,7 +118,14 @@ export default function TenantDirectoryClient({ tenants, availableRooms }) {
                   return (
                     <tr 
                       key={profile.id} 
-                      onClick={() => { setSelectedTenant(profile); setActionsOpen(true); }}
+                      onClick={() => { 
+                        if (selectedTenant && selectedTenant.id === profile.id) {
+                          setSelectedTenant(null);
+                        } else {
+                          setSelectedTenant(profile); 
+                          setActionsOpen(true); 
+                        }
+                      }}
                       className="hover:bg-blue-50/50 transition-colors cursor-pointer group"
                     >
 
@@ -172,19 +179,40 @@ export default function TenantDirectoryClient({ tenants, availableRooms }) {
 
                       {/* ID Verify */}
                       <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-1.5" onClick={e => e.stopPropagation()}>
+                        <div className="flex flex-wrap gap-1.5">
                           {profile.guarantorIdUrl && !isSelfEmployed ? (
-                            <a href={profile.guarantorIdUrl} target="_blank" rel="noopener noreferrer" title="View Guarantor ID" className="p-1.5 bg-slate-100 text-slate-500 rounded-lg border border-slate-200 hover:bg-slate-200 hover:text-slate-700 transition-colors">
+                            <a 
+                              onClick={e => e.stopPropagation()} 
+                              href={profile.guarantorIdUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              title="View Guarantor ID" 
+                              className="p-1.5 bg-slate-100 text-slate-500 rounded-lg border border-slate-200 hover:bg-slate-200 hover:text-slate-700 transition-colors"
+                            >
                               <FileText size={14} />
                             </a>
                           ) : null}
                           {profile.isStudent && profile.studentIdUrl && (
-                            <a href={profile.studentIdUrl} target="_blank" rel="noopener noreferrer" title="View Student ID" className="p-1.5 bg-blue-50 text-blue-600 rounded-lg border border-blue-100 hover:bg-blue-100 transition-colors">
+                            <a 
+                              onClick={e => e.stopPropagation()} 
+                              href={profile.studentIdUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              title="View Student ID" 
+                              className="p-1.5 bg-blue-50 text-blue-600 rounded-lg border border-blue-100 hover:bg-blue-100 transition-colors"
+                            >
                               <GraduationCap size={14} />
                             </a>
                           )}
                           {!profile.isStudent && profile.workType === "Employee" && profile.workIdUrl && (
-                            <a href={profile.workIdUrl} target="_blank" rel="noopener noreferrer" title="View Work ID" className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100 hover:bg-emerald-100 transition-colors">
+                            <a 
+                              onClick={e => e.stopPropagation()} 
+                              href={profile.workIdUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              title="View Work ID" 
+                              className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100 hover:bg-emerald-100 transition-colors"
+                            >
                               <Briefcase size={14} />
                             </a>
                           )}
@@ -223,7 +251,7 @@ export default function TenantDirectoryClient({ tenants, availableRooms }) {
                           >
                             <Mail size={14} />
                           </button>
-                          <ApprovalActions userId={profile.userId} status={status} />
+                          <ApprovalActions userId={profile.userId} status={status} payments={profile.payments} />
                           {status !== "REJECTED" && (
                             <AssignRoomActions 
                               tenantId={profile.id} 
@@ -253,7 +281,7 @@ export default function TenantDirectoryClient({ tenants, availableRooms }) {
           />
           
           {/* Drawer / Bottom Sheet */}
-          <div className="fixed inset-x-0 bottom-0 top-16 md:top-0 md:bottom-0 md:inset-auto md:right-0 md:w-full md:max-w-md bg-white z-50 rounded-t-3xl md:rounded-none md:rounded-l-3xl shadow-2xl flex flex-col animate-in slide-in-from-bottom md:slide-in-from-right duration-300">
+          <div className="fixed left-0 right-0 bottom-0 top-16 md:top-0 md:bottom-0 md:left-auto md:right-0 md:w-full md:max-w-md bg-white z-50 rounded-t-3xl md:rounded-none md:rounded-l-3xl shadow-2xl flex flex-col animate-in slide-in-from-bottom md:slide-in-from-right duration-300">
             
             {/* Drawer Header (Sticky) */}
             <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-white sticky top-0 rounded-t-3xl md:rounded-tl-3xl z-10 shrink-0">
@@ -426,6 +454,96 @@ export default function TenantDirectoryClient({ tenants, availableRooms }) {
                   </div>
                </div>
 
+                {/* 5. Tenancy & Payment History */}
+                <div className="space-y-6 pt-2">
+                   <div className="h-px bg-slate-100" />
+                   <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1">Tenancy & Payment History</h4>
+                   
+                   {/* Stays History Timeline */}
+                   <div className="space-y-3">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider pl-1">Stay History</p>
+                      {!selectedTenant.stayHistory || selectedTenant.stayHistory.length === 0 ? (
+                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-center text-slate-400 text-xs font-semibold">
+                          No previous stay history recorded.
+                        </div>
+                      ) : (
+                        <div className="space-y-3 pl-2 border-l-2 border-slate-100 ml-2">
+                          {selectedTenant.stayHistory.map((stay) => (
+                            <div key={stay.id} className="relative pl-4">
+                              <div className="absolute -left-[17px] top-1.5 w-2 h-2 rounded-full bg-blue-500 ring-4 ring-white" />
+                              <div className="flex items-center justify-between">
+                                <p className="text-xs font-bold text-slate-800">
+                                  Room {stay.room?.roomNumber} 
+                                  {stay.room?.block?.name && ` (${stay.room.block.name})`}
+                                </p>
+                                <span className={`text-[8px] px-1.5 py-0.5 rounded font-black uppercase ${
+                                  stay.status === "ACTIVE" 
+                                    ? "bg-green-100 text-green-700" 
+                                    : "bg-slate-100 text-slate-500"
+                                }`}>
+                                  {stay.status}
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-slate-400 font-medium">
+                                {new Date(stay.startDate).toLocaleDateString()} — {stay.endDate ? new Date(stay.endDate).toLocaleDateString() : "Present"}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                   </div>
+
+                   {/* Payment & Receipts List */}
+                   <div className="space-y-3">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider pl-1">Payment Receipts</p>
+                      {!selectedTenant.payments || selectedTenant.payments.length === 0 ? (
+                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-center text-slate-400 text-xs font-semibold">
+                          No payments recorded.
+                        </div>
+                      ) : (
+                        <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                          {selectedTenant.payments.map((pmt) => (
+                            <div key={pmt.id} className="bg-slate-50 rounded-2xl border border-slate-100 p-4 flex items-center justify-between hover:bg-slate-100/50 transition-colors">
+                              <div className="space-y-1">
+                                <p className="text-xs font-bold text-slate-800">₦{pmt.amount.toLocaleString()}</p>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="text-[9px] font-bold text-slate-400">
+                                    {new Date(pmt.createdAt).toLocaleDateString()}
+                                  </span>
+                                  <span className="text-[9px] font-bold text-slate-300">•</span>
+                                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider">
+                                    {pmt.paymentType?.toLowerCase()}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="flex flex-col items-end gap-1.5">
+                                <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase border ${
+                                  pmt.status === "VERIFIED" || pmt.status === "SUCCESS"
+                                    ? "bg-green-50 text-green-600 border-green-100"
+                                    : pmt.status === "PENDING"
+                                    ? "bg-amber-50 text-amber-600 border-amber-100"
+                                    : "bg-red-50 text-red-600 border-red-100"
+                                }`}>
+                                  {pmt.status === "SUCCESS" ? "Confirmed" : pmt.status}
+                                </span>
+                                {pmt.receiptUrl && (
+                                  <a 
+                                    href={pmt.receiptUrl} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer" 
+                                    className="text-[9px] font-bold text-blue-600 hover:underline flex items-center gap-1"
+                                  >
+                                    <FileText size={10} /> View Receipt
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                   </div>
+                </div>
+
             </div>
 
             {/* Drawer Footer Actions (Sticky Bottom) */}
@@ -478,7 +596,7 @@ export default function TenantDirectoryClient({ tenants, availableRooms }) {
 
                   {/* Approval actions */}
                   <div className="flex gap-2 w-full [&>*]:flex-1">
-                    <ApprovalActions userId={selectedTenant.userId} status={selectedTenant.user?.status} />
+                    <ApprovalActions userId={selectedTenant.userId} status={selectedTenant.user?.status} payments={selectedTenant.payments} />
                   </div>
 
                   {/* Send email */}

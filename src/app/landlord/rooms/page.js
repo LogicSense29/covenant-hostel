@@ -65,11 +65,10 @@ export default async function RoomsPage({ searchParams }) {
 
   const roomsWithAllRules = rooms.map(room => {
     const applicable = [
-      ...globalAndBlockRules.filter(r =>
-        r.isGlobal || r.blockId === room.blockId
-      ),
-      ...(room.billingRules || []),
       ...(room.specificRules || []),
+      ...(room.billingRules || []),
+      ...globalAndBlockRules.filter(r => r.blockId === room.blockId),
+      ...globalAndBlockRules.filter(r => r.isGlobal),
     ];
     const seen = new Set();
     const allBillingRules = applicable.filter(r => {

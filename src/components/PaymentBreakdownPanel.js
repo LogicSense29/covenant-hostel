@@ -17,6 +17,7 @@ export default function PaymentBreakdownPanel({
   profile,
   session,
   paymentHistory,
+  rentFrequencyShorthand = "yr",
 }) {
   // We keep track of checked state for each billing item.
   // By default, base rent, caution fees, and overdue charges are mandatory (checked and disabled).
@@ -133,7 +134,7 @@ export default function PaymentBreakdownPanel({
               </div>
             </div>
             <span className="text-sm sm:text-base font-black text-slate-900">
-              ₦{room.rentAmount.toLocaleString()}
+              ₦{room.rentAmount.toLocaleString()}/{rentFrequencyShorthand}
             </span>
           </div>
 
@@ -311,7 +312,7 @@ export default function PaymentBreakdownPanel({
                   {selectedItems["rent"] && (
                     <div className="flex justify-between py-2 font-medium text-slate-700">
                       <span>Room Rent ({room.roomNumber})</span>
-                      <span className="font-bold text-slate-900">₦{room.rentAmount.toLocaleString()}</span>
+                      <span className="font-bold text-slate-900">₦{room.rentAmount.toLocaleString()}/{rentFrequencyShorthand}</span>
                     </div>
                   )}
                   {billingRules.map(rule => {
@@ -350,6 +351,7 @@ export default function PaymentBreakdownPanel({
                 existingPayments={paymentHistory}
                 recurringChargeIds={selectedRecurringChargeIds}
                 isRentSelected={!!selectedItems["rent"]}
+                rentFrequencyShorthand={rentFrequencyShorthand}
               />
             </div>
 

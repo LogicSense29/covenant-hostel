@@ -195,7 +195,12 @@ export default function BillingRulesManager({ defaultRules, rooms, blocks = [] }
                             ? "bg-purple-50 text-purple-600 border-purple-100"
                             : "bg-indigo-50 text-indigo-600 border-indigo-100"
                         }`}>
-                          {rule.isGlobal ? "Global Charge" : rule.blockId ? `Block: ${rule.block?.name || "Unknown"}` : `Room ${rule.room?.roomNumber}`}
+                          {rule.isGlobal 
+                            ? "Global Charge" 
+                            : rule.blockId 
+                              ? `Block: ${rule.block?.name || "Unknown"}` 
+                              : `${rule.room?.block?.name || "Block"} - Room ${rule.room?.roomNumber || "Unknown"}`
+                          }
                         </span>
                       </div>
                     </div>

@@ -100,9 +100,53 @@ export async function POST(req) {
       return new NextResponse("Tenancy can only be activated after payment is made", { status: 400 });
     }
 
+    // Determine rent frequency from billing rules, prioritizing specific rules over global ones
+    const matchingRules = user.tenantProfile?.roomId ? await prisma.billingRule.findMany({
+      where: {
+        type: { in: ["Base Rent", "Base_Rent", "BaseRent", "Rent", "RENT", "BASE_RENT"] },
+        OR: [
+          { isGlobal: true },
+          { blockId: user.tenantProfile.room?.blockId || undefined },
+          { rooms: { some: { id: user.tenantProfile.roomId } } },
+          { roomId: user.tenantProfile.roomId }
+        ]
+      },
+      include: {
+        rooms: true
+      }
+    }) : [];
+
+    const rentRule = matchingRules.find(r => r.roomId === user.tenantProfile.roomId || r.rooms?.some(rm => rm.id === user.tenantProfile.roomId))
+      || matchingRules.find(r => r.blockId === user.tenantProfile.room?.blockId)
+      || matchingRules.find(r => r.isGlobal)
+      || null;
+
+    const frequency = rentRule?.frequency || "YEARLY";
+
     const now = new Date();
-    const expiryDate = new Date();
-    expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+    const expiryDate = new Date(now);
+    
+    switch (frequency) {
+      case "DAILY":
+        expiryDate.setDate(expiryDate.getDate() + 1);
+        break;
+      case "MONTHLY":
+        expiryDate.setMonth(expiryDate.getMonth() + 1);
+        break;
+      case "QUARTERLY":
+        expiryDate.setMonth(expiryDate.getMonth() + 3);
+        break;
+      case "YEARLY":
+        expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+        break;
+      case "PER_SEMESTER":
+        expiryDate.setMonth(expiryDate.getMonth() + 6);
+        break;
+      default:
+        expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+        break;
+    }
+
 
     await prisma.$transaction([
       prisma.user.update({

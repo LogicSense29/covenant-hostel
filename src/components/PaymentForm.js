@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { CreditCard, CheckCircle2, AlertCircle, Loader2, Upload, Calendar, ChevronDown, ChevronUp } from "lucide-react";
@@ -18,6 +18,7 @@ export default function PaymentForm({
   existingPayments = [],
   recurringChargeIds = [],
   isRentSelected = true,
+  rentFrequencyShorthand = "yr",
 }) {
   const router = useRouter();
   const { data: session } = useSession();
@@ -29,6 +30,22 @@ export default function PaymentForm({
   const [receiptFile, setReceiptFile] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(false);
   const [showSchedule, setShowSchedule] = useState(false);
+  const [bankDetails, setBankDetails] = useState(null);
+
+  useEffect(() => {
+    fetch("/api/settings")
+      .then(res => res.json())
+      .then(data => {
+        if (data.BANK_NAME || data.ACCOUNT_NUMBER || data.ACCOUNT_NAME) {
+          setBankDetails({
+            bankName: data.BANK_NAME || "N/A",
+            accountNumber: data.ACCOUNT_NUMBER || "N/A",
+            accountName: data.ACCOUNT_NAME || "N/A",
+          });
+        }
+      })
+      .catch(err => console.error("Error fetching bank details setting:", err));
+  }, []);
 
   // Compute installment schedule
   const installments = useMemo(() => {
@@ -193,7 +210,7 @@ export default function PaymentForm({
         {/* Amount display */}
         <div className="bg-slate-50 rounded-2xl p-4 flex items-center justify-between">
           <span className="text-sm font-medium text-slate-600">Amount due</span>
-          <span className="text-2xl font-black text-slate-900">₦{payAmount.toLocaleString()}</span>
+          <span className="text-2xl font-black text-slate-900">₦{payAmount.toLocaleString()}{isRentSelected ? `/${rentFrequencyShorthand}` : ""}</span>
         </div>
 
         {/* Installment schedule toggle */}
@@ -262,6 +279,32 @@ export default function PaymentForm({
         {/* Receipt upload mode */}
         {mode === "receipt" && (
           <div className="space-y-4">
+            {bankDetails && (
+              <div className="p-5 bg-blue-50/50 border border-blue-100 rounded-2xl space-y-3">
+                <h4 className="text-[10px] font-bold text-blue-600 uppercase tracking-widest flex items-center gap-1.5">
+                  <CreditCard size={12} />
+                  Hostel Bank Account Details
+                </h4>
+                <div className="space-y-1.5 text-xs text-slate-700">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400 font-medium">Bank Name</span>
+                    <span className="font-bold text-slate-900">{bankDetails.bankName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400 font-medium">Account Number</span>
+                    <span className="font-bold text-slate-900 tracking-wider">{bankDetails.accountNumber}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400 font-medium">Account Name</span>
+                    <span className="font-bold text-slate-900">{bankDetails.accountName}</span>
+                  </div>
+                </div>
+                <div className="text-[10px] text-blue-500 font-medium bg-blue-50/60 p-2 rounded-lg text-center mt-2 border border-blue-100/50">
+                  Kindly transfer <strong>₦{payAmount.toLocaleString()}{isRentSelected ? `/${rentFrequencyShorthand}` : ""}</strong> to the details above, then upload your transfer receipt below.
+                </div>
+              </div>
+            )}
+
             <div
               className="border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/30 transition-all"
               onClick={() => document.getElementById("receipt-input").click()}
@@ -314,7 +357,7 @@ export default function PaymentForm({
             disabled={loading || !signature.trim()}
             className="w-full py-4 bg-[#0b69ff] text-white rounded-2xl text-sm font-bold hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:translate-y-px transition-all disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none flex items-center justify-center gap-2"
           >
-            {loading ? <><Loader2 size={18} className="animate-spin" /> Processing...</> : `Pay ₦${payAmount.toLocaleString()} via Paystack`}
+            {loading ? <><Loader2 size={18} className="animate-spin" /> Processing...</> : `Pay ₦${payAmount.toLocaleString()}${isRentSelected ? `/${rentFrequencyShorthand}` : ""} via Paystack`}
           </button>
         ) : (
           <button
