@@ -26,13 +26,14 @@ export async function sendInspectionReceipt({ email, name, date, reference, isFr
         <div style="font-family: sans-serif; max-width: 600px; margin: auto;">
           <h2>Inspection Booked</h2>
           <p>Hi ${name},</p>
-          <p>Thank you for booking an inspection to visit Covenant Hostel. We have successfully received your payment.</p>
+          <p>Thank you for booking an inspection to visit Covenant Hostel.</p>
           <div style="background: #f4f7fb; padding: 20px; border-radius: 10px; margin: 20px 0;">
             <h3>Booking Details:</h3>
             <p><strong>Inspection Date:</strong> ${new Date(date).toLocaleDateString()}</p>
             <p><strong>Amount Paid:</strong> ₦${amount.toLocaleString()}</p>
             ${isFree ? `<p></p>` : `<p><strong>Payment Reference:</strong> ${reference}</p>`}
-          </div>
+          <p><strong>Be on the Lookout, We will notify you when the booking is confirmed.</strong></p>
+            </div>
           <p>If you have any questions, feel free to contact us.</p>
           <p>Best regards,<br/>The Covenant Hostel Management Team</p>
         </div>

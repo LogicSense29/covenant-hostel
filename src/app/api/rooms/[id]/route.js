@@ -91,6 +91,19 @@ export async function PUT(req, { params }) {
       }
     });
 
+    // Synchronize the rent amount to any room-specific base rent rules
+    if (rentAmount !== undefined) {
+      await prisma.billingRule.updateMany({
+        where: {
+          roomId: id,
+          type: { in: ["BASE_RENT", "Base Rent"] }
+        },
+        data: {
+          amount: parseFloat(rentAmount)
+        }
+      });
+    }
+
     return NextResponse.json(room);
   } catch (error) {
     console.error("Update room error", error);

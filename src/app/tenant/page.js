@@ -292,7 +292,9 @@ export default async function TenantDashboard() {
         {/* Sidebar / Additional Info */}
         <div className="space-y-8">
            {/* Guarantor Info */}
-           <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden border-t-4 border-t-indigo-500">
+{
+  profile?.guarantorName && profile.guarantorName.trim() !== "" && profile.guarantorName.trim().toLowerCase() !== "null" && (
+              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden border-t-4 border-t-indigo-500">
               <div className="p-6 border-b border-slate-100 flex items-center justify-between">
                 <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">Guarantor Information</h3>
                 <User size={18} className="text-slate-400" />
@@ -312,13 +314,17 @@ export default async function TenantDashboard() {
                       <Phone size={14} className="text-slate-400" />
                       {profile.guarantorPhone}
                    </div>
-                   <div className="flex items-start gap-2 text-xs text-slate-600 pt-1">
-                      <MapPin size={14} className="text-slate-400 shrink-0" />
-                      <span className="leading-relaxed">{profile.guarantorAddress}</span>
-                   </div>
+                   {profile.guarantorAddress && (
+                     <div className="flex items-start gap-2 text-xs text-slate-600 pt-1">
+                        <MapPin size={14} className="text-slate-400 shrink-0" />
+                        <span className="leading-relaxed">{profile.guarantorAddress}</span>
+                     </div>
+                   )}
                 </div>
               </div>
            </div>
+  )
+}
 
            {/* Emergency Contact */}
            <div className="bg-slate-900 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden">

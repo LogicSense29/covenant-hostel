@@ -69,13 +69,14 @@ export async function POST(req) {
     });
 
     // Notify landlord of new ticket
+    const ticketCategory = category || "MAINTENANCE";
     const landlordIds = await getLandlordUserIds();
     await createNotification({
       userIds: landlordIds,
-      title: "New Maintenance Ticket",
-      message: `A new ${category || "maintenance"} ticket has been submitted: "${issueDescription.slice(0, 60)}${issueDescription.length > 60 ? "…" : ""}"`,
+      title: ticketCategory === "COMPLAINT" ? "New Complaint Filed" : "New Maintenance Ticket",
+      message: `${ticketCategory === "COMPLAINT" ? "A complaint" : "A maintenance ticket"} has been submitted: "${issueDescription.slice(0, 60)}${issueDescription.length > 60 ? "…" : ""}"`,
       type: "MAINTENANCE",
-      link: "/landlord/maintenance",
+      link: ticketCategory === "COMPLAINT" ? "/landlord/maintenance" : "/landlord/maintenance",
     });
 
     return NextResponse.json(ticket, { status: 201 });

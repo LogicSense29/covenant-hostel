@@ -264,41 +264,67 @@ export default function RoomCard({ room }) {
         </div>
 
         {/* Billing rules */}
-        {room.allBillingRules?.length > 0 ? (
-          <div className="space-y-1.5 max-h-36 overflow-y-auto">
-            {/* Base rent first */}
-            <div className="flex items-center justify-between py-1.5 px-3 bg-slate-50 rounded-lg border border-slate-100">
-              <span className="text-[11px] font-semibold text-slate-600">Base Rent</span>
-              <span className="text-[11px] font-bold text-slate-900">
-                ₦{room.rentAmount.toLocaleString()}
-                <span className="">/yr</span>
-              </span>
-            </div>
-            {/* Additional billing rules */}
-            {room.allBillingRules.map(rule => (
-              <div key={rule.id} className="flex items-center justify-between py-1.5 px-3 bg-slate-50 rounded-lg border border-slate-100">
-                <span className="text-[11px] font-semibold text-slate-600 truncate mr-2">
-                  {rule.title || rule.description}
-                </span>
-                <span className="text-[11px] font-bold text-slate-900 shrink-0">
-                  ₦{rule.amount.toLocaleString()}
-                  <span className="">
-                    /{freqLabel(rule.frequency)}
-                  </span>
+        {(() => {
+          const allRules = room.allBillingRules || [];
+          
+          const additionalRules = allRules.filter(r => {
+            const t = String(r.type || "").toUpperCase();
+            return t !== "BASE_RENT" && t !== "BASE RENT";
+          });
+
+          const baseRentRules = allRules.filter(r => {
+            const t = String(r.type || "").toUpperCase();
+            return t === "BASE_RENT" || t === "BASE RENT";
+          });
+
+          // Determine the frequency for the room's rent based on the attached base rent rule
+          let rentFreq = "yr";
+          if (baseRentRules.length > 0) {
+            rentFreq = freqLabel(baseRentRules[0].frequency);
+          }
+
+          return (
+            <div className="space-y-1.5 max-h-36 overflow-y-auto">
+              {/* Base rent first */}
+              <div className="flex items-center justify-between py-1.5 px-3 bg-slate-50 rounded-lg border border-slate-100">
+                <span className="text-[11px] font-semibold text-slate-600">Base Rent</span>
+                <span className="text-[11px] font-bold text-slate-900">
+                  ₦{room.rentAmount?.toLocaleString() || 0}
+                  <span className="text-slate-400 font-normal">/{rentFreq}</span>
                 </span>
               </div>
-            ))}
-          </div>
-        ) : (
-          /* No billing rules — just show base rent with frequency */
-          <div className="flex items-center justify-between py-1.5 px-3 bg-slate-50 rounded-lg border border-slate-100">
-            <span className="text-[11px] font-semibold text-slate-600">Base Rent</span>
-            <span className="text-[11px] font-bold text-slate-900">
-              ₦{room.rentAmount.toLocaleString()}
-              <span className="text-slate-400 font-normal">/yr</span>
-            </span>
-          </div>
-        )}
+              
+              {/* Additional billing rules */}
+              {additionalRules.map((rule) => {
+                const isGlobal = rule.isGlobal;
+                const isBlock = rule.blockId === room.blockId;
+                return (
+                  <div key={rule.id} className="flex items-center justify-between py-1.5 px-3 bg-slate-50 rounded-lg border border-slate-100">
+                    <span className="text-[11px] font-semibold text-slate-600 truncate mr-2 flex items-center gap-1.5">
+                      {rule.title || rule.description}
+                      {isGlobal && (
+                        <span className="text-[8px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                          Global
+                        </span>
+                      )}
+                      {!isGlobal && isBlock && (
+                        <span className="text-[8px] bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                          Block
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-[11px] font-bold text-slate-900 shrink-0">
+                      ₦{rule.amount?.toLocaleString()}
+                      <span className="text-slate-400 font-normal">
+                        /{freqLabel(rule.frequency)}
+                      </span>
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
 
         {/* Expiry */}
         {room.rentExpiryDate && (

@@ -9,6 +9,7 @@ import {
   sendAdminRecurringChargeAlert,
   sendRentExpiredNotification,
 } from "@/lib/email";
+import { createNotification, getLandlordUserIds } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -19,8 +20,8 @@ export async function GET(req) {
   }
 
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const now = new Date();
+    const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0));
     const adminEmail = process.env.ADMIN_EMAIL;
     const thresholds = [7, 3, 1];
     let adminSummaryList = [];
@@ -52,6 +53,18 @@ export async function GET(req) {
             expiryDate: tenant.rentExpiryDate,
           });
         }
+
+        // In-app notification: rent expiry
+        const expiryMsg = days === 1
+          ? `Your tenancy expires tomorrow. Please renew to avoid disruption.`
+          : `Your tenancy expires in ${days} days. Please renew soon.`;
+        await createNotification({
+          userId: tenant.userId,
+          title: "Rent Expiry Reminder",
+          message: expiryMsg,
+          type: "PAYMENT",
+          link: "/tenant/payments",
+        });
       }
 
       const expiringRooms = await prisma.room.findMany({
@@ -195,46 +208,71 @@ export async function GET(req) {
       });
 
       for (const rule of applicableRules) {
-        // Check if a charge already exists for this rule + tenant in the current cycle
-        const existingCharge = await prisma.recurringCharge.findFirst({
+        // Find the latest existing charge for this tenant + rule
+        const latestCharge = await prisma.recurringCharge.findFirst({
           where: {
             tenantId: tenant.id,
             billingRuleId: rule.id,
-            dueDate: { gte: today },
+          },
+          orderBy: { dueDate: "desc" },
+        });
+
+        let nextDue;
+        if (latestCharge) {
+          nextDue = new Date(latestCharge.dueDate);
+        } else {
+          nextDue = new Date(tenant.rentStartDate || tenant.createdAt);
+        }
+
+        switch (rule.frequency) {
+          case "DAILY":
+            nextDue.setDate(nextDue.getDate() + 1);
+            break;
+          case "MONTHLY":
+            nextDue.setMonth(nextDue.getMonth() + 1);
+            break;
+          case "QUARTERLY":
+            nextDue.setMonth(nextDue.getMonth() + 3);
+            break;
+          case "YEARLY":
+            nextDue.setFullYear(nextDue.getFullYear() + 1);
+            break;
+          case "PER_SEMESTER":
+            nextDue.setMonth(nextDue.getMonth() + 6);
+            break;
+          default:
+            continue;
+        }
+
+        // Normalize nextDue to UTC midnight
+        const normalizedNextDue = new Date(Date.UTC(
+          nextDue.getFullYear(),
+          nextDue.getMonth(),
+          nextDue.getDate(),
+          0, 0, 0, 0
+        ));
+
+        // Check if a charge already exists for this tenant, rule, and exact dueDate
+        const alreadyExists = await prisma.recurringCharge.findFirst({
+          where: {
+            tenantId: tenant.id,
+            billingRuleId: rule.id,
+            dueDate: normalizedNextDue,
           },
         });
 
-        if (!existingCharge) {
-          // Calculate next due date based on frequency
-          let nextDue = new Date(today);
-          switch (rule.frequency) {
-            case "DAILY":
-              nextDue.setDate(today.getDate() + 1);
-              break;
-            case "MONTHLY":
-              nextDue.setMonth(today.getMonth() + 1);
-              break;
-            case "QUARTERLY":
-              nextDue.setMonth(today.getMonth() + 3);
-              break;
-            case "YEARLY":
-              nextDue.setFullYear(today.getFullYear() + 1);
-              break;
-            case "PER_SEMESTER":
-              nextDue.setMonth(today.getMonth() + 6);
-              break;
-            default:
-              continue;
-          }
+        const limitDate = new Date(today);
+        limitDate.setDate(limitDate.getDate() + 1); // allow generating up to tomorrow
 
-          // Create the recurring charge
+        if (!alreadyExists && normalizedNextDue <= limitDate) {
+          const status = normalizedNextDue < today ? "OVERDUE" : "UNPAID";
           await prisma.recurringCharge.create({
             data: {
               tenantId: tenant.id,
               billingRuleId: rule.id,
               amount: rule.amount,
-              dueDate: nextDue,
-              status: "UNPAID",
+              dueDate: normalizedNextDue,
+              status,
             },
           });
         }
@@ -257,12 +295,15 @@ export async function GET(req) {
         });
 
         for (const charge of upcomingCharges) {
+          const chargeTitle = charge.billingRule.title || charge.billingRule.description;
+          const formattedDue = new Date(charge.dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+
           if (tenant.user?.email) {
             await sendRecurringChargeDueReminder({
               email: tenant.user.email,
               name: tenant.user.name,
               roomNumber: tenant.room?.roomNumber || "N/A",
-              chargeTitle: charge.billingRule.title || charge.billingRule.description,
+              chargeTitle,
               amount: charge.amount,
               dueDate: charge.dueDate,
             });
@@ -273,11 +314,33 @@ export async function GET(req) {
               adminEmail,
               tenantName: tenant.user?.name || "Unknown",
               roomNumber: tenant.room?.roomNumber || "N/A",
-              chargeTitle: charge.billingRule.title || charge.billingRule.description,
+              chargeTitle,
               amount: charge.amount,
               dueDate: charge.dueDate,
             });
           }
+
+          // In-app notification: upcoming bill reminder
+          const dueMsg = days === 1
+            ? `Your ${chargeTitle} bill of ₦${charge.amount.toLocaleString()} is due tomorrow (${formattedDue}).`
+            : `Your ${chargeTitle} bill of ₦${charge.amount.toLocaleString()} is due in ${days} days on ${formattedDue}.`;
+          await createNotification({
+            userId: tenant.userId,
+            title: `Bill Due ${days === 1 ? "Tomorrow" : `in ${days} Days`}`,
+            message: dueMsg,
+            type: "PAYMENT",
+            link: "/tenant/payments",
+          });
+
+          // Notify landlords too
+          const landlordIds = await getLandlordUserIds();
+          await createNotification({
+            userIds: landlordIds,
+            title: "Upcoming Bill Reminder",
+            message: `${tenant.user?.name || "A tenant"}'s ${chargeTitle} of ₦${charge.amount.toLocaleString()} is due in ${days} day${days > 1 ? "s" : ""}.`,
+            type: "PAYMENT",
+            link: "/landlord/payments",
+          });
         }
       }
     }

@@ -16,6 +16,8 @@ export default function PaymentForm({
   tenantId,
   rentStartDate,
   existingPayments = [],
+  recurringChargeIds = [],
+  isRentSelected = true,
 }) {
   const router = useRouter();
   const { data: session } = useSession();
@@ -72,10 +74,12 @@ export default function PaymentForm({
           reference: reference.reference,
           amount: payAmount,
           signature,
-          isPartial: isPartialMode,
-          installmentNumber: nextInstallment?.number || null,
-          totalInstallments: partialPaymentInstallments || null,
-          dueDate: nextInstallment?.dueDate || null,
+          isPartial: isPartialMode && isRentSelected,
+          installmentNumber: isRentSelected ? (nextInstallment?.number || null) : null,
+          totalInstallments: isRentSelected ? (partialPaymentInstallments || null) : null,
+          dueDate: isRentSelected ? (nextInstallment?.dueDate || null) : null,
+          recurringChargeIds: recurringChargeIds || [],
+          isRentSelected: isRentSelected,
         }),
       });
 
@@ -125,12 +129,14 @@ export default function PaymentForm({
         body: JSON.stringify({
           amount: payAmount,
           receiptUrl: fileUrl,
-          isPartial: isPartialMode,
-          paymentType: isPartialMode ? "PARTIAL" : "FULL",
-          installmentNumber: nextInstallment?.number || null,
-          totalInstallments: partialPaymentInstallments || null,
-          dueDate: nextInstallment?.dueDate || null,
+          isPartial: isPartialMode && isRentSelected,
+          paymentType: isRentSelected ? (isPartialMode ? "PARTIAL" : "FULL") : "RECURRING",
+          installmentNumber: isRentSelected ? (nextInstallment?.number || null) : null,
+          totalInstallments: isRentSelected ? (partialPaymentInstallments || null) : null,
+          dueDate: isRentSelected ? (nextInstallment?.dueDate || null) : null,
           tenantId,
+          recurringChargeIds: recurringChargeIds || [],
+          isRentSelected: isRentSelected,
         }),
       });
 

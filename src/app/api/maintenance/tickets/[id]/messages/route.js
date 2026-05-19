@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { createNotification, getLandlordUserIds } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,18 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
+    const ticket = await prisma.maintenanceTicket.findUnique({
+      where: { id: ticketId },
+      include: {
+        tenant: { include: { user: true } },
+        provider: { include: { user: true } },
+      },
+    });
+
+    if (!ticket) {
+      return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
+    }
+
     const message = await prisma.ticketMessage.create({
       data: {
         ticketId,
@@ -45,6 +58,36 @@ export async function POST(request, { params }) {
         imageUrl
       }
     });
+
+    // Notify the other party of the new message
+    const snippet = content.length > 50 ? `${content.slice(0, 50)}...` : content;
+
+    if (senderRole === "TENANT") {
+      const landlordIds = await getLandlordUserIds();
+      const recipients = [...landlordIds];
+      if (ticket.provider?.userId) {
+        recipients.push(ticket.provider.userId);
+      }
+      const uniqueRecipients = [...new Set(recipients)].filter(id => id !== senderId);
+
+      if (uniqueRecipients.length > 0) {
+        await createNotification({
+          userIds: uniqueRecipients,
+          title: "New Ticket Message",
+          message: `${ticket.tenant.user.name}: "${snippet}"`,
+          type: "MAINTENANCE",
+          link: "/landlord/maintenance",
+        });
+      }
+    } else {
+      await createNotification({
+        userId: ticket.tenant.userId,
+        title: "New Message on Ticket",
+        message: `Admin/Provider: "${snippet}"`,
+        type: "MAINTENANCE",
+        link: "/tenant/maintenance",
+      });
+    }
 
     return NextResponse.json(message, { status: 201 });
   } catch (error) {

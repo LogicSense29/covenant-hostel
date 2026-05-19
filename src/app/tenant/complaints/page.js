@@ -2,7 +2,6 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { AlertCircle } from "lucide-react";
-import ComplaintForm from "./ComplaintForm";
 import ComplaintsClient from "./ComplaintsClient";
 
 export const dynamic = "force-dynamic";

@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createNotification } from "@/lib/notifications";
+import { autoCreateNextCharge } from "@/lib/billing";
+
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +44,7 @@ export async function POST(req, { params }) {
           where: { id: linkedCharge.id },
           data: { status: "PAID" },
         });
+        await autoCreateNextCharge(tx, linkedCharge.id);
       }
 
       if (payment.tenant.user.status === "PAYMENT_MADE") {

@@ -224,7 +224,7 @@ export default function TenantDirectoryClient({ tenants, availableRooms }) {
                             <Mail size={14} />
                           </button>
                           <ApprovalActions userId={profile.userId} status={status} />
-                          {status === "ACTIVE" && (
+                          {status !== "REJECTED" && (
                             <AssignRoomActions 
                               tenantId={profile.id} 
                               currentRoomId={profile.roomId} 
@@ -352,7 +352,7 @@ export default function TenantDirectoryClient({ tenants, availableRooms }) {
                </div>
 
                {/* 3. Guarantor (If Applicable) */}
-               {!(selectedTenant.workType === "Self employed/Worker" && !selectedTenant.isStudent) && (
+               {selectedTenant.guarantorName && selectedTenant.guarantorName.trim() !== "" && selectedTenant.guarantorName.trim().toLowerCase() !== "null" && (
                  <div className="space-y-4">
                     <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1">Guarantor Information</h4>
                     <div className="bg-blue-50/50 rounded-2xl border border-blue-100 p-5 space-y-4">

@@ -53,6 +53,8 @@ export default function RoomForm({ initialData }) {
   const [customFeature, setCustomFeature] = useState("");
 
   const billingSearchRef = useRef(null);
+  const lastBlockIdRef = useRef(initialData?.blockId || "");
+  const hasInitialAutoFillRun = useRef(false);
 
   // Available room features
   const availableFeatures = [
@@ -217,12 +219,17 @@ export default function RoomForm({ initialData }) {
       }
     }
 
-    // Aggressively update rentAmount if the current amount is NOT valid for the new block selection
-    // OR if we are adding a new room.
-    const validRules = billingRules.filter(r => (r.type === "BASE_RENT" || r.type === "Base Rent") && (r.isGlobal || r.blockId === formData.blockId));
-    const isCurrentAmountValid = validRules.some(r => Number(r.amount) === Number(formData.rentAmount));
+    const blockChanged = lastBlockIdRef.current !== formData.blockId;
+    lastBlockIdRef.current = formData.blockId;
 
-    if (suggestedAmount !== null && (!isCurrentAmountValid || !formData.rentAmount || !isEditing)) {
+    const shouldAutoFill = 
+      (suggestedAmount !== null) && 
+      (blockChanged || (!isEditing && !hasInitialAutoFillRun.current));
+
+    // Auto-fill the rentAmount if it's completely empty on initial load or if the block just changed.
+    // This ensures if a block is selected, its base rent reflects automatically.
+    if (shouldAutoFill) {
+      hasInitialAutoFillRun.current = true;
       setFormData(prev => ({ 
         ...prev, 
         rentAmount: suggestedAmount,
@@ -240,7 +247,7 @@ export default function RoomForm({ initialData }) {
         }));
       }
     }
-  }, [formData.blockId, formData.rentAmount, billingRules, fetchingData]);
+  }, [formData.blockId, formData.rentAmount, billingRules, fetchingData, isEditing]);
 
   // Auto-tick global and block-specific billing rules (but allow unticking)
   // On new rooms: auto-tick all applicable rules
@@ -438,7 +445,7 @@ export default function RoomForm({ initialData }) {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* <div className={styles.formGroup}>
+          <div className={styles.formGroup}>
             <div className="flex items-center justify-between mb-2">
               <label htmlFor="rentAmount" className={styles.label + " !mb-0"}>Rent Amount (₦)</label>
               {suggestedRent && (
@@ -447,44 +454,20 @@ export default function RoomForm({ initialData }) {
                 </span>
               )}
             </div>
-            {billingRules.filter(r => (r.type === "BASE_RENT" || r.type === "Base Rent") && (r.isGlobal || r.blockId === formData.blockId)).length > 0 ? (
-              <select
-                id="rentAmount"
-                name="rentAmount"
-                required
-                className={styles.input}
-                value={formData.rentAmount}
-                onChange={(e) => setFormData({ ...formData, rentAmount: parseFloat(e.target.value) })}
-              >
-                <option value="">Select Rent Rate...</option>
-                {billingRules
-                  .filter(r => (r.type === "BASE_RENT" || r.type === "Base Rent") && (r.isGlobal || r.blockId === formData.blockId))
-                  .map(rule => (
-                    <option key={rule.id} value={rule.amount}>
-                      ₦{rule.amount.toLocaleString()} ({rule.description})
-                    </option>
-                  ))}
-              </select>
-            ) : (
-              <div className="flex flex-col gap-2">
-                <input
-                  id="rentAmount"
-                  name="rentAmount"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  required
-                  className={styles.input + " bg-slate-100 cursor-not-allowed"}
-                  placeholder="Set base rent in Billing first"
-                  value={formData.rentAmount}
-                  readOnly
-                />
-                <p className="text-[10px] text-red-500 font-bold px-1 italic">
-                  No Base Rent rules found for this selection. Please add one in Billing & Rules.
-                </p>
-              </div>
-            )}
-          </div> */}
+            <input
+              id="rentAmount"
+              name="rentAmount"
+              type="number"
+              step="0.01"
+              min="0"
+              required
+              className={styles.input}
+              placeholder="e.g. 500000"
+              value={formData.rentAmount}
+              onChange={handleChange}
+            />
+          </div>
+
           <div className={styles.formGroup}>
             <label htmlFor="status" className={styles.label}>Room Status</label>
             <select
@@ -503,6 +486,8 @@ export default function RoomForm({ initialData }) {
           </div>
 
 
+{/* Capacity was here */}
+        </div>
           <div className={styles.formGroup}>
             <label htmlFor="capacity" className={styles.label}>Capacity (Max Tenants)</label>
             <input
@@ -517,8 +502,6 @@ export default function RoomForm({ initialData }) {
               onChange={handleChange}
             />
           </div>
-        </div>
-
         {/* Room Features Section */}
         <div className="mt-6 p-6 bg-slate-50 rounded-2xl border border-slate-200">
           <div className="flex items-center justify-between mb-4">

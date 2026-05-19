@@ -2,253 +2,251 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
-import {
-  History, FileText, AlertCircle, ArrowLeft, CheckCircle2,
-  Clock, XCircle, TrendingUp, ChevronLeft, ChevronRight
+import { 
+  ArrowLeft, History, FileText, AlertCircle, 
+  CheckCircle2, Clock, XCircle, TrendingUp, DollarSign 
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
-const PAGE_SIZE = 20;
+// Reusable payment history table rows
+function PaymentRow({ pmt }) {
+  return (
+    <tr className="hover:bg-slate-50/50 transition-colors">
+      <td className="px-6 py-4">
+        {pmt.receiptUrl ? (
+          <a 
+            href={pmt.receiptUrl} 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="flex items-center gap-2 text-sm font-bold text-blue-600 hover:underline"
+          >
+            <FileText size={14} /> View Receipt
+          </a>
+        ) : (
+          <span className="text-sm font-bold text-slate-500">
+            {pmt.reference ? `#${pmt.reference.slice(-6).toUpperCase()}` : "Paystack"}
+          </span>
+        )}
+      </td>
+      <td className="px-6 py-4 font-bold text-slate-900">₦{pmt.amount.toLocaleString()}</td>
+      <td className="px-6 py-4">
+        {pmt.paymentType === "PARTIAL" ? (
+          <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
+            Installment {pmt.installmentNumber}/{pmt.totalInstallments}
+          </span>
+        ) : pmt.paymentType === "RECURRING" ? (
+          <span className="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100">
+            Recurring
+          </span>
+        ) : (
+          <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+            Full Rent
+          </span>
+        )}
+      </td>
+      <td className="px-6 py-4">
+        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-tighter border ${
+          pmt.status === "VERIFIED" || pmt.status === "SUCCESS"
+            ? "bg-green-50 text-green-600 border-green-100"
+            : pmt.status === "PENDING"
+            ? "bg-amber-50 text-amber-600 border-amber-100"
+            : "bg-red-50 text-red-600 border-red-100"
+        }`}>
+          {pmt.status === "SUCCESS" ? "Confirmed" : pmt.status}
+        </span>
+      </td>
+      <td className="px-6 py-4 text-right text-xs text-slate-500">
+        {new Date(pmt.createdAt).toLocaleDateString("en-GB", { 
+          day: "numeric", 
+          month: "short", 
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit"
+        })}
+      </td>
+    </tr>
+  );
+}
 
-export default async function PaymentHistoryPage({ searchParams }) {
+export default async function TenantPaymentHistoryPage({ searchParams }) {
   const session = await getServerSession(authOptions);
 
-  const profile = await prisma.tenantProfile.findUnique({
-    where: { userId: session.user.id },
-  });
-
-  if (!profile) {
+  if (!session) {
     return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center p-8">
-        <AlertCircle size={40} className="text-slate-300 mb-4" />
-        <p className="text-slate-500 font-medium">No profile found.</p>
+      <div className="p-12 text-center">
+        <AlertCircle size={32} className="text-red-500 mx-auto mb-4" />
+        <h3 className="text-lg font-bold text-slate-900">Unauthenticated</h3>
+        <p className="text-sm text-slate-500 mt-2">Please sign in to view your payment history.</p>
       </div>
     );
   }
 
-  const page = Math.max(1, parseInt(searchParams?.page || "1", 10));
-  const skip = (page - 1) * PAGE_SIZE;
+  const profile = await prisma.tenantProfile.findUnique({
+    where: { userId: session.user.id },
+    include: { room: true },
+  });
 
-  const [paymentHistory, totalCount] = await Promise.all([
-    prisma.payment.findMany({
-      where: { tenantId: profile.id },
-      orderBy: { createdAt: "desc" },
-      skip,
-      take: PAGE_SIZE,
-    }),
-    prisma.payment.count({
-      where: { tenantId: profile.id },
-    }),
-  ]);
+  if (!profile) {
+    return (
+      <div className="p-12 text-center">
+        <AlertCircle size={32} className="text-amber-500 mx-auto mb-4" />
+        <h3 className="text-lg font-bold text-slate-900">Profile Not Found</h3>
+        <p className="text-sm text-slate-500 mt-2">No tenant profile is associated with this user account.</p>
+      </div>
+    );
+  }
 
-  // Summary stats — always across ALL payments, not just current page
-  const [allVerified, allPending, allRejected] = await Promise.all([
-    prisma.payment.aggregate({
-      where: { tenantId: profile.id, status: { in: ["SUCCESS", "VERIFIED"] } },
-      _sum: { amount: true },
-      _count: true,
-    }),
-    prisma.payment.aggregate({
-      where: { tenantId: profile.id, status: "PENDING" },
-      _sum: { amount: true },
-      _count: true,
-    }),
-    prisma.payment.count({
-      where: { tenantId: profile.id, status: "REJECTED" },
-    }),
-  ]);
+  // Fetch all payment transactions for this tenant
+  const allPayments = await prisma.payment.findMany({
+    where: { tenantId: profile.id },
+    orderBy: { createdAt: "desc" },
+  });
 
-  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
-  const hasPrev = page > 1;
-  const hasNext = page < totalPages;
+  // Calculate aggregates
+  const verifiedPayments = allPayments.filter(p => p.status === "VERIFIED" || p.status === "SUCCESS");
+  const totalVerifiedAmount = verifiedPayments.reduce((sum, p) => sum + p.amount, 0);
+  const pendingPayments = allPayments.filter(p => p.status === "PENDING");
+  const totalPendingAmount = pendingPayments.reduce((sum, p) => sum + p.amount, 0);
+
+  // Filter based on search query params
+  const activeTab = searchParams?.status || "ALL";
+  const filteredPayments = allPayments.filter(pmt => {
+    if (activeTab === "ALL") return true;
+    if (activeTab === "VERIFIED") return pmt.status === "VERIFIED" || pmt.status === "SUCCESS";
+    return pmt.status === activeTab;
+  });
 
   return (
-    <div className="space-y-8 pb-20">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-200 pb-8">
-        <div className="space-y-2">
-          <Link
-            href="/tenant/payments"
-            className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors"
-          >
-            <ArrowLeft size={15} />
-            Back to Rent & Payments
-          </Link>
-          <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-600 rounded-full w-fit">
-            <History size={14} />
-            <span className="text-[10px] font-bold uppercase tracking-widest">Full Record</span>
-          </div>
-          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">Payment History</h1>
-          <p className="text-slate-500">{totalCount} total transaction{totalCount !== 1 ? "s" : ""} on your account.</p>
-        </div>
-      </div>
+    <div className="space-y-8 pb-20 animate-in fade-in duration-500">
+      
+      {/* Back Button & Header */}
+      <div className="space-y-4">
+        <Link 
+          href="/tenant/payments"
+          className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-950 transition-colors"
+        >
+          <ArrowLeft size={16} />
+          Back to Payments
+        </Link>
 
-      {/* Summary cards — totals across all payments */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 flex items-center gap-4 shadow-sm">
-          <div className="p-3 bg-green-50 rounded-xl">
-            <CheckCircle2 size={20} className="text-green-600" />
-          </div>
-          <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Confirmed</p>
-            <p className="text-xl font-black text-slate-900">₦{(allVerified._sum.amount || 0).toLocaleString()}</p>
-            <p className="text-xs text-slate-400">{allVerified._count} transaction{allVerified._count !== 1 ? "s" : ""}</p>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 flex items-center gap-4 shadow-sm">
-          <div className="p-3 bg-amber-50 rounded-xl">
-            <Clock size={20} className="text-amber-500" />
-          </div>
-          <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pending Approval</p>
-            <p className="text-xl font-black text-slate-900">₦{(allPending._sum.amount || 0).toLocaleString()}</p>
-            <p className="text-xs text-slate-400">{allPending._count} transaction{allPending._count !== 1 ? "s" : ""}</p>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 flex items-center gap-4 shadow-sm">
-          <div className="p-3 bg-red-50 rounded-xl">
-            <XCircle size={20} className="text-red-500" />
-          </div>
-          <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Rejected</p>
-            <p className="text-xl font-black text-slate-900">{allRejected}</p>
-            <p className="text-xs text-slate-400">transaction{allRejected !== 1 ? "s" : ""}</p>
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-slate-200 pb-6">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-600 rounded-full w-fit mb-2">
+              <History size={14} />
+              <span className="text-[10px] font-bold uppercase tracking-widest">Transaction Audit Log</span>
+            </div>
+            <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">Payment History</h1>
+            <p className="text-slate-500 max-w-xl">
+              Audit all transactions, receipts, and pending approval statuses recorded on your account.
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Transactions table */}
+      {/* Aggregate Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        {/* Total Verified Card */}
+        <div className="bg-white rounded-3xl border border-slate-200 p-6 flex items-center justify-between shadow-sm">
+          <div className="space-y-1">
+            <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Total Settled Dues</p>
+            <p className="text-2xl font-black text-slate-900">₦{totalVerifiedAmount.toLocaleString()}</p>
+            <p className="text-[10px] text-green-600 font-semibold flex items-center gap-1">
+              <CheckCircle2 size={10} /> {verifiedPayments.length} successful payment{verifiedPayments.length === 1 ? "" : "s"}
+            </p>
+          </div>
+          <div className="p-3 bg-green-50 text-green-600 rounded-2xl">
+            <DollarSign size={24} />
+          </div>
+        </div>
+
+        {/* Total Pending Card */}
+        <div className="bg-white rounded-3xl border border-slate-200 p-6 flex items-center justify-between shadow-sm">
+          <div className="space-y-1">
+            <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Pending Verification</p>
+            <p className="text-2xl font-black text-slate-900">₦{totalPendingAmount.toLocaleString()}</p>
+            <p className="text-[10px] text-amber-600 font-semibold flex items-center gap-1">
+              <Clock size={10} /> {pendingPayments.length} awaiting approval
+            </p>
+          </div>
+          <div className="p-3 bg-amber-50 text-amber-600 rounded-2xl">
+            <Clock size={24} />
+          </div>
+        </div>
+
+        {/* Total Transactions Card */}
+        <div className="bg-white rounded-3xl border border-slate-200 p-6 flex items-center justify-between shadow-sm">
+          <div className="space-y-1">
+            <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Total Log Entries</p>
+            <p className="text-2xl font-black text-slate-900">{allPayments.length} recorded</p>
+            <p className="text-[10px] text-slate-500 font-semibold">
+              All time Paystack & bank transfers
+            </p>
+          </div>
+          <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl">
+            <TrendingUp size={24} />
+          </div>
+        </div>
+
+      </div>
+
+      {/* Filter Tabs */}
+      <div className="flex gap-2 border-b border-slate-200 pb-px overflow-x-auto">
+        {[
+          { label: "All Transactions", value: "ALL" },
+          { label: "Settled", value: "VERIFIED" },
+          { label: "Pending", value: "PENDING" },
+          { label: "Rejected", value: "REJECTED" }
+        ].map(tab => {
+          const isActive = activeTab === tab.value;
+          return (
+            <Link
+              key={tab.value}
+              href={`/tenant/payments/history?status=${tab.value}`}
+              className={`pb-4 px-4 text-xs font-bold border-b-2 whitespace-nowrap transition-colors ${
+                isActive 
+                  ? "border-blue-600 text-blue-600" 
+                  : "border-transparent text-slate-400 hover:text-slate-900"
+              }`}
+            >
+              {tab.label}
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* Transactions List Card */}
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/20">
-          <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-            <TrendingUp size={20} className="text-blue-600" />
-            All Transactions
-          </h2>
-          <span className="text-xs font-bold text-slate-400 bg-slate-100 px-3 py-1 rounded-full">
-            {totalCount} total
-          </span>
-        </div>
-
-        {totalCount === 0 ? (
+        {filteredPayments.length === 0 ? (
           <div className="p-16 text-center">
-            <AlertCircle size={32} className="text-slate-200 mx-auto mb-4" />
-            <p className="text-sm font-semibold text-slate-400">No payment records yet.</p>
-            <p className="text-xs text-slate-300 mt-1">Transactions will appear here once you make a payment.</p>
+            <AlertCircle size={32} className="text-slate-300 mx-auto mb-4" />
+            <p className="text-sm font-semibold text-slate-500">
+              No transactions match this filter.
+            </p>
           </div>
         ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="bg-slate-50/30 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                    <th className="px-6 py-4">Reference</th>
-                    <th className="px-6 py-4">Amount</th>
-                    <th className="px-6 py-4">Type</th>
-                    <th className="px-6 py-4">Status</th>
-                    <th className="px-6 py-4 text-right">Date</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {paymentHistory.map((pmt) => (
-                    <tr key={pmt.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="px-6 py-4">
-                        {pmt.receiptUrl ? (
-                          <a
-                            href={pmt.receiptUrl}
-                            target="_blank"
-                            className="flex items-center gap-2 text-sm font-bold text-blue-600 hover:underline"
-                          >
-                            <FileText size={14} /> View Receipt
-                          </a>
-                        ) : (
-                          <span className="text-sm font-bold text-slate-500">
-                            {pmt.reference ? `#${pmt.reference.slice(-6).toUpperCase()}` : "Paystack"}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 font-bold text-slate-900">₦{pmt.amount.toLocaleString()}</td>
-                      <td className="px-6 py-4">
-                        {pmt.paymentType === "PARTIAL" ? (
-                          <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
-                            Installment {pmt.installmentNumber}/{pmt.totalInstallments}
-                          </span>
-                        ) : pmt.paymentType === "RECURRING" ? (
-                          <span className="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100">
-                            Recurring
-                          </span>
-                        ) : (
-                          <span className="text-xs font-bold text-slate-500">Full</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-tighter border ${
-                          pmt.status === "VERIFIED" || pmt.status === "SUCCESS"
-                            ? "bg-green-50 text-green-600 border-green-100"
-                            : pmt.status === "PENDING"
-                            ? "bg-amber-50 text-amber-600 border-amber-100"
-                            : "bg-red-50 text-red-600 border-red-100"
-                        }`}>
-                          {pmt.status === "SUCCESS" ? "Confirmed" : pmt.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right text-xs text-slate-500">
-                        {new Date(pmt.createdAt).toLocaleDateString("en-GB", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/30 flex items-center justify-between">
-                <p className="text-xs text-slate-400">
-                  Showing {skip + 1}–{Math.min(skip + PAGE_SIZE, totalCount)} of {totalCount}
-                </p>
-                <div className="flex items-center gap-2">
-                  {hasPrev ? (
-                    <Link
-                      href={`/tenant/payments/history?page=${page - 1}`}
-                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
-                    >
-                      <ChevronLeft size={14} /> Prev
-                    </Link>
-                  ) : (
-                    <span className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-slate-300 bg-slate-50 border border-slate-100 rounded-lg cursor-not-allowed">
-                      <ChevronLeft size={14} /> Prev
-                    </span>
-                  )}
-
-                  <span className="text-xs font-bold text-slate-500 px-2">
-                    {page} / {totalPages}
-                  </span>
-
-                  {hasNext ? (
-                    <Link
-                      href={`/tenant/payments/history?page=${page + 1}`}
-                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
-                    >
-                      Next <ChevronRight size={14} />
-                    </Link>
-                  ) : (
-                    <span className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-slate-300 bg-slate-50 border border-slate-100 rounded-lg cursor-not-allowed">
-                      Next <ChevronRight size={14} />
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
-          </>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-slate-50/30 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                  <th className="px-6 py-4">Reference</th>
+                  <th className="px-6 py-4">Amount</th>
+                  <th className="px-6 py-4">Type</th>
+                  <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4 text-right">Date / Time</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredPayments.map((pmt) => (
+                  <PaymentRow key={pmt.id} pmt={pmt} />
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
+
     </div>
   );
 }

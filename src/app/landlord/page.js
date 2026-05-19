@@ -54,20 +54,34 @@ export default async function LandlordDashboard() {
     }
   });
   
-  const occupancyRate = totalCapacity > 0 ? (totalOccupants / totalCapacity) * 100 : 0;
+  // Occupancy rate: only count rooms that are actually available (exclude UNDER_MAINTENANCE)
+  const availableRooms = rooms.filter(r => r.status !== "UNDER_MAINTENANCE");
+  const availableCapacity = availableRooms.reduce((acc, r) => acc + r.capacity, 0);
+  const occupancyRate = availableCapacity > 0 ? (totalOccupants / availableCapacity) * 100 : 0;
 
   // Payment Totals
   const rentPayments = await prisma.payment.aggregate({
     _sum: { amount: true },
-    where: { status: "PAID" },
+    where: { 
+      status: { in: ["SUCCESS", "VERIFIED"] },
+      paymentType: { not: "RECURRING" }
+    },
+  });
+  const otherBillingsPayments = await prisma.payment.aggregate({
+    _sum: { amount: true },
+    where: { 
+      status: { in: ["SUCCESS", "VERIFIED"] },
+      paymentType: "RECURRING"
+    },
   });
   const inspectionPayments = await prisma.guestInspection.aggregate({
     _sum: { amountPaid: true },
     where: { feePaid: true },
   });
   const totalRentCollected = rentPayments._sum.amount || 0;
+  const totalOtherBillings = otherBillingsPayments._sum.amount || 0;
   const totalInspectionFees = inspectionPayments._sum.amountPaid || 0;
-  const grandTotalRevenue = totalRentCollected + totalInspectionFees;
+  const grandTotalRevenue = totalRentCollected + totalOtherBillings + totalInspectionFees;
 
   // Admin Specific Global Metrics
   const isAdmin = session?.user?.role === "ADMIN";
@@ -174,8 +188,8 @@ export default async function LandlordDashboard() {
               </div>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 px-2 py-1 rounded">Details</span>
             </div>
-            <p className="text-sm font-medium text-slate-500 uppercase tracking-wide">Rent Collected</p>
-            <p className="text-3xl font-bold text-slate-900 mt-1">₦{totalRentCollected.toLocaleString()}</p>
+            <p className="text-sm font-medium text-slate-500 uppercase tracking-wide">Billings Collected</p>
+            <p className="text-3xl font-bold text-slate-900 mt-1">₦{(totalRentCollected + totalOtherBillings).toLocaleString()}</p>
           </Link>
           <Link href="/landlord/inspections" className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:border-emerald-100 transition-all hover:shadow-md block">
             <div className="flex items-center justify-between mb-4">
