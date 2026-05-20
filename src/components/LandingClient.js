@@ -316,8 +316,16 @@ function AirbnbRoomCard({ room }) {
   const bedsLeft = room.capacity - (room.tenants?.length ?? 0);
   
   // Get base rent frequency from billing rules
-  const baseRentRule = [...(room.billingRules || []), ...(room.specificRules || [])].find(r => r.type === "BASE_RENT");
-  const frequency = baseRentRule?.frequency?.toLowerCase() || "year";
+  const baseRentRule = room.baseRentRule || [...(room.billingRules || []), ...(room.specificRules || [])].find(r => r.type === "BASE_RENT");
+  const frequencyMap = {
+    ONCE: "once",
+    DAILY: "day",
+    MONTHLY: "month",
+    QUARTERLY: "quarter",
+    YEARLY: "year",
+    PER_SEMESTER: "semester",
+  };
+  const frequency = baseRentRule ? (frequencyMap[baseRentRule.frequency] || "year") : "year";
 
   const nextPhoto = (e) => {
     e.preventDefault();

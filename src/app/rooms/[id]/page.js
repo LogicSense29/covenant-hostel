@@ -30,6 +30,8 @@ export default async function RoomDetailPage({ params }) {
         },
         select: { id: true }
       },
+      billingRules: true,
+      specificRules: true,
     },
   });
 
@@ -60,13 +62,55 @@ export default async function RoomDetailPage({ params }) {
     orderBy: [{ isGlobal: "desc" }, { type: "asc" }],
   });
 
-  // Deduplicate by id
-  const seen = new Set();
-  const allRules = allRulesRaw.filter(r => {
-    if (seen.has(r.id)) return false;
-    seen.add(r.id);
-    return true;
+  // Sort rules by precedence: Room-specific > Block-level > Global
+  const getPrecedenceScore = (rule) => {
+    const isRoom = rule.roomId === room.id || 
+                   room.billingRules?.some(br => br.id === rule.id) || 
+                   room.specificRules?.some(sr => sr.id === rule.id);
+    if (isRoom) return 3;
+    if (rule.blockId === room.blockId) return 2;
+    if (rule.isGlobal) return 1;
+    return 0;
+  };
+
+  const isBaseRentRule = (r) => {
+    const t = String(r.type || "").toUpperCase().replace(/_/g, " ").trim();
+    return t === "BASE RENT" || t === "RENT";
+  };
+
+  // Group by base rent or title/description to apply overrides
+  const rulesMap = {};
+  allRulesRaw.forEach(rule => {
+    const key = isBaseRentRule(rule) ? "BASE_RENT" : (rule.title || rule.description || rule.id);
+    const score = getPrecedenceScore(rule);
+    const existing = rulesMap[key];
+    if (!existing || score > getPrecedenceScore(existing)) {
+      rulesMap[key] = rule;
+    }
   });
+
+  const allRules = Object.values(rulesMap);
+
+  const baseRentRule = allRules.find(isBaseRentRule);
+  const frequencyMap = {
+    ONCE: "once",
+    DAILY: "day",
+    MONTHLY: "month",
+    QUARTERLY: "quarter",
+    YEARLY: "year",
+    PER_SEMESTER: "semester",
+  };
+  const rentFrequencyLabel = baseRentRule ? (frequencyMap[baseRentRule.frequency] || "year") : "year";
+
+  const mergedFeatures = [
+    ...new Set([
+      ...(room.features || []),
+      ...(room.block?.features || []),
+    ])
+  ];
+
+  const additionalRules = allRules.filter(r => !isBaseRentRule(r));
+  const totalSum = room.rentAmount + additionalRules.reduce((s, r) => s + r.amount, 0);
 
   return (
     <div className="min-h-screen bg-white font-sans">
@@ -203,8 +247,8 @@ export default async function RoomDetailPage({ params }) {
             <div className="py-8 border-b border-gray-200">
               <h2 className="text-lg font-black text-[#102a43] mb-6">What's included</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {room.features && room.features.length > 0 ? (
-                  room.features.map((feature, i) => (
+                {mergedFeatures && mergedFeatures.length > 0 ? (
+                  mergedFeatures.map((feature, i) => (
                     <div key={i} className="flex items-center gap-3 text-sm text-gray-700">
                       <CheckCircle2 size={18} className="text-[#0b69ff] shrink-0" />
                       <span className="font-medium">{feature}</span>
@@ -227,11 +271,11 @@ export default async function RoomDetailPage({ params }) {
             </div>
 
             {/* Billing rules */}
-            {allRules.length > 0 && (
+            {additionalRules.length > 0 && (
               <div className="py-8 border-b border-gray-200">
                 <h2 className="text-lg font-black text-[#102a43] mb-6">Services & charges</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {allRules.map((rule) => (
+                  {additionalRules.map((rule) => (
                     <div
                       key={rule.id}
                       className="flex items-center justify-between p-4 rounded-xl border border-gray-100 bg-gray-50"
@@ -241,7 +285,7 @@ export default async function RoomDetailPage({ params }) {
                         <p className="text-xs text-gray-400 mt-0.5 capitalize">{rule.frequency?.toLowerCase() ?? "once"}</p>
                       </div>
                       <span className="text-sm font-black text-[#0b69ff] shrink-0 ml-4">
-                        ₦{rule.amount.toLocaleString()}
+                        ₦{rule.amount.toLocaleString()}/{frequencyMap[rule.frequency] || "once"}
                       </span>
                     </div>
                   ))}
@@ -272,7 +316,7 @@ export default async function RoomDetailPage({ params }) {
                 <span className="text-3xl font-black text-[#102a43]">
                   ₦{room.rentAmount.toLocaleString()}
                 </span>
-                <span className="text-gray-500 text-sm font-medium">/ year</span>
+                <span className="text-gray-500 text-sm font-medium">/ {rentFrequencyLabel}</span>
               </div>
 
               {/* Room details summary */}
@@ -293,18 +337,24 @@ export default async function RoomDetailPage({ params }) {
 
               {/* Price breakdown */}
               <div className="mb-6 pt-6 border-t border-gray-100 space-y-2">
-                {allRules.map((rule) => (
+                <div className="flex justify-between items-start text-sm text-gray-600">
+                  <div className="min-w-0 mr-4">
+                    <span className="font-semibold text-gray-800 block truncate">Base Room Rent</span>
+                  </div>
+                  <span className="font-semibold shrink-0">₦{room.rentAmount.toLocaleString()}/{rentFrequencyLabel}</span>
+                </div>
+                {additionalRules.map((rule) => (
                   <div key={rule.id} className="flex justify-between items-start text-sm text-gray-600">
                     <div className="min-w-0 mr-4">
                       <span className="font-semibold text-gray-800 block truncate">{rule.title || rule.description}</span>
                     </div>
-                    <span className="font-semibold shrink-0">₦{rule.amount.toLocaleString()}</span>
+                    <span className="font-semibold shrink-0">₦{rule.amount.toLocaleString()}/{frequencyMap[rule.frequency] || "once"}</span>
                   </div>
                 ))}
                 <div className="flex justify-between text-sm font-black text-[#102a43] pt-2 border-t border-gray-100">
                   <span>Total</span>
                   <span>
-                    ₦{allRules.reduce((s, r) => s + r.amount, 0).toLocaleString()}
+                    ₦{totalSum.toLocaleString()}
                   </span>
                 </div>
               </div>
