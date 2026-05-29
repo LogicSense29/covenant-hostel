@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { autoCreateNextCharge } from "@/lib/billing";
 import { createNotification, getLandlordUserIds } from "@/lib/notifications";
+import { sendPaymentReceiptEmail } from "@/lib/email";
 
 
 export const dynamic = "force-dynamic";
@@ -68,6 +69,7 @@ export async function POST(req) {
 
     const profile = await prisma.tenantProfile.findUnique({
       where: { userId: session.user.id },
+      include: { room: { include: { block: true } } },
     });
 
     if (!profile) return NextResponse.json({ error: "Tenant profile not found" }, { status: 404 });
@@ -106,6 +108,20 @@ export async function POST(req) {
         message: `Your payment for the utility charge of ₦${amount.toLocaleString()} was successful.`,
         type: "PAYMENT",
         link: "/tenant/payments",
+      });
+
+      // Send receipt email
+      await sendPaymentReceiptEmail({
+        email: session.user.email,
+        name: session.user.name,
+        amount,
+        reference,
+        paymentDate: new Date(),
+        roomNumber: profile.room?.roomNumber || null,
+        blockName: profile.room?.block?.name || null,
+        roomAddress: profile.room?.block?.address || null,
+        breakdown: rcPayment.breakdown || null,
+        paymentType: "RECURRING",
       });
 
       // Notify landlords
@@ -189,6 +205,20 @@ export async function POST(req) {
         link: "/tenant/payments",
       });
 
+      // Send receipt email
+      await sendPaymentReceiptEmail({
+        email: session.user.email,
+        name: session.user.name,
+        amount: rentPaymentResult.amount,
+        reference,
+        paymentDate: new Date(),
+        roomNumber: profile.room?.roomNumber || null,
+        blockName: profile.room?.block?.name || null,
+        roomAddress: profile.room?.block?.address || null,
+        breakdown: rentPaymentResult.breakdown || null,
+        paymentType: rentPaymentResult.paymentType,
+      });
+
       // Notify landlords
       const landlordIds = await getLandlordUserIds();
       await createNotification({
@@ -237,6 +267,20 @@ export async function POST(req) {
         message: `Your payment for the utility charge of ₦${charge.amount.toLocaleString()} was successful.`,
         type: "PAYMENT",
         link: "/tenant/payments",
+      });
+
+      // Send receipt email for each recurring charge
+      await sendPaymentReceiptEmail({
+        email: session.user.email,
+        name: session.user.name,
+        amount: charge.amount,
+        reference: uniqueRcRef,
+        paymentDate: new Date(),
+        roomNumber: profile.room?.roomNumber || null,
+        blockName: profile.room?.block?.name || null,
+        roomAddress: profile.room?.block?.address || null,
+        breakdown: rcPayment.breakdown || null,
+        paymentType: "RECURRING",
       });
 
       // Notify landlords

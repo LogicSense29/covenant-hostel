@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createNotification } from "@/lib/notifications";
 import { autoCreateNextCharge } from "@/lib/billing";
-import { sendPaymentRejectedEmail } from "@/lib/email";
+import { sendPaymentRejectedEmail, sendPaymentReceiptEmail } from "@/lib/email";
 
 
 
@@ -21,7 +21,14 @@ export async function POST(req, { params }) {
   try {
     const payment = await prisma.payment.findUnique({
       where: { id },
-      include: { tenant: { include: { user: true } } },
+      include: {
+        tenant: {
+          include: {
+            user: true,
+            room: { include: { block: true } },
+          },
+        },
+      },
     });
 
     if (!payment) return new NextResponse("Payment not found", { status: 404 });
@@ -66,6 +73,21 @@ export async function POST(req, { params }) {
       message: `Your payment of ₦${payment.amount.toLocaleString()} has been approved.`,
       type: "PAYMENT",
       link: "/tenant/payments",
+    });
+
+    // Send receipt email to tenant
+    const room = payment.tenant.room;
+    await sendPaymentReceiptEmail({
+      email: payment.tenant.user.email,
+      name: payment.tenant.user.name,
+      amount: payment.amount,
+      reference: payment.reference,
+      paymentDate: updated.approvedAt || new Date(),
+      roomNumber: room?.roomNumber || null,
+      blockName: room?.block?.name || null,
+      roomAddress: room?.block?.address || null,
+      breakdown: payment.breakdown || null,
+      paymentType: payment.paymentType,
     });
 
     return NextResponse.json(updated);

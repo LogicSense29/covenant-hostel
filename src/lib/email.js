@@ -432,6 +432,157 @@ export async function sendRentExpiredNotification({ email, name, roomNumber, exp
   }
 }
 
+export async function sendPaymentReceiptEmail({
+  email,
+  name,
+  amount,
+  reference,
+  paymentDate,
+  roomNumber,
+  blockName,
+  roomAddress,
+  breakdown,
+  paymentType,
+}) {
+  try {
+    const transporter = createTransporter();
+
+    const formattedDate = new Date(paymentDate).toLocaleDateString("en-GB", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+
+    // Build breakdown table rows if multiple items
+    const hasBreakdown = Array.isArray(breakdown) && breakdown.length > 1;
+    const breakdownHtml = hasBreakdown
+      ? `
+        <div style="margin: 20px 0;">
+          <p style="margin: 0 0 10px; font-weight: bold; color: #102a43; font-size: 14px;">Payment Breakdown:</p>
+          <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+            <thead>
+              <tr style="background: #f0f7ff;">
+                <th style="padding: 10px 12px; text-align: left; color: #64748b; font-weight: 600; border-bottom: 2px solid #e2e8f0;">Description</th>
+                <th style="padding: 10px 12px; text-align: right; color: #64748b; font-weight: 600; border-bottom: 2px solid #e2e8f0;">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${breakdown
+                .map(
+                  (item, i) => `
+                <tr style="background: ${i % 2 === 0 ? "#ffffff" : "#f8fafc"};">
+                  <td style="padding: 10px 12px; border-bottom: 1px solid #f1f5f9; color: #334155;">${item.name}</td>
+                  <td style="padding: 10px 12px; border-bottom: 1px solid #f1f5f9; text-align: right; color: #334155;">₦${Number(item.amount).toLocaleString()}</td>
+                </tr>`
+                )
+                .join("")}
+              <tr style="background: #f0f7ff;">
+                <td style="padding: 12px; font-weight: bold; color: #102a43; border-top: 2px solid #e2e8f0;">Total</td>
+                <td style="padding: 12px; font-weight: bold; color: #0b69ff; text-align: right; border-top: 2px solid #e2e8f0;">₦${Number(amount).toLocaleString()}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>`
+      : "";
+
+    const paymentTypeLabel =
+      paymentType === "PARTIAL"
+        ? "Partial / Installment Payment"
+        : paymentType === "RECURRING"
+        ? "Utility / Recurring Charge"
+        : "Full Rent Payment";
+
+    const info = await transporter.sendMail({
+      from: `"Covenant Hostel" <${smtpUser}>`,
+      to: email,
+      subject: `Payment Receipt — ₦${Number(amount).toLocaleString()} Confirmed`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
+          <!-- Header -->
+          <div style="background: linear-gradient(135deg, #0b69ff 0%, #1e40af 100%); color: white; padding: 24px; border-radius: 8px; margin-bottom: 24px; text-align: center;">
+            <h2 style="margin: 0 0 4px; font-size: 22px;">Payment Confirmed ✓</h2>
+            <p style="margin: 0; opacity: 0.9; font-size: 14px;">Covenant Hostel Management</p>
+          </div>
+
+          <p style="color: #334155; font-size: 15px;">Hi <strong>${name}</strong>,</p>
+          <p style="color: #334155; font-size: 15px; line-height: 1.6;">
+            Your payment has been received and confirmed. Please keep this email as your official receipt.
+          </p>
+
+          <!-- Payment Summary Card -->
+          <div style="background: #f0f7ff; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 4px solid #0b69ff;">
+            <h3 style="margin: 0 0 16px; color: #102a43; font-size: 16px;">Payment Summary</h3>
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+              <tr>
+                <td style="padding: 8px 0; color: #64748b; width: 45%;">Amount Paid</td>
+                <td style="padding: 8px 0; font-weight: bold; color: #0b69ff; font-size: 20px;">₦${Number(amount).toLocaleString()}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #64748b;">Payment Type</td>
+                <td style="padding: 8px 0; font-weight: 600; color: #334155;">${paymentTypeLabel}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #64748b;">Date</td>
+                <td style="padding: 8px 0; color: #334155;">${formattedDate}</td>
+              </tr>
+              ${reference ? `
+              <tr>
+                <td style="padding: 8px 0; color: #64748b;">Reference</td>
+                <td style="padding: 8px 0; color: #334155; font-family: monospace; font-size: 13px;">${reference}</td>
+              </tr>` : ""}
+            </table>
+          </div>
+
+          <!-- Room Details Card -->
+          <div style="background: #f8fafc; padding: 20px; border-radius: 10px; margin: 20px 0; border: 1px solid #e2e8f0;">
+            <h3 style="margin: 0 0 16px; color: #102a43; font-size: 16px;">Room Details</h3>
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+              ${blockName ? `
+              <tr>
+                <td style="padding: 8px 0; color: #64748b; width: 45%;">Block / Building</td>
+                <td style="padding: 8px 0; font-weight: 600; color: #334155;">${blockName}</td>
+              </tr>` : ""}
+              ${roomNumber ? `
+              <tr>
+                <td style="padding: 8px 0; color: #64748b;">Room Number</td>
+                <td style="padding: 8px 0; font-weight: 600; color: #334155;">Room ${roomNumber}</td>
+              </tr>` : ""}
+              ${roomAddress ? `
+              <tr>
+                <td style="padding: 8px 0; color: #64748b;">Address</td>
+                <td style="padding: 8px 0; color: #334155;">${roomAddress}</td>
+              </tr>` : ""}
+            </table>
+          </div>
+
+          <!-- Breakdown (only shown when multiple items) -->
+          ${breakdownHtml}
+
+          <!-- Thank You -->
+          <div style="margin: 28px 0 16px; padding: 20px; background: #f0fdf4; border-radius: 10px; border-left: 4px solid #16a34a; text-align: center;">
+            <p style="margin: 0; font-size: 16px; font-weight: bold; color: #15803d;">Thank you for your payment! 🎉</p>
+            <p style="margin: 8px 0 0; font-size: 13px; color: #166534;">We appreciate your promptness. If you have any questions, please contact the hostel management office.</p>
+          </div>
+
+          <p style="color: #94a3b8; font-size: 12px; text-align: center; margin-top: 24px;">
+            This is an automated receipt from Covenant Hostel Management System.<br/>
+            Please do not reply to this email.
+          </p>
+        </div>
+      `,
+    });
+
+    if (smtpHost === "smtp.ethereal.email") {
+      console.log("Payment receipt email preview: %s", nodemailer.getTestMessageUrl(info));
+    }
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("Error sending payment receipt email:", error);
+    return { success: false, error };
+  }
+}
+
 export async function sendPaymentRejectedEmail({ email, name, amount, reason }) {
   const adminEmail = process.env.ADMIN_EMAIL;
   try {
