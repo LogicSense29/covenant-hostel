@@ -31,7 +31,6 @@ export default async function RoomDetailPage({ params }) {
         select: { id: true }
       },
       billingRules: true,
-      specificRules: true,
     },
   });
 
@@ -46,45 +45,13 @@ export default async function RoomDetailPage({ params }) {
 
   const availableBeds = room.capacity - room.tenants.length;
 
-  // Fetch billing rules explicitly connected to this room via the many-to-many relation.
-  // This reflects exactly what the landlord has ticked for this room.
-  const allRulesRaw = await prisma.billingRule.findMany({
-    where: {
-      rooms: { some: { id: room.id } },
-    },
-    orderBy: [{ isGlobal: "desc" }, { type: "asc" }],
-  });
-
-  // Sort rules by precedence: Room-specific > Block-level > Global
-  const getPrecedenceScore = (rule) => {
-    const isRoom = rule.roomId === room.id || 
-                   room.billingRules?.some(br => br.id === rule.id) || 
-                   room.specificRules?.some(sr => sr.id === rule.id);
-    if (isRoom) return 3;
-    if (rule.blockId === room.blockId) return 2;
-    if (rule.isGlobal) return 1;
-    return 0;
-  };
-
+  // room.billingRules already contains exactly what the landlord ticked (many-to-many).
+  // No extra DB query needed — use it directly.
   const isBaseRentRule = (r) => {
     const t = String(r.type || "").toUpperCase().replace(/_/g, " ").trim();
     return t === "BASE RENT" || t === "RENT";
   };
 
-  // Group by base rent or title/description to apply overrides
-  const rulesMap = {};
-  allRulesRaw.forEach(rule => {
-    const key = isBaseRentRule(rule) ? "BASE_RENT" : (rule.title || rule.description || rule.id);
-    const score = getPrecedenceScore(rule);
-    const existing = rulesMap[key];
-    if (!existing || score > getPrecedenceScore(existing)) {
-      rulesMap[key] = rule;
-    }
-  });
-
-  const allRules = Object.values(rulesMap);
-
-  const baseRentRule = allRules.find(isBaseRentRule);
   const frequencyMap = {
     ONCE: "once",
     DAILY: "day",
@@ -93,7 +60,11 @@ export default async function RoomDetailPage({ params }) {
     YEARLY: "year",
     PER_SEMESTER: "semester",
   };
-  const rentFrequencyLabel = baseRentRule ? (frequencyMap[baseRentRule.frequency] || "year") : "year";
+
+  const baseRentRule = room.billingRules.find(isBaseRentRule) || null;
+  // Amount and frequency both come from the ticked BASE_RENT rule
+  const baseRentAmount = baseRentRule ? baseRentRule.amount : room.rentAmount;
+  const rentFrequencyLabel = baseRentRule ? (frequencyMap[baseRentRule.frequency] || baseRentRule.frequency?.toLowerCase() || "year") : null;
 
   const mergedFeatures = [
     ...new Set([
@@ -102,8 +73,8 @@ export default async function RoomDetailPage({ params }) {
     ])
   ];
 
-  const additionalRules = allRules.filter(r => !isBaseRentRule(r));
-  const totalSum = room.rentAmount + additionalRules.reduce((s, r) => s + r.amount, 0);
+  const additionalRules = room.billingRules.filter(r => !isBaseRentRule(r));
+  const totalSum = baseRentAmount + additionalRules.reduce((s, r) => s + r.amount, 0);
 
   return (
     <div className="min-h-screen bg-white font-sans">
@@ -307,9 +278,11 @@ export default async function RoomDetailPage({ params }) {
               {/* Price */}
               <div className="flex items-baseline gap-2 mb-6">
                 <span className="text-3xl font-black text-[#102a43]">
-                  ₦{room.rentAmount.toLocaleString()}
+                  ₦{baseRentAmount.toLocaleString()}
                 </span>
-                <span className="text-gray-500 text-sm font-medium">/ {rentFrequencyLabel}</span>
+                {rentFrequencyLabel && (
+                  <span className="text-gray-500 text-sm font-medium">/ {rentFrequencyLabel}</span>
+                )}
               </div>
 
               {/* Room details summary */}
@@ -334,7 +307,9 @@ export default async function RoomDetailPage({ params }) {
                   <div className="min-w-0 mr-4">
                     <span className="font-semibold text-gray-800 block truncate">Base Room Rent</span>
                   </div>
-                  <span className="font-semibold shrink-0">₦{room.rentAmount.toLocaleString()}/{rentFrequencyLabel}</span>
+                  <span className="font-semibold shrink-0">
+                    ₦{baseRentAmount.toLocaleString()}{rentFrequencyLabel ? `/${rentFrequencyLabel}` : ""}
+                  </span>
                 </div>
                 {additionalRules.map((rule) => (
                   <div key={rule.id} className="flex justify-between items-start text-sm text-gray-600">

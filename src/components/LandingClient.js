@@ -315,8 +315,9 @@ function AirbnbRoomCard({ room }) {
   const isVideo = photos[currentPhotoIndex] && /\.(mp4|mov|webm|ogg|avi)(\?|$)/i.test(photos[currentPhotoIndex]);
   const bedsLeft = room.capacity - (room.tenants?.length ?? 0);
   
-  // Get base rent frequency from billing rules
-  const baseRentRule = room.baseRentRule || [...(room.billingRules || []), ...(room.specificRules || [])].find(r => r.type === "BASE_RENT");
+  // The ticked BASE_RENT rule has both the correct amount AND frequency.
+  // Use it directly — no need for room.rentAmount or fallback guessing.
+  const baseRentRule = room.baseRentRule || null;
   const frequencyMap = {
     ONCE: "once",
     DAILY: "day",
@@ -325,7 +326,8 @@ function AirbnbRoomCard({ room }) {
     YEARLY: "year",
     PER_SEMESTER: "semester",
   };
-  const frequency = baseRentRule ? (frequencyMap[baseRentRule.frequency] || "year") : "year";
+  const rentAmount = baseRentRule ? baseRentRule.amount : room.rentAmount;
+  const frequency = baseRentRule ? (frequencyMap[baseRentRule.frequency] || baseRentRule.frequency?.toLowerCase()) : null;
 
   const nextPhoto = (e) => {
     e.preventDefault();
@@ -426,7 +428,8 @@ function AirbnbRoomCard({ room }) {
           </div>
         </div>
         <p className="text-sm text-gray-900 font-bold mt-2">
-          ₦{room.rentAmount.toLocaleString()} <span className="font-normal text-gray-500">/ {frequency}</span>
+          ₦{rentAmount.toLocaleString()}
+          {frequency && <span className="font-normal text-gray-500"> / {frequency}</span>}
         </p>
         
         {/* Action buttons */}

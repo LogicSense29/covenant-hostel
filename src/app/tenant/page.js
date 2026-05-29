@@ -51,7 +51,8 @@ export default async function TenantDashboard() {
 
   const { room, user, payments } = profile;
 
-  // Determine rent frequency from billing rules — only rules explicitly connected to this room
+  // Determine rent amount and frequency from the ticked BASE_RENT rule connected to this room.
+  // This is the single source of truth — not room.rentAmount which may differ.
   const matchingRules = profile.roomId ? await prisma.billingRule.findMany({
     where: {
       type: { in: ["Base Rent", "Base_Rent", "BaseRent", "Rent", "RENT", "BASE_RENT"] },
@@ -61,6 +62,8 @@ export default async function TenantDashboard() {
 
   const rentRule = matchingRules[0] || null;
 
+  // Use the ticked rule's amount; fall back to room.rentAmount if no rule is ticked
+  const baseRentAmount = rentRule ? rentRule.amount : (room?.rentAmount ?? 0);
   const rentFrequency = rentRule?.frequency || "YEARLY";
 
   const frequencyLabelMap = {
@@ -276,7 +279,7 @@ export default async function TenantDashboard() {
               <div className="space-y-1">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Rent Amount</p>
                 <p className="text-lg font-bold text-slate-900">
-                  {room ? `₦${room.rentAmount.toLocaleString()}/${rentFrequencyShorthand}` : 'N/A'}
+                  {room ? `₦${baseRentAmount.toLocaleString()}/${rentFrequencyShorthand}` : 'N/A'}
                 </p>
               </div>
               <div className="space-y-1">
