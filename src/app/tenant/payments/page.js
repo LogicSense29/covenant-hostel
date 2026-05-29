@@ -108,13 +108,12 @@ export default async function TenantPaymentsPage() {
   }
 
   const [allRules, paymentHistory, recurringCharges] = await Promise.all([
+    // Only fetch billing rules explicitly connected to this room via the many-to-many relation.
+    // Global and block-scoped rules are auto-ticked in the room form on creation, so if the
+    // landlord unticked them, they will not be in this relation — and should not appear here.
     prisma.billingRule.findMany({
       where: {
-        OR: [
-          { isGlobal: true },
-          { blockId: room.blockId ?? undefined },
-          { rooms: { some: { id: room.id } } },
-        ],
+        rooms: { some: { id: room.id } },
       },
       orderBy: [{ isGlobal: "desc" }, { type: "asc" }],
     }),
@@ -138,26 +137,12 @@ export default async function TenantPaymentsPage() {
     }),
   ]);
 
-  // Determine base rent frequency shorthand
-  const matchingRentRules = await prisma.billingRule.findMany({
-    where: {
-      type: { in: ["Base Rent", "Base_Rent", "BaseRent", "Rent", "RENT", "BASE_RENT"] },
-      OR: [
-        { isGlobal: true },
-        { blockId: room.blockId || undefined },
-        { rooms: { some: { id: room.id } } },
-        { roomId: room.id }
-      ]
-    },
-    include: {
-      rooms: true
-    }
-  });
-
-  const rentRule = matchingRentRules.find(r => r.roomId === room.id || r.rooms?.some(rm => rm.id === room.id))
-    || matchingRentRules.find(r => r.blockId === room.blockId)
-    || matchingRentRules.find(r => r.isGlobal)
-    || null;
+  // Find the ticked BASE_RENT rule from the room's connected rules.
+  // Its amount is the authoritative rent figure; its frequency drives the label.
+  const rentRule = allRules.find(r => {
+    const t = String(r.type || "").toUpperCase().replace(/_/g, " ").trim();
+    return t === "BASE RENT" || t === "RENT";
+  }) || null;
 
   const rentFrequencyShorthandMap = {
     DAILY: "day",
@@ -168,6 +153,9 @@ export default async function TenantPaymentsPage() {
     ONCE: "once"
   };
   const rentFrequencyShorthand = rentFrequencyShorthandMap[rentRule?.frequency || "YEARLY"] || "yr";
+
+  // Use the ticked BASE_RENT rule's amount as the base rent; fall back to room.rentAmount
+  const baseRentAmount = rentRule ? rentRule.amount : room.rentAmount;
 
   const seen = new Set();
   const billingRules = allRules.filter(r => {
@@ -186,7 +174,7 @@ export default async function TenantPaymentsPage() {
   const oneTimeFees = billingRules.filter(r => !RECURRING.includes(r.frequency));
 
   const totalFees = oneTimeFees.reduce((s, r) => s + r.amount, 0);
-  const totalDue = room.rentAmount + totalFees;
+  const totalDue = baseRentAmount + totalFees;
 
   const isPartialMode = profile.allowPartialPayment && profile.partialPaymentInstallments > 1;
   const installmentAmount = isPartialMode ? totalDue / profile.partialPaymentInstallments : null;
@@ -448,6 +436,7 @@ export default async function TenantPaymentsPage() {
         <div className="space-y-10">
           <PaymentBreakdownPanel
             room={room}
+            baseRentAmount={baseRentAmount}
             billingRules={billingRules}
             unpaidCharges={unpaidCharges}
             totalDue={totalDue}

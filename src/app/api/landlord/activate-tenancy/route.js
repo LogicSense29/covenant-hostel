@@ -100,26 +100,15 @@ export async function POST(req) {
       return new NextResponse("Tenancy can only be activated after payment is made", { status: 400 });
     }
 
-    // Determine rent frequency from billing rules, prioritizing specific rules over global ones
+    // Determine rent frequency from billing rules — only rules explicitly connected to this room
     const matchingRules = user.tenantProfile?.roomId ? await prisma.billingRule.findMany({
       where: {
         type: { in: ["Base Rent", "Base_Rent", "BaseRent", "Rent", "RENT", "BASE_RENT"] },
-        OR: [
-          { isGlobal: true },
-          { blockId: user.tenantProfile.room?.blockId || undefined },
-          { rooms: { some: { id: user.tenantProfile.roomId } } },
-          { roomId: user.tenantProfile.roomId }
-        ]
+        rooms: { some: { id: user.tenantProfile.roomId } },
       },
-      include: {
-        rooms: true
-      }
     }) : [];
 
-    const rentRule = matchingRules.find(r => r.roomId === user.tenantProfile.roomId || r.rooms?.some(rm => rm.id === user.tenantProfile.roomId))
-      || matchingRules.find(r => r.blockId === user.tenantProfile.room?.blockId)
-      || matchingRules.find(r => r.isGlobal)
-      || null;
+    const rentRule = matchingRules[0] || null;
 
     const frequency = rentRule?.frequency || "YEARLY";
 

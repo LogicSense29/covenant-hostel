@@ -272,25 +272,25 @@ export default function RoomCard({ room }) {
             return t !== "BASE_RENT" && t !== "BASE RENT";
           });
 
-          const baseRentRules = allRules.filter(r => {
+          // Use the ticked BASE_RENT rule's amount and frequency directly.
+          // If none is ticked, fall back to room.rentAmount with no frequency label.
+          const baseRentRule = allRules.find(r => {
             const t = String(r.type || "").toUpperCase();
             return t === "BASE_RENT" || t === "BASE RENT";
           });
 
-          // Determine the frequency for the room's rent based on the attached base rent rule
-          let rentFreq = "yr";
-          if (baseRentRules.length > 0) {
-            rentFreq = freqLabel(baseRentRules[0].frequency);
-          }
+          const rentDisplay = baseRentRule
+            ? { amount: baseRentRule.amount, freq: freqLabel(baseRentRule.frequency) }
+            : { amount: room.rentAmount, freq: "yr" };
 
           return (
             <div className="space-y-1.5 max-h-36 overflow-y-auto">
-              {/* Base rent first */}
+              {/* Base rent — amount and frequency from the ticked BASE_RENT rule */}
               <div className="flex items-center justify-between py-1.5 px-3 bg-slate-50 rounded-lg border border-slate-100">
                 <span className="text-[11px] font-semibold text-slate-600">Base Rent</span>
                 <span className="text-[11px] font-bold text-slate-900">
-                  ₦{room.rentAmount?.toLocaleString() || 0}
-                  <span className="text-slate-400 font-normal">/{rentFreq}</span>
+                  ₦{rentDisplay.amount?.toLocaleString() || 0}
+                  <span className="text-slate-400 font-normal">/{rentDisplay.freq}</span>
                 </span>
               </div>
               

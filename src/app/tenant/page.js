@@ -51,26 +51,15 @@ export default async function TenantDashboard() {
 
   const { room, user, payments } = profile;
 
-  // Determine rent frequency from billing rules, prioritizing specific rules over global ones
+  // Determine rent frequency from billing rules — only rules explicitly connected to this room
   const matchingRules = profile.roomId ? await prisma.billingRule.findMany({
     where: {
       type: { in: ["Base Rent", "Base_Rent", "BaseRent", "Rent", "RENT", "BASE_RENT"] },
-      OR: [
-        { isGlobal: true },
-        { blockId: profile.room?.blockId || undefined },
-        { rooms: { some: { id: profile.roomId } } },
-        { roomId: profile.roomId }
-      ]
+      rooms: { some: { id: profile.roomId } },
     },
-    include: {
-      rooms: true
-    }
   }) : [];
 
-  const rentRule = matchingRules.find(r => r.roomId === profile.roomId || r.rooms?.some(rm => rm.id === profile.roomId))
-    || matchingRules.find(r => r.blockId === profile.room?.blockId)
-    || matchingRules.find(r => r.isGlobal)
-    || null;
+  const rentRule = matchingRules[0] || null;
 
   const rentFrequency = rentRule?.frequency || "YEARLY";
 

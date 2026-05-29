@@ -195,15 +195,11 @@ export async function GET(req) {
     });
 
     for (const tenant of activeTenants) {
-      // Find all recurring billing rules that apply to this tenant
+      // Find all recurring billing rules explicitly connected to this tenant's room
       const applicableRules = await prisma.billingRule.findMany({
         where: {
           frequency: { not: "ONCE" },
-          OR: [
-            { isGlobal: true },
-            { blockId: tenant.room.blockId ?? undefined },
-            { rooms: { some: { id: tenant.room.id } } },
-          ],
+          rooms: { some: { id: tenant.room.id } },
         },
       });
 

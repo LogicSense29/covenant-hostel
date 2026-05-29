@@ -194,6 +194,7 @@ export default function RoomForm({ initialData }) {
 
 
   // Update rent amount and auto-tick BASE_RENT rules
+  // On edit: only auto-fill rent amount if block changes — never force-tick a rule back in
   useEffect(() => {
     if (fetchingData || billingRules.length === 0) return;
     
@@ -226,35 +227,26 @@ export default function RoomForm({ initialData }) {
       (suggestedAmount !== null) && 
       (blockChanged || (!isEditing && !hasInitialAutoFillRun.current));
 
-    // Auto-fill the rentAmount if it's completely empty on initial load or if the block just changed.
-    // This ensures if a block is selected, its base rent reflects automatically.
     if (shouldAutoFill) {
       hasInitialAutoFillRun.current = true;
       setFormData(prev => ({ 
         ...prev, 
         rentAmount: suggestedAmount,
-        // Auto-tick the rule if it's the one we're applying
-        billingRuleIds: matchingRuleId && !prev.billingRuleIds.includes(matchingRuleId) 
+        // Only auto-tick the BASE_RENT rule on new rooms or when block changes on a new room
+        billingRuleIds: (!isEditing && matchingRuleId && !prev.billingRuleIds.includes(matchingRuleId))
           ? [...prev.billingRuleIds, matchingRuleId] 
           : prev.billingRuleIds
       }));
-    } else if (formData.rentAmount && suggestedAmount !== null && Number(formData.rentAmount) === Number(suggestedAmount)) {
-      // If rentAmount already matches suggested, ensure it's ticked
-      if (matchingRuleId && !formData.billingRuleIds.includes(matchingRuleId)) {
-        setFormData(prev => ({
-          ...prev,
-          billingRuleIds: [...prev.billingRuleIds, matchingRuleId]
-        }));
-      }
     }
+    // NOTE: Removed the "re-tick if amount matches" branch — it was silently re-adding
+    // rules that the landlord had intentionally unticked.
   }, [formData.blockId, formData.rentAmount, billingRules, fetchingData, isEditing]);
 
-  // Auto-tick global and block-specific billing rules (but allow unticking)
-  // On new rooms: auto-tick all applicable rules
-  // On edit: only auto-tick rules not already saved (don't override landlord's saved choices)
+  // Auto-tick global and block-specific billing rules on NEW rooms only.
+  // On edit, the saved billingRuleIds from the DB are the source of truth — never override them.
   useEffect(() => {
     if (fetchingData || billingRules.length === 0) return;
-    if (isEditing) return; // on edit, respect the saved billingRuleIds — don't auto-add
+    if (isEditing) return; // never auto-add on edit
 
     const autoTickRules = billingRules.filter(r => {
       const type = String(r.type || "").toUpperCase();
@@ -271,7 +263,7 @@ export default function RoomForm({ initialData }) {
         billingRuleIds: [...prev.billingRuleIds, ...missingIds]
       }));
     }
-  }, [billingRules, formData.blockId, fetchingData]);
+  }, [billingRules, formData.blockId, fetchingData, isEditing]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;

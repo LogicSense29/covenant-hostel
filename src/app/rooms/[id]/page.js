@@ -46,18 +46,11 @@ export default async function RoomDetailPage({ params }) {
 
   const availableBeds = room.capacity - room.tenants.length;
 
-  // Fetch all applicable billing rules:
-  // 1. Global rules (isGlobal: true)
-  // 2. Block-level rules (blockId matches this room's block)
-  // 3. Room-specific rules via both relations
+  // Fetch billing rules explicitly connected to this room via the many-to-many relation.
+  // This reflects exactly what the landlord has ticked for this room.
   const allRulesRaw = await prisma.billingRule.findMany({
     where: {
-      OR: [
-        { isGlobal: true },
-        { blockId: room.blockId ?? undefined },
-        { rooms: { some: { id: room.id } } },
-        { roomId: room.id },
-      ],
+      rooms: { some: { id: room.id } },
     },
     orderBy: [{ isGlobal: "desc" }, { type: "asc" }],
   });

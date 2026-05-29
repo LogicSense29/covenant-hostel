@@ -47,37 +47,17 @@ export default async function RoomsPage({ searchParams }) {
       },
       block: true,
       billingRules: true,
-      specificRules: true,
     },
     orderBy: { roomNumber: "asc" }
   });
 
-  // For each room, also fetch global and block-level billing rules
-  // and merge+deduplicate so the card has the full picture
-  const globalAndBlockRules = await prisma.billingRule.findMany({
-    where: {
-      OR: [
-        { isGlobal: true },
-        { blockId: { in: rooms.map(r => r.blockId).filter(Boolean) } },
-      ],
-    },
-  });
-
-  const roomsWithAllRules = rooms.map(room => {
-    const applicable = [
-      ...(room.specificRules || []),
-      ...(room.billingRules || []),
-      ...globalAndBlockRules.filter(r => r.blockId === room.blockId),
-      ...globalAndBlockRules.filter(r => r.isGlobal),
-    ];
-    const seen = new Set();
-    const allBillingRules = applicable.filter(r => {
-      if (seen.has(r.id)) return false;
-      seen.add(r.id);
-      return true;
-    });
-    return { ...room, allBillingRules };
-  });
+  // Each room's allBillingRules is exactly what the landlord ticked — the many-to-many relation.
+  // Do NOT merge global or block-level rules here; those are auto-ticked at room creation time
+  // and stored in billingRules. Merging them again causes unticked rules to reappear.
+  const roomsWithAllRules = rooms.map(room => ({
+    ...room,
+    allBillingRules: room.billingRules || [],
+  }));
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">

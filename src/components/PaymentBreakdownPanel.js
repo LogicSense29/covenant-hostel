@@ -21,6 +21,7 @@ const freqLabel = (frequency) => {
 
 export default function PaymentBreakdownPanel({
   room,
+  baseRentAmount,
   billingRules,
   unpaidCharges,
   totalDue,
@@ -55,8 +56,11 @@ export default function PaymentBreakdownPanel({
 
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // Use the ticked BASE_RENT rule's amount if provided, otherwise fall back to room.rentAmount
+  const rentAmount = baseRentAmount ?? room.rentAmount;
+
   // Dynamically calculate the active total selected
-  let activeTotal = selectedItems["rent"] ? room.rentAmount : 0;
+  let activeTotal = selectedItems["rent"] ? rentAmount : 0;
   
   billingRules.forEach(rule => {
     if (selectedItems[`rule_${rule.id}`]) {
@@ -71,7 +75,7 @@ export default function PaymentBreakdownPanel({
   });
 
   // Calculate mathematically correct split amounts (utilities are never divided into installments)
-  const rentAndFeesTotal = (selectedItems["rent"] ? room.rentAmount : 0) + 
+  const rentAndFeesTotal = (selectedItems["rent"] ? rentAmount : 0) + 
     billingRules.reduce((sum, rule) => sum + (selectedItems[`rule_${rule.id}`] ? rule.amount : 0), 0);
 
   const rentAndFeesInstallment = isPartialMode 
@@ -96,7 +100,7 @@ export default function PaymentBreakdownPanel({
   if (selectedItems["rent"]) {
     breakdown.push({
       name: `Base Room Rent${isPartialMode ? ` (Installment ${nextInstallmentNumber}/${profile.partialPaymentInstallments})` : ""}`,
-      amount: isPartialMode ? room.rentAmount / profile.partialPaymentInstallments : room.rentAmount
+      amount: isPartialMode ? rentAmount / profile.partialPaymentInstallments : rentAmount
     });
   }
   billingRules.forEach(rule => {
@@ -182,7 +186,7 @@ export default function PaymentBreakdownPanel({
               </div>
             </div>
             <span className="text-sm sm:text-base font-black text-slate-900">
-              ₦{room.rentAmount.toLocaleString()}/{rentFrequencyShorthand}
+              ₦{rentAmount.toLocaleString()}/{rentFrequencyShorthand}
             </span>
           </div>
 
@@ -375,7 +379,7 @@ export default function PaymentBreakdownPanel({
                         )}
                       </div>
                       <span className="font-bold text-slate-900">
-                        ₦{(isPartialMode ? room.rentAmount / profile.partialPaymentInstallments : room.rentAmount).toLocaleString()}
+                        ₦{(isPartialMode ? rentAmount / profile.partialPaymentInstallments : rentAmount).toLocaleString()}
                       </span>
                     </div>
                   )}

@@ -100,22 +100,11 @@ export async function GET(req) {
     const matchingRules = tenant.roomId ? await prisma.billingRule.findMany({
       where: {
         type: { in: ["Base Rent", "Base_Rent", "BaseRent", "Rent", "RENT", "BASE_RENT"] },
-        OR: [
-          { isGlobal: true },
-          { blockId: tenant.room?.blockId || undefined },
-          { rooms: { some: { id: tenant.roomId } } },
-          { roomId: tenant.roomId }
-        ]
+        rooms: { some: { id: tenant.roomId } },
       },
-      include: {
-        rooms: true
-      }
     }) : [];
 
-    const rentRule = matchingRules.find(r => r.roomId === tenant.roomId || r.rooms?.some(rm => rm.id === tenant.roomId))
-      || matchingRules.find(r => r.blockId === tenant.room?.blockId)
-      || matchingRules.find(r => r.isGlobal)
-      || null;
+    const rentRule = matchingRules[0] || null;
 
     const frequency = rentRule?.frequency || "YEARLY";
 
