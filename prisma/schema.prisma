@@ -139,6 +139,7 @@ model Payment {
   createdAt          DateTime      @default(now())
   reference          String?       @unique
   status             String?       @default("PENDING")
+  breakdown          Json?
   tenant             TenantProfile @relation(fields: [tenantId], references: [id])
   recurringCharge    RecurringCharge?
 }

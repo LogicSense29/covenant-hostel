@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import RecurringChargePaymentForm from "@/components/RecurringChargePaymentForm";
 import PaymentBreakdownPanel from "@/components/PaymentBreakdownPanel";
+import InteractivePaymentTable from "@/components/InteractivePaymentTable";
 
 export const dynamic = "force-dynamic";
 
@@ -121,20 +122,14 @@ export default async function TenantPaymentsPage() {
     prisma.payment.findMany({
       where: { tenantId: profile.id },
       orderBy: { createdAt: "desc" },
-      take: 50, // fetch enough for the calculations, slice to 3 in display
-      select: {
-        id: true,
-        amount: true,
-        reference: true,
-        status: true,
-        paymentType: true,
-        receiptUrl: true,
-        createdAt: true,
-        installmentNumber: true,
-        totalInstallments: true,
-        isPartial: true,
-        dueDate: true,
-      },
+      take: 50,
+      include: {
+        recurringCharge: {
+          include: {
+            billingRule: true
+          }
+        }
+      }
     }),
     prisma.recurringCharge.findMany({
       where: { tenantId: profile.id },
@@ -252,24 +247,7 @@ export default async function TenantPaymentsPage() {
         </div>
       ) : (
         <>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="bg-slate-50/30 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                  <th className="px-6 py-4">Reference</th>
-                  <th className="px-6 py-4">Amount</th>
-                  <th className="px-6 py-4">Type</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4 text-right">Date</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {paymentHistory.slice(0, 3).map((pmt) => (
-                  <PaymentRow key={pmt.id} pmt={pmt} />
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <InteractivePaymentTable payments={paymentHistory.slice(0, 3)} allPayments={paymentHistory} showTime={false} />
           {paymentHistory.length > 0 && (
             <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/30">
               <Link

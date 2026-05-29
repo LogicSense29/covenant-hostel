@@ -19,6 +19,7 @@ export default function PaymentForm({
   recurringChargeIds = [],
   isRentSelected = true,
   rentFrequencyShorthand = "yr",
+  breakdown = [],
 }) {
   const router = useRouter();
   const { data: session } = useSession();
@@ -69,8 +70,10 @@ export default function PaymentForm({
 
   // Next unpaid installment
   const nextInstallment = installments.find((inst) => !inst.paid);
-  const isPartialMode = canPayPartial && partialPaymentInstallments > 1;
-  const payAmount = isPartialMode && nextInstallment ? nextInstallment.amount : totalDue;
+  const isPartialMode = canPayPartial && partialPaymentInstallments > 1 && isRentSelected;
+  const payAmount = breakdown && breakdown.length > 0
+    ? breakdown.reduce((sum, item) => sum + item.amount, 0)
+    : (isPartialMode && nextInstallment ? nextInstallment.amount : totalDue);
 
   const config = {
     reference: new Date().getTime().toString(),
@@ -97,6 +100,7 @@ export default function PaymentForm({
           dueDate: isRentSelected ? (nextInstallment?.dueDate || null) : null,
           recurringChargeIds: recurringChargeIds || [],
           isRentSelected: isRentSelected,
+          breakdown: breakdown || [],
         }),
       });
 
@@ -154,6 +158,7 @@ export default function PaymentForm({
           tenantId,
           recurringChargeIds: recurringChargeIds || [],
           isRentSelected: isRentSelected,
+          breakdown: breakdown || [],
         }),
       });
 

@@ -6,7 +6,6 @@ import {
   ArrowLeft, History, FileText, AlertCircle, 
   CheckCircle2, Clock, XCircle, TrendingUp, DollarSign 
 } from "lucide-react";
-import InteractivePaymentTable from "@/components/InteractivePaymentTable";
 
 export const dynamic = "force-dynamic";
 
@@ -102,13 +101,6 @@ export default async function TenantPaymentHistoryPage({ searchParams }) {
   const allPayments = await prisma.payment.findMany({
     where: { tenantId: profile.id },
     orderBy: { createdAt: "desc" },
-    include: {
-      recurringCharge: {
-        include: {
-          billingRule: true
-        }
-      }
-    }
   });
 
   // Calculate aggregates
@@ -234,7 +226,24 @@ export default async function TenantPaymentHistoryPage({ searchParams }) {
             </p>
           </div>
         ) : (
-          <InteractivePaymentTable payments={filteredPayments} allPayments={allPayments} showTime={true} />
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-slate-50/30 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                  <th className="px-6 py-4">Reference</th>
+                  <th className="px-6 py-4">Amount</th>
+                  <th className="px-6 py-4">Type</th>
+                  <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4 text-right">Date / Time</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredPayments.map((pmt) => (
+                  <PaymentRow key={pmt.id} pmt={pmt} />
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 

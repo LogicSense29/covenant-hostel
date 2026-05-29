@@ -445,7 +445,7 @@ export default function RoomForm({ initialData }) {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className={styles.formGroup}>
+          {/* <div className={styles.formGroup}>
             <div className="flex items-center justify-between mb-2">
               <label htmlFor="rentAmount" className={styles.label + " !mb-0"}>Rent Amount (₦)</label>
               {suggestedRent && (
@@ -466,7 +466,7 @@ export default function RoomForm({ initialData }) {
               value={formData.rentAmount}
               onChange={handleChange}
             />
-          </div>
+          </div> */}
 
           <div className={styles.formGroup}>
             <label htmlFor="status" className={styles.label}>Room Status</label>
@@ -487,7 +487,6 @@ export default function RoomForm({ initialData }) {
 
 
 {/* Capacity was here */}
-        </div>
           <div className={styles.formGroup}>
             <label htmlFor="capacity" className={styles.label}>Capacity (Max Tenants)</label>
             <input
@@ -502,6 +501,9 @@ export default function RoomForm({ initialData }) {
               onChange={handleChange}
             />
           </div>
+          
+        </div>
+
         {/* Room Features Section */}
         <div className="mt-6 p-6 bg-slate-50 rounded-2xl border border-slate-200">
           <div className="flex items-center justify-between mb-4">

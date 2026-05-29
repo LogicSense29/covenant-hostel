@@ -26,6 +26,7 @@ export async function POST(req) {
       recurringChargeId,
       recurringChargeIds = [],
       isRentSelected = true,
+      breakdown,
     } = body;
 
     if (!amount || !tenantId) {
@@ -46,6 +47,12 @@ export async function POST(req) {
     const payment = await prisma.$transaction(async (tx) => {
       // Handle legacy single recurring charge id
       if (recurringChargeId) {
+        const charge = await tx.recurringCharge.findUnique({
+          where: { id: recurringChargeId },
+          include: { billingRule: true },
+        });
+        const chargeTitle = charge?.billingRule?.title || charge?.billingRule?.description || "Recurring Charge";
+
         const p = await tx.payment.create({
           data: {
             amount,
@@ -54,6 +61,7 @@ export async function POST(req) {
             paymentType: "RECURRING",
             status: receiptUrl ? "PENDING" : "SUCCESS",
             tenantId,
+            breakdown: chargeTitle ? [{ name: chargeTitle, amount }] : null,
           },
         });
 
@@ -82,6 +90,7 @@ export async function POST(req) {
       // Handle consolidated checklist payments
       const charges = recurringChargeIds.length > 0 ? await tx.recurringCharge.findMany({
         where: { id: { in: recurringChargeIds } },
+        include: { billingRule: true },
       }) : [];
 
       const chargesTotal = charges.reduce((sum, c) => sum + c.amount, 0);
@@ -101,6 +110,7 @@ export async function POST(req) {
             dueDate: dueDate ? new Date(dueDate) : null,
             status: receiptUrl ? "PENDING" : "SUCCESS",
             tenantId,
+            breakdown: breakdown || null,
           },
         });
       }
@@ -114,6 +124,12 @@ export async function POST(req) {
             paymentType: "RECURRING",
             status: receiptUrl ? "PENDING" : "SUCCESS",
             tenantId,
+            breakdown: [
+              {
+                name: charge.billingRule?.title || charge.billingRule?.description || "Recurring Charge",
+                amount: charge.amount,
+              }
+            ],
           },
         });
 

@@ -20,6 +20,10 @@ const verifySchema = z.object({
   recurringChargeId: z.string().optional().nullable(),
   recurringChargeIds: z.array(z.string()).optional(),
   isRentSelected: z.boolean().optional(),
+  breakdown: z.array(z.object({
+    name: z.string(),
+    amount: z.number()
+  })).optional(),
 });
 
 export async function POST(req) {
@@ -45,6 +49,7 @@ export async function POST(req) {
       recurringChargeId,
       recurringChargeIds = [],
       isRentSelected = true,
+      breakdown,
     } = validation.data;
 
     // Verify with Paystack
@@ -69,6 +74,12 @@ export async function POST(req) {
 
     // Handle single legacy recurring charge payment
     if (recurringChargeId) {
+      const charge = await prisma.recurringCharge.findUnique({
+        where: { id: recurringChargeId },
+        include: { billingRule: true },
+      });
+      const chargeTitle = charge?.billingRule?.title || charge?.billingRule?.description || "Recurring Charge";
+
       const rcPayment = await prisma.payment.create({
         data: {
           amount,
@@ -77,6 +88,7 @@ export async function POST(req) {
           isPartial: false,
           paymentType: "RECURRING",
           tenantId: profile.id,
+          breakdown: chargeTitle ? [{ name: chargeTitle, amount }] : null,
         },
       });
 
@@ -121,6 +133,7 @@ export async function POST(req) {
     // Handle consolidated checklist payments
     const charges = recurringChargeIds.length > 0 ? await prisma.recurringCharge.findMany({
       where: { id: { in: recurringChargeIds } },
+      include: { billingRule: true },
     }) : [];
 
     const chargesTotal = charges.reduce((sum, c) => sum + c.amount, 0);
@@ -142,6 +155,7 @@ export async function POST(req) {
             totalInstallments: totalInstallments || null,
             dueDate: dueDate ? new Date(dueDate) : null,
             tenantId: profile.id,
+            breakdown: breakdown || null,
           },
         }),
         prisma.user.update({
@@ -197,6 +211,12 @@ export async function POST(req) {
           isPartial: false,
           paymentType: "RECURRING",
           tenantId: profile.id,
+          breakdown: [
+            {
+              name: charge.billingRule?.title || charge.billingRule?.description || "Recurring Charge",
+              amount: charge.amount,
+            }
+          ],
         },
       });
 

@@ -70,15 +70,51 @@ export default function PaymentBreakdownPanel({
     }
   });
 
-  // Calculate dynamic installment if partial payment is enabled
-  const dynamicInstallmentAmount = isPartialMode 
-    ? activeTotal / profile.partialPaymentInstallments 
-    : null;
+  // Calculate mathematically correct split amounts (utilities are never divided into installments)
+  const rentAndFeesTotal = (selectedItems["rent"] ? room.rentAmount : 0) + 
+    billingRules.reduce((sum, rule) => sum + (selectedItems[`rule_${rule.id}`] ? rule.amount : 0), 0);
+
+  const rentAndFeesInstallment = isPartialMode 
+    ? rentAndFeesTotal / profile.partialPaymentInstallments 
+    : rentAndFeesTotal;
+
+  const utilityTotal = unpaidCharges.reduce((sum, charge) => sum + (selectedItems[`charge_${charge.id}`] ? charge.amount : 0), 0);
+
+  const totalToPayNow = rentAndFeesInstallment + utilityTotal;
 
   // Selected recurring charge IDs
   const selectedRecurringChargeIds = unpaidCharges
     .filter(charge => selectedItems[`charge_${charge.id}`])
     .map(charge => charge.id);
+
+  // Compute the detailed breakdown array to be stored in the database
+  const nextInstallmentNumber = (paymentHistory?.filter(
+    p => p.paymentType !== "RECURRING" && p.status !== "REJECTED"
+  ).length || 0) + 1;
+
+  const breakdown = [];
+  if (selectedItems["rent"]) {
+    breakdown.push({
+      name: `Base Room Rent${isPartialMode ? ` (Installment ${nextInstallmentNumber}/${profile.partialPaymentInstallments})` : ""}`,
+      amount: isPartialMode ? room.rentAmount / profile.partialPaymentInstallments : room.rentAmount
+    });
+  }
+  billingRules.forEach(rule => {
+    if (selectedItems[`rule_${rule.id}`]) {
+      breakdown.push({
+        name: `${rule.title || rule.description}${isPartialMode ? ` (Installment ${nextInstallmentNumber}/${profile.partialPaymentInstallments})` : ""}`,
+        amount: isPartialMode ? rule.amount / profile.partialPaymentInstallments : rule.amount
+      });
+    }
+  });
+  unpaidCharges.forEach(charge => {
+    if (selectedItems[`charge_${charge.id}`]) {
+      breakdown.push({
+        name: `${charge.billingRule?.title || charge.billingRule?.description || "Utility Charge"}`,
+        amount: charge.amount
+      });
+    }
+  });
 
   // Sync modal body scroll locking
   useEffect(() => {
@@ -243,20 +279,20 @@ export default function PaymentBreakdownPanel({
           })}
 
           {/* Dynamic Installment Notice if Partial Mode & selected items */}
-          {isPartialMode && activeTotal > 0 && (
+          {isPartialMode && rentAndFeesTotal > 0 && (
             <div className="mt-6 flex flex-col sm:flex-row sm:items-center justify-between bg-blue-50 border border-blue-100 rounded-2xl p-5 gap-4">
               <div>
                 <p className="text-xs font-bold text-blue-800 uppercase tracking-wide flex items-center gap-2">
-                  <Calendar size={14} /> Installment Plan Option Active
+                  <Calendar size={14} /> Tenancy Installment Active
                 </p>
                 <p className="text-xs text-blue-600 mt-0.5">
-                  Split your selected total into {profile.partialPaymentInstallments} installments.
+                  Your base rent and global check-in fees are split into {profile.partialPaymentInstallments} installments.
                 </p>
               </div>
-              <div className="text-right sm:text-right">
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Installment Amount</p>
+              <div className="text-right">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Tenancy Installment</p>
                 <p className="text-xl font-black text-blue-700 mt-0.5">
-                  ₦{dynamicInstallmentAmount.toLocaleString()} <span className="text-xs text-blue-500 font-normal">each</span>
+                  ₦{rentAndFeesInstallment.toLocaleString()} <span className="text-xs text-blue-500 font-normal">each</span>
                 </p>
               </div>
             </div>
@@ -266,10 +302,17 @@ export default function PaymentBreakdownPanel({
         {/* Dynamic Billing Footer & Proceed Action */}
         <div className="p-6 sm:p-8 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="text-center sm:text-left">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total Selected to Pay</p>
-            <p className="text-3xl font-black text-slate-900 tracking-tight mt-1">
-              ₦{activeTotal.toLocaleString()}
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+              {isPartialMode ? "Total to Pay Now" : "Total Selected to Pay"}
             </p>
+            <p className="text-3xl font-black text-slate-900 tracking-tight mt-1">
+              ₦{totalToPayNow.toLocaleString()}
+            </p>
+            {isPartialMode && (
+              <p className="text-[10px] text-slate-500 mt-0.5 font-semibold">
+                (₦{rentAndFeesInstallment.toLocaleString()} installment + ₦{utilityTotal.toLocaleString()} utilities in full)
+              </p>
+            )}
           </div>
           <button 
             type="button"
@@ -323,16 +366,33 @@ export default function PaymentBreakdownPanel({
                 <div className="divide-y divide-slate-100 text-xs">
                   {selectedItems["rent"] && (
                     <div className="flex justify-between py-2 font-medium text-slate-700">
-                      <span>Room Rent ({room.roomNumber})</span>
-                      <span className="font-bold text-slate-900">₦{room.rentAmount.toLocaleString()}/{rentFrequencyShorthand}</span>
+                      <div>
+                        <span>Room Rent ({room.roomNumber})</span>
+                        {isPartialMode && (
+                          <span className="ml-1.5 text-[9px] font-bold text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded-full border border-blue-100">
+                            Installment {nextInstallmentNumber}/{profile.partialPaymentInstallments}
+                          </span>
+                        )}
+                      </div>
+                      <span className="font-bold text-slate-900">
+                        ₦{(isPartialMode ? room.rentAmount / profile.partialPaymentInstallments : room.rentAmount).toLocaleString()}
+                      </span>
                     </div>
                   )}
                   {billingRules.map(rule => {
                     if (!selectedItems[`rule_${rule.id}`]) return null;
+                    const displayAmount = isPartialMode ? rule.amount / profile.partialPaymentInstallments : rule.amount;
                     return (
                       <div key={rule.id} className="flex justify-between py-2 font-medium text-slate-700">
-                        <span>{rule.title || rule.description}</span>
-                        <span className="font-bold text-slate-900">₦{rule.amount.toLocaleString()}/{freqLabel(rule.frequency)}</span>
+                        <div>
+                          <span>{rule.title || rule.description}</span>
+                          {isPartialMode && (
+                            <span className="ml-1.5 text-[9px] font-bold text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded-full border border-blue-100">
+                              Installment {nextInstallmentNumber}/{profile.partialPaymentInstallments}
+                            </span>
+                          )}
+                        </div>
+                        <span className="font-bold text-slate-900">₦{displayAmount.toLocaleString()}</span>
                       </div>
                     );
                   })}
@@ -340,21 +400,28 @@ export default function PaymentBreakdownPanel({
                     if (!selectedItems[`charge_${charge.id}`]) return null;
                     return (
                       <div key={charge.id} className="flex justify-between py-2 font-medium text-slate-700">
-                        <span>{charge.billingRule?.title || charge.billingRule?.description || "Utility"}</span>
-                        <span className="font-bold text-slate-900">₦{charge.amount.toLocaleString()}/{freqLabel(charge.billingRule?.frequency)}</span>
+                        <div>
+                          <span>{charge.billingRule?.title || charge.billingRule?.description || "Utility"}</span>
+                          <span className="ml-1.5 text-[9px] font-bold text-purple-500 bg-purple-50 px-1.5 py-0.5 rounded-full border border-purple-100">
+                            Full amount due
+                          </span>
+                        </div>
+                        <span className="font-bold text-slate-900">₦{charge.amount.toLocaleString()}</span>
                       </div>
                     );
                   })}
                 </div>
                 <div className="pt-3 border-t border-slate-200 flex justify-between items-center text-sm">
-                  <span className="font-bold text-slate-950">Total Selected Dues</span>
-                  <span className="font-black text-slate-950">₦{activeTotal.toLocaleString()}</span>
+                  <span className="font-bold text-slate-950">
+                    {isPartialMode ? "Total to Pay Now" : "Total Due"}
+                  </span>
+                  <span className="font-black text-slate-950">₦{totalToPayNow.toLocaleString()}</span>
                 </div>
               </div>
 
               {/* The PaymentFormWrapper inside Modal Body */}
               <PaymentFormWrapper
-                totalDue={activeTotal}
+                totalDue={totalToPayNow}
                 canPayPartial={profile.allowPartialPayment}
                 partialPaymentInstallments={profile.partialPaymentInstallments}
                 tenantEmail={session.user.email}
@@ -364,6 +431,7 @@ export default function PaymentBreakdownPanel({
                 recurringChargeIds={selectedRecurringChargeIds}
                 isRentSelected={!!selectedItems["rent"]}
                 rentFrequencyShorthand={rentFrequencyShorthand}
+                breakdown={breakdown}
               />
             </div>
 

@@ -371,11 +371,15 @@ export default function TenantDirectoryClient({ tenants, availableRooms }) {
                        </>
                      )}
                      
-                     <div className="h-px bg-slate-200" />
-                     <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Permanent Address</p>
-                        <p className="text-sm font-semibold text-slate-800">{selectedTenant.permanentAddress}</p>
-                     </div>
+                     {selectedTenant.permanentAddress && selectedTenant.permanentAddress.trim() !== "" && (
+                        <>
+                          <div className="h-px bg-slate-200" />
+                          <div className="space-y-1">
+                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Permanent Address</p>
+                             <p className="text-sm font-semibold text-slate-800">{selectedTenant.permanentAddress}</p>
+                          </div>
+                        </>
+                      )}
                   </div>
                </div>
 
