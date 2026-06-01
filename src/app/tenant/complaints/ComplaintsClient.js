@@ -9,10 +9,17 @@ export default function ComplaintsClient({ complaints, currentUser }) {
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  // Local state so new complaints appear immediately without page reload
+  const [ticketList, setTicketList] = useState(complaints);
 
   const openChat = (ticket) => {
     setSelectedTicket(ticket);
     setIsChatOpen(true);
+  };
+
+  const handleComplaintAdded = (newTicket) => {
+    setTicketList(prev => [newTicket, ...prev]);
+    setIsModalOpen(false);
   };
 
   return (
@@ -46,7 +53,7 @@ export default function ComplaintsClient({ complaints, currentUser }) {
         </div>
 
         <div className="divide-y divide-slate-100">
-          {complaints.length === 0 ? (
+          {ticketList.length === 0 ? (
             <div className="py-20 text-center">
               <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
                 <ShieldAlert size={28} className="text-slate-200" />
@@ -55,7 +62,7 @@ export default function ComplaintsClient({ complaints, currentUser }) {
               <p className="text-xs text-slate-400 mt-1">Click &quot;New Complaint&quot; to report an issue.</p>
             </div>
           ) : (
-            complaints.map((ticket) => (
+            ticketList.map((ticket) => (
               <div key={ticket.id} className="p-6 hover:bg-slate-50 transition-colors group">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-start gap-4 min-w-0">
@@ -118,7 +125,7 @@ export default function ComplaintsClient({ complaints, currentUser }) {
                 <X size={20} />
               </button>
             </div>
-            <ComplaintForm onClose={() => setIsModalOpen(false)} />
+            <ComplaintForm onClose={() => setIsModalOpen(false)} onSuccess={handleComplaintAdded} />
           </div>
         </div>
       )}

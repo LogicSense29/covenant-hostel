@@ -18,10 +18,13 @@ export default function TicketChatDrawer({ isOpen, onClose, ticket, currentUser 
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   
-  // Rating state
+  // Rating state — use local state instead of mutating the ticket prop
   const [rating, setRating] = useState(ticket?.tenantRating || 0);
   const [feedback, setFeedback] = useState(ticket?.tenantFeedback || "");
   const [submittingRating, setSubmittingRating] = useState(false);
+  const [ratingSubmitted, setRatingSubmitted] = useState(!!(ticket?.tenantRating && ticket.tenantRating > 0));
+  const [submittedRating, setSubmittedRating] = useState(ticket?.tenantRating || 0);
+  const [submittedFeedback, setSubmittedFeedback] = useState(ticket?.tenantFeedback || "");
 
   const messagesEndRef = useRef(null);
   const pollIntervalRef = useRef(null);
@@ -133,10 +136,10 @@ export default function TicketChatDrawer({ isOpen, onClose, ticket, currentUser 
 
       if (!res.ok) throw new Error("Failed to submit rating");
       toast.success("Thank you for your feedback!");
-      
-      // Update local ticket object so UI reflects it immediately
-      ticket.tenantRating = rating;
-      ticket.tenantFeedback = feedback;
+      // Update local state instead of mutating the prop
+      setRatingSubmitted(true);
+      setSubmittedRating(rating);
+      setSubmittedFeedback(feedback);
     } catch (error) {
       toast.error("Failed to submit feedback");
     } finally {
@@ -148,8 +151,8 @@ export default function TicketChatDrawer({ isOpen, onClose, ticket, currentUser 
 
   const isResolved = ticket.status === "RESOLVED";
   const isTenant = currentUser.role === "TENANT";
-  const needsRating = isResolved && isTenant && (!ticket.tenantRating || ticket.tenantRating === 0);
-  const hasRated = isResolved && ticket.tenantRating > 0;
+  const needsRating = isResolved && isTenant && !ratingSubmitted;
+  const hasRated = isResolved && ratingSubmitted;
 
   return (
     <>
@@ -191,11 +194,7 @@ export default function TicketChatDrawer({ isOpen, onClose, ticket, currentUser 
              </button>
            </div>
            
-           {/* Original Issue Context Box */}
-           <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-sm font-medium text-slate-700">
-             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Original Issue</span>
-             {ticket.issueDescription}
-           </div>
+           {/* Original Issue Context Box — removed from header, now shown in chat feed */}
         </div>
 
         {/* Chat Feed */}
@@ -216,6 +215,17 @@ export default function TicketChatDrawer({ isOpen, onClose, ticket, currentUser 
             </div>
           ) : (
             <div className="flex flex-col space-y-4">
+              {/* Original issue pinned at the top of the chat flow */}
+              <div className="self-start w-full">
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1 pl-1">Original Issue</span>
+                <div className="bg-amber-50 border border-amber-100 rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-slate-700 font-medium leading-relaxed break-words shadow-sm">
+                  {ticket.issueDescription}
+                </div>
+                <span className="text-[9px] font-semibold text-slate-400 mt-1 px-1 block">
+                  {new Date(ticket.createdAt).toLocaleDateString([], { day: "numeric", month: "short", year: "numeric" })}
+                </span>
+              </div>
+
               {messages.map((msg, i) => {
                 const isMe = msg.senderId === currentUser.id;
                 
@@ -290,11 +300,11 @@ export default function TicketChatDrawer({ isOpen, onClose, ticket, currentUser 
                 <div className="bg-green-50/50 border border-green-100 p-4 rounded-2xl flex flex-col items-center flex-col text-center space-y-2">
                   <div className="flex gap-1 text-amber-400 mb-1">
                     {[1, 2, 3, 4, 5].map(star => (
-                      <Star key={star} size={16} className={ticket.tenantRating >= star ? "fill-current" : "text-green-200"} />
+                      <Star key={star} size={16} className={submittedRating >= star ? "fill-current" : "text-green-200"} />
                     ))}
                   </div>
-                  {ticket.tenantFeedback && (
-                    <p className="text-xs text-slate-600 font-medium italic">"{ticket.tenantFeedback}"</p>
+                  {submittedFeedback && (
+                    <p className="text-xs text-slate-600 font-medium italic">"{submittedFeedback}"</p>
                   )}
                   <p className="text-[10px] font-bold text-green-700 uppercase tracking-widest flex items-center gap-1">
                     <CheckCircle2 size={12} /> Feedback Submitted

@@ -24,6 +24,8 @@ export default function LandlordMaintenanceManager({ initialTickets, providers, 
   const [filter, setFilter] = useState("ALL");
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  // Local ticket state so status changes reflect immediately without a page reload
+  const [tickets, setTickets] = useState(initialTickets);
 
   const handleAssign = async (ticketId, providerId) => {
     if (!providerId) return;
@@ -56,8 +58,12 @@ export default function LandlordMaintenanceManager({ initialTickets, providers, 
         body: JSON.stringify({ status })
       });
       if (res.ok) {
-        toast.success(`Ticket status updated to ${status}`);
-        router.refresh();
+        // Update local state immediately — no page reload needed
+        setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, status } : t));
+        const label = status === "RESOLVED" ? "Ticket resolved successfully!"
+          : status === "IN_PROGRESS" ? "Ticket marked as in progress."
+          : `Ticket status updated to ${status.replace("_", " ").toLowerCase()}.`;
+        toast.success(label);
       } else {
         toast.error("Failed to update status.");
       }
@@ -68,7 +74,7 @@ export default function LandlordMaintenanceManager({ initialTickets, providers, 
     }
   };
 
-  const filteredTickets = filter === "ALL" ? initialTickets : initialTickets.filter(t => t.status === filter);
+  const filteredTickets = filter === "ALL" ? tickets : tickets.filter(t => t.status === filter);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
@@ -130,7 +136,7 @@ export default function LandlordMaintenanceManager({ initialTickets, providers, 
                          </span>
 
                       </div>
-                      <h3 className="text-xl font-bold text-slate-900 leading-snug">{ticket.issueDescription}</h3>
+                      <h3 className="text-xl font-bold text-slate-900 leading-snug line-clamp-2">{ticket.issueDescription}</h3>
                       
                       <div className="flex flex-wrap items-center gap-6 pt-2">
                          <div className="flex items-center gap-2">
@@ -139,7 +145,10 @@ export default function LandlordMaintenanceManager({ initialTickets, providers, 
                             </div>
                             <div>
                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Location</p>
-                               <p className="text-sm font-bold text-slate-700">Room {ticket.roomId}</p>
+                               <p className="text-sm font-bold text-slate-700">
+                                 Room {ticket.roomNumber || ticket.roomId}
+                                 {ticket.blockName && <span className="text-slate-400 font-normal"> · {ticket.blockName}</span>}
+                               </p>
                             </div>
                          </div>
                          <div className="flex items-center gap-2">

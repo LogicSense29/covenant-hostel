@@ -6,7 +6,7 @@ import {
   Receipt, Layers, Calendar, DollarSign, Info
 } from "lucide-react";
 
-export default function InteractivePaymentTable({ payments, allPayments = null, showTime = false }) {
+export default function InteractivePaymentTable({ payments, allPayments = null, showTime = false, billingRules = [] }) {
   const [selectedPayment, setSelectedPayment] = useState(null);
 
   // If allPayments is not provided, use the current payments list for group detection
@@ -41,6 +41,34 @@ export default function InteractivePaymentTable({ payments, allPayments = null, 
       
       return false;
     });
+  };
+
+  const freqLabel = (frequency) => {
+    const map = {
+      ONCE: "once", DAILY: "day", MONTHLY: "mo",
+      QUARTERLY: "qtr", YEARLY: "yr", PER_SEMESTER: "sem",
+    };
+    return map[frequency] || null;
+  };
+
+  // Look up frequency for a breakdown item by matching its name against billing rules
+  const getItemFreq = (item) => {
+    // 1. Already stored on the item (new payments)
+    if (item.frequency) return freqLabel(item.frequency);
+    // 2. Look up by name from passed billing rules (existing payments)
+    const match = billingRules.find(r =>
+      (r.title && r.title === item.name) ||
+      (r.description && r.description === item.name)
+    );
+    return match ? freqLabel(match.frequency) : null;
+  };
+
+  // Derive frequency label for a payment (used on the Payment Value row)
+  const getPaymentFreq = (pmt) => {
+    if (pmt.paymentType === "RECURRING") {
+      return freqLabel(pmt.recurringCharge?.billingRule?.frequency);
+    }
+    return null;
   };
 
   const getPaymentTypeName = (pmt) => {
@@ -224,17 +252,20 @@ export default function InteractivePaymentTable({ payments, allPayments = null, 
               <div className="space-y-3">
                 <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Payment info</h4>
                 <div className="bg-slate-50/30 border border-slate-100 rounded-2xl p-4 space-y-3">
-                  <div className="flex justify-between items-center text-xs">
+                  {/* <div className="flex justify-between items-center text-xs">
                     <span className="text-slate-500 font-medium">Payment Category</span>
                     <span className="font-bold text-slate-800">
                       {selectedPayment.pmt.paymentType === "RECURRING" ? "Service / Utility Fee" : "Accommodation Rent"}
                     </span>
-                  </div>
+                  </div> */}
                   <div className="h-px bg-slate-100" />
                   <div className="flex justify-between items-center text-xs">
                     <span className="text-slate-500 font-medium">Payment Value</span>
                     <span className="font-extrabold text-slate-900 text-sm">
                       ₦{selectedPayment.pmt.amount.toLocaleString()}
+                      {getPaymentFreq(selectedPayment.pmt) && (
+                        <span className="text-slate-400 font-normal text-xs">/{getPaymentFreq(selectedPayment.pmt)}</span>
+                      )}
                     </span>
                   </div>
                 </div>
@@ -268,6 +299,9 @@ export default function InteractivePaymentTable({ payments, allPayments = null, 
                         </div>
                         <span className="text-xs font-black text-slate-900">
                           ₦{item.amount.toLocaleString()}
+                          {getItemFreq(item) && (
+                            <span className="text-slate-400 font-normal">/{getItemFreq(item)}</span>
+                          )}
                         </span>
                       </div>
                     ))}
@@ -323,6 +357,9 @@ export default function InteractivePaymentTable({ payments, allPayments = null, 
                           </div>
                           <span className="text-xs font-black text-slate-900">
                             ₦{item.amount.toLocaleString()}
+                            {getPaymentFreq(item) && (
+                              <span className="text-slate-400 font-normal">/{getPaymentFreq(item)}</span>
+                            )}
                           </span>
                         </div>
                       );
@@ -359,3 +396,4 @@ export default function InteractivePaymentTable({ payments, allPayments = null, 
     </div>
   );
 }
+

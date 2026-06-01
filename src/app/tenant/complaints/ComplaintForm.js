@@ -1,12 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Send, Loader2, AlertCircle, ShieldAlert } from "lucide-react";
 import { toast } from "react-hot-toast";
 
-export default function ComplaintForm({ onClose }) {
-  const router = useRouter();
+export default function ComplaintForm({ onClose, onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [issueDescription, setIssueDescription] = useState("");
 
@@ -25,12 +23,13 @@ export default function ComplaintForm({ onClose }) {
       });
 
       if (res.ok) {
+        const newTicket = await res.json();
         toast.success("Complaint submitted successfully!");
         setIssueDescription("");
-        router.refresh();
+        onSuccess?.(newTicket);
         onClose?.();
       } else {
-        const errorData = await res.json();
+        const errorData = await res.json().catch(() => ({}));
         toast.error(errorData.error || "Failed to submit complaint.");
       }
     } catch {

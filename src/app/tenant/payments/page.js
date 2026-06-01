@@ -235,7 +235,7 @@ export default async function TenantPaymentsPage() {
         </div>
       ) : (
         <>
-          <InteractivePaymentTable payments={paymentHistory.slice(0, 3)} allPayments={paymentHistory} showTime={false} />
+          <InteractivePaymentTable payments={paymentHistory.slice(0, 3)} allPayments={paymentHistory} showTime={false} billingRules={allRules} />
           {paymentHistory.length > 0 && (
             <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/30">
               <Link

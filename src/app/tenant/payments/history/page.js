@@ -99,17 +99,21 @@ export default async function TenantPaymentHistoryPage({ searchParams }) {
   }
 
   // Fetch all payment transactions for this tenant
-  const allPayments = await prisma.payment.findMany({
-    where: { tenantId: profile.id },
-    orderBy: { createdAt: "desc" },
-    include: {
-      recurringCharge: {
-        include: {
-          billingRule: true
+  const [allPayments, billingRules] = await Promise.all([
+    prisma.payment.findMany({
+      where: { tenantId: profile.id },
+      orderBy: { createdAt: "desc" },
+      include: {
+        recurringCharge: {
+          include: { billingRule: true }
         }
       }
-    }
-  });
+    }),
+    // Fetch billing rules for this room so the modal can show frequency labels
+    profile.roomId ? prisma.billingRule.findMany({
+      where: { rooms: { some: { id: profile.roomId } } }
+    }) : Promise.resolve([]),
+  ]);
 
   // Calculate aggregates
   const verifiedPayments = allPayments.filter(p => p.status === "VERIFIED" || p.status === "SUCCESS");
@@ -234,7 +238,7 @@ export default async function TenantPaymentHistoryPage({ searchParams }) {
             </p>
           </div>
         ) : (
-          <InteractivePaymentTable payments={filteredPayments} allPayments={allPayments} showTime={true} />
+          <InteractivePaymentTable payments={filteredPayments} allPayments={allPayments} showTime={true} billingRules={billingRules} />
         )}
       </div>
 

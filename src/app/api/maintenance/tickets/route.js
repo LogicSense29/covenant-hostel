@@ -24,7 +24,7 @@ export async function GET() {
         orderBy: { createdAt: "desc" },
         include: { provider: { include: { user: true } } }
       });
-    } else if (session.user.role === "LANDLORD") {
+    } else if (session.user.role === "LANDLORD" || session.user.role === "ADMIN") {
       tickets = await prisma.maintenanceTicket.findMany({
         orderBy: { createdAt: "desc" },
         include: {
@@ -32,6 +32,8 @@ export async function GET() {
           provider: { include: { user: true } }
         }
       });
+    } else {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     return NextResponse.json(tickets);

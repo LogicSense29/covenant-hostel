@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createNotification, getLandlordUserIds } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request, { params }) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
     const { id: ticketId } = await params;
     if (!ticketId) {
@@ -24,6 +29,9 @@ export async function GET(request, { params }) {
 }
 
 export async function POST(request, { params }) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
     const { id: ticketId } = await params;
     if (!ticketId) {
@@ -50,26 +58,17 @@ export async function POST(request, { params }) {
     }
 
     const message = await prisma.ticketMessage.create({
-      data: {
-        ticketId,
-        senderId,
-        senderRole,
-        content,
-        imageUrl
-      }
+      data: { ticketId, senderId, senderRole, content, imageUrl }
     });
 
-    // Notify the other party of the new message
+    // Notify the other party
     const snippet = content.length > 50 ? `${content.slice(0, 50)}...` : content;
 
     if (senderRole === "TENANT") {
       const landlordIds = await getLandlordUserIds();
       const recipients = [...landlordIds];
-      if (ticket.provider?.userId) {
-        recipients.push(ticket.provider.userId);
-      }
+      if (ticket.provider?.userId) recipients.push(ticket.provider.userId);
       const uniqueRecipients = [...new Set(recipients)].filter(id => id !== senderId);
-
       if (uniqueRecipients.length > 0) {
         await createNotification({
           userIds: uniqueRecipients,

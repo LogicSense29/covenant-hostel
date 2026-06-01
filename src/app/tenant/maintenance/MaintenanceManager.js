@@ -1,13 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { toast } from "react-hot-toast";
 import { 
   Plus, 
   Wrench, 
   Clock, 
   CheckCircle2, 
-  AlertCircle, 
   MessageSquare,
   Star,
   XCircle,
@@ -16,27 +15,37 @@ import {
 import TicketChatDrawer from "@/components/TicketChatDrawer";
 
 export default function MaintenanceManager({ initialTickets, currentUser, tenantProfileId, roomId }) {
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [issueDescription, setIssueDescription] = useState("");
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [cancellingId, setCancellingId] = useState(null);
+  // Local state so UI updates immediately without page reload
+  const [tickets, setTickets] = useState(initialTickets);
+
+  const [confirmCancelId, setConfirmCancelId] = useState(null);
 
   const handleCancel = async (ticketId) => {
-    if (!confirm("Cancel this ticket? It will be marked as cancelled and cannot be reopened.")) return;
+    if (confirmCancelId !== ticketId) {
+      // First click — ask for confirmation via inline state
+      setConfirmCancelId(ticketId);
+      return;
+    }
+    // Second click — confirmed
+    setConfirmCancelId(null);
     setCancellingId(ticketId);
     try {
       const res = await fetch(`/api/maintenance/tickets/${ticketId}/cancel`, { method: "POST" });
       if (res.ok) {
-        router.refresh();
+        setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, status: "CANCELLED" } : t));
+        toast.success("Ticket cancelled.");
       } else {
-        const err = await res.text();
-        alert(err || "Could not cancel ticket");
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.error || "Could not cancel ticket.");
       }
     } catch {
-      alert("An error occurred");
+      toast.error("An error occurred. Please try again.");
     } finally {
       setCancellingId(null);
     }
@@ -52,12 +61,17 @@ export default function MaintenanceManager({ initialTickets, currentUser, tenant
         body: JSON.stringify({ issueDescription })
       });
       if (res.ok) {
+        const newTicket = await res.json();
+        setTickets(prev => [newTicket, ...prev]);
         setIssueDescription("");
         setShowForm(false);
-        router.refresh();
+        toast.success("Maintenance ticket submitted!");
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.error || "Failed to submit ticket.");
       }
-    } catch (err) {
-      alert("Error submitting ticket");
+    } catch {
+      toast.error("An error occurred. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -121,7 +135,7 @@ export default function MaintenanceManager({ initialTickets, currentUser, tenant
       <div className="grid grid-cols-1 gap-6">
         <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest px-1">Your Recent Tickets</h2>
         
-        {initialTickets.length === 0 ? (
+        {tickets.length === 0 ? (
           <div className="py-20 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 text-center">
             <div className="bg-white w-16 h-16 rounded-2xl shadow-sm flex items-center justify-center mx-auto mb-4 border border-slate-100">
               <CheckCircle2 size={32} className="text-green-200" />
@@ -131,7 +145,7 @@ export default function MaintenanceManager({ initialTickets, currentUser, tenant
           </div>
         ) : (
           <div className="space-y-4">
-            {initialTickets.map((ticket) => (
+            {tickets.map((ticket) => (
               <div key={ticket.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all overflow-hidden p-6 flex flex-col md:flex-row md:items-center gap-6">
                  <div className={`p-4 rounded-xl shrink-0 ${
                    ticket.status === 'OPEN' ? 'bg-red-50 text-red-600 border border-red-100' :
@@ -163,7 +177,7 @@ export default function MaintenanceManager({ initialTickets, currentUser, tenant
                          </span>
                        )}
                     </div>
-                    <p className={`font-bold text-lg mb-1 leading-tight ${ticket.status === 'CANCELLED' ? 'text-slate-400 line-through' : 'text-slate-900'}`}>
+                    <p className={`font-bold text-lg mb-1 leading-tight line-clamp-2 ${ticket.status === 'CANCELLED' ? 'text-slate-400 line-through' : 'text-slate-900'}`}>
                       {ticket.issueDescription}
                     </p>
                     <div className="flex items-center gap-4 text-xs text-slate-400 font-medium flex-wrap">
@@ -175,18 +189,21 @@ export default function MaintenanceManager({ initialTickets, currentUser, tenant
                  </div>
 
                  <div className="shrink-0 md:ml-auto flex items-center gap-2">
-                    {/* Cancel button — only on OPEN unassigned tickets */}
                     {ticket.status === 'OPEN' && !ticket.providerId && (
                       <button
                         onClick={() => handleCancel(ticket.id)}
                         disabled={cancellingId === ticket.id}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 bg-red-50 border border-red-100 text-red-600 rounded-xl text-xs font-bold hover:bg-red-100 transition-all disabled:opacity-50"
+                        className={`inline-flex items-center gap-1.5 px-3 py-2 border rounded-xl text-xs font-bold transition-all disabled:opacity-50 ${
+                          confirmCancelId === ticket.id
+                            ? 'bg-red-600 border-red-600 text-white hover:bg-red-700'
+                            : 'bg-red-50 border-red-100 text-red-600 hover:bg-red-100'
+                        }`}
                       >
                         {cancellingId === ticket.id
                           ? <Loader2 size={13} className="animate-spin" />
                           : <XCircle size={13} />
                         }
-                        Cancel
+                        {confirmCancelId === ticket.id ? 'Confirm?' : 'Cancel'}
                       </button>
                     )}
 

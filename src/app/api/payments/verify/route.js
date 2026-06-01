@@ -90,7 +90,7 @@ export async function POST(req) {
           isPartial: false,
           paymentType: "RECURRING",
           tenantId: profile.id,
-          breakdown: chargeTitle ? [{ name: chargeTitle, amount }] : null,
+          breakdown: chargeTitle ? [{ name: chargeTitle, amount, frequency: charge?.billingRule?.frequency || null }] : null,
         },
       });
 
@@ -245,6 +245,7 @@ export async function POST(req) {
             {
               name: charge.billingRule?.title || charge.billingRule?.description || "Recurring Charge",
               amount: charge.amount,
+              frequency: charge.billingRule?.frequency || null,
             }
           ],
         },

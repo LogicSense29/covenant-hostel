@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export async function PUT(req, { params }) {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "LANDLORD") {
+  if (!session || (session.user.role !== "LANDLORD" && session.user.role !== "ADMIN")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
