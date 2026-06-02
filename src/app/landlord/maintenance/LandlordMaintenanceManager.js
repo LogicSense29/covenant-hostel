@@ -14,13 +14,15 @@ import {
   Filter,
   MessageSquare,
   CheckCircle,
-  MessageCircle
+  MessageCircle,
+  Loader2
 } from "lucide-react";
 import TicketChatDrawer from "@/components/TicketChatDrawer";
 
 export default function LandlordMaintenanceManager({ initialTickets, providers, currentUser }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [resolvingId, setResolvingId] = useState(null); // per-ticket resolve loading
   const [filter, setFilter] = useState("ALL");
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -50,7 +52,8 @@ export default function LandlordMaintenanceManager({ initialTickets, providers, 
   };
 
   const handleStatusUpdate = async (ticketId, status) => {
-    setLoading(true);
+    if (status === "RESOLVED") setResolvingId(ticketId);
+    else setLoading(true);
     try {
       const res = await fetch(`/api/maintenance/tickets/${ticketId}/status`, {
         method: "PUT",
@@ -58,7 +61,6 @@ export default function LandlordMaintenanceManager({ initialTickets, providers, 
         body: JSON.stringify({ status })
       });
       if (res.ok) {
-        // Update local state immediately — no page reload needed
         setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, status } : t));
         const label = status === "RESOLVED" ? "Ticket resolved successfully!"
           : status === "IN_PROGRESS" ? "Ticket marked as in progress."
@@ -70,6 +72,7 @@ export default function LandlordMaintenanceManager({ initialTickets, providers, 
     } catch (err) {
       toast.error("Error updating status");
     } finally {
+      setResolvingId(null);
       setLoading(false);
     }
   };
@@ -218,10 +221,12 @@ export default function LandlordMaintenanceManager({ initialTickets, providers, 
                                 </button>
                                 <button 
                                   onClick={() => handleStatusUpdate(ticket.id, 'RESOLVED')}
-                                  disabled={loading}
-                                  className="py-4 bg-green-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-green-700 shadow-lg shadow-green-500/20 transition-all font-sans"
+                                  disabled={resolvingId === ticket.id}
+                                  className="py-4 bg-green-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-green-700 shadow-lg shadow-green-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                                 >
-                                  Resolve
+                                  {resolvingId === ticket.id ? (
+                                    <><Loader2 size={14} className="animate-spin" /> Resolving...</>
+                                  ) : "Resolve"}
                                 </button>
                               </div>
                         </div>

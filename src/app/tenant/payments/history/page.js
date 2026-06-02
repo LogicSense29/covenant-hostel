@@ -1,87 +1,21 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { 
-  ArrowLeft, History, FileText, AlertCircle, 
-  CheckCircle2, Clock, XCircle, TrendingUp, DollarSign 
+  ArrowLeft, History, AlertCircle, 
+  CheckCircle2, Clock, TrendingUp, DollarSign 
 } from "lucide-react";
 import InteractivePaymentTable from "@/components/InteractivePaymentTable";
 
 export const dynamic = "force-dynamic";
 
-// Reusable payment history table rows
-function PaymentRow({ pmt }) {
-  return (
-    <tr className="hover:bg-slate-50/50 transition-colors">
-      <td className="px-6 py-4">
-        {pmt.receiptUrl ? (
-          <a 
-            href={pmt.receiptUrl} 
-            target="_blank" 
-            rel="noopener noreferrer" 
-            className="flex items-center gap-2 text-sm font-bold text-blue-600 hover:underline"
-          >
-            <FileText size={14} /> View Receipt
-          </a>
-        ) : (
-          <span className="text-sm font-bold text-slate-500">
-            {pmt.reference ? `#${pmt.reference.slice(-6).toUpperCase()}` : "Paystack"}
-          </span>
-        )}
-      </td>
-      <td className="px-6 py-4 font-bold text-slate-900">₦{pmt.amount.toLocaleString()}</td>
-      <td className="px-6 py-4">
-        {pmt.paymentType === "PARTIAL" ? (
-          <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
-            Installment {pmt.installmentNumber}/{pmt.totalInstallments}
-          </span>
-        ) : pmt.paymentType === "RECURRING" ? (
-          <span className="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100">
-            Recurring
-          </span>
-        ) : (
-          <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
-            Full Rent
-          </span>
-        )}
-      </td>
-      <td className="px-6 py-4">
-        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-tighter border ${
-          pmt.status === "VERIFIED" || pmt.status === "SUCCESS"
-            ? "bg-green-50 text-green-600 border-green-100"
-            : pmt.status === "PENDING"
-            ? "bg-amber-50 text-amber-600 border-amber-100"
-            : "bg-red-50 text-red-600 border-red-100"
-        }`}>
-          {pmt.status === "SUCCESS" ? "Confirmed" : pmt.status}
-        </span>
-      </td>
-      <td className="px-6 py-4 text-right text-xs text-slate-500">
-        {new Date(pmt.createdAt).toLocaleDateString("en-GB", { 
-          day: "numeric", 
-          month: "short", 
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit"
-        })}
-      </td>
-    </tr>
-  );
-}
-
 export default async function TenantPaymentHistoryPage({ searchParams }) {
   const session = await getServerSession(authOptions);
+  if (!session) redirect("/login");
 
-  if (!session) {
-    return (
-      <div className="p-12 text-center">
-        <AlertCircle size={32} className="text-red-500 mx-auto mb-4" />
-        <h3 className="text-lg font-bold text-slate-900">Unauthenticated</h3>
-        <p className="text-sm text-slate-500 mt-2">Please sign in to view your payment history.</p>
-      </div>
-    );
-  }
+  const { status: activeTab = "ALL" } = await searchParams;
 
   const profile = await prisma.tenantProfile.findUnique({
     where: { userId: session.user.id },
@@ -121,8 +55,7 @@ export default async function TenantPaymentHistoryPage({ searchParams }) {
   const pendingPayments = allPayments.filter(p => p.status === "PENDING");
   const totalPendingAmount = pendingPayments.reduce((sum, p) => sum + p.amount, 0);
 
-  // Filter based on search query params
-  const activeTab = searchParams?.status || "ALL";
+  // Filter based on status tab
   const filteredPayments = allPayments.filter(pmt => {
     if (activeTab === "ALL") return true;
     if (activeTab === "VERIFIED") return pmt.status === "VERIFIED" || pmt.status === "SUCCESS";

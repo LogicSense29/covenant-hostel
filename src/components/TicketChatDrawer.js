@@ -26,6 +26,58 @@ export default function TicketChatDrawer({ isOpen, onClose, ticket, currentUser 
   const [submittedRating, setSubmittedRating] = useState(ticket?.tenantRating || 0);
   const [submittedFeedback, setSubmittedFeedback] = useState(ticket?.tenantFeedback || "");
 
+  const imageInputRef = useRef(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [pendingImage, setPendingImage] = useState(null); // { file, previewUrl, caption }
+
+  const handleImageSelected = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { toast.error("Only image files are supported."); return; }
+    if (file.size > 5 * 1024 * 1024) { toast.error("Image must be under 5MB."); return; }
+    const previewUrl = URL.createObjectURL(file);
+    setPendingImage({ file, previewUrl, caption: "" });
+    e.target.value = "";
+  };
+
+  const handleSendPendingImage = async () => {
+    if (!pendingImage) return;
+    setUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", pendingImage.file);
+      formData.append("folder", "ticket-attachments");
+      const uploadRes = await fetch("/api/upload", { method: "POST", body: formData });
+      if (!uploadRes.ok) throw new Error("Upload failed");
+      const { fileUrl } = await uploadRes.json();
+
+      const res = await fetch(`/api/maintenance/tickets/${ticket.id}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          senderId: currentUser.id,
+          senderRole: currentUser.role,
+          content: pendingImage.caption.trim() || "📎 Image attached",
+          imageUrl: fileUrl,
+        })
+      });
+      if (!res.ok) throw new Error("Failed to send");
+      URL.revokeObjectURL(pendingImage.previewUrl);
+      setPendingImage(null);
+      await fetchMessages();
+      toast.success("Image sent!");
+    } catch {
+      toast.error("Failed to send image.");
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleCancelPendingImage = () => {
+    if (pendingImage?.previewUrl) URL.revokeObjectURL(pendingImage.previewUrl);
+    setPendingImage(null);
+  };
+
   const messagesEndRef = useRef(null);
   const pollIntervalRef = useRef(null);
 
@@ -42,6 +94,8 @@ export default function TicketChatDrawer({ isOpen, onClose, ticket, currentUser 
       if (res.ok) {
         const data = await res.json();
         setMessages(data);
+      } else {
+        console.error("Messages fetch failed:", res.status, await res.text().catch(() => ""));
       }
     } catch (error) {
       console.error("Failed to fetch messages:", error);
@@ -53,6 +107,8 @@ export default function TicketChatDrawer({ isOpen, onClose, ticket, currentUser 
   useEffect(() => {
     if (isOpen && ticket) {
       document.body.style.overflow = "hidden";
+      setMessages([]);
+      setFetching(true);
       fetchMessages(true);
       
       // Start polling
@@ -68,7 +124,7 @@ export default function TicketChatDrawer({ isOpen, onClose, ticket, currentUser 
       document.body.style.overflow = "unset";
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
-  }, [isOpen, ticket]);
+  }, [isOpen, ticket?.id]);
 
   useEffect(() => {
     // Scroll to bottom whenever messages update
@@ -203,19 +259,9 @@ export default function TicketChatDrawer({ isOpen, onClose, ticket, currentUser 
             <div className="flex-1 flex items-center justify-center">
               <Loader2 className="animate-spin text-slate-300" size={32} />
             </div>
-          ) : messages.length === 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-center space-y-3 pb-10">
-              <div className="w-16 h-16 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center">
-                <AlertCircle size={24} className="text-slate-300" />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-slate-700">No messages yet</p>
-                <p className="text-xs text-slate-400 mt-1 max-w-[200px]">Send a message to start communicating about this ticket.</p>
-              </div>
-            </div>
           ) : (
             <div className="flex flex-col space-y-4">
-              {/* Original issue pinned at the top of the chat flow */}
+              {/* Original issue always shown at the top of the chat flow */}
               <div className="self-start w-full">
                 <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1 pl-1">Original Issue</span>
                 <div className="bg-amber-50 border border-amber-100 rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-slate-700 font-medium leading-relaxed break-words shadow-sm">
@@ -226,36 +272,48 @@ export default function TicketChatDrawer({ isOpen, onClose, ticket, currentUser 
                 </span>
               </div>
 
-              {messages.map((msg, i) => {
-                const isMe = msg.senderId === currentUser.id;
-                
-                // Grouping messages visually
-                const prevMsg = i > 0 ? messages[i - 1] : null;
-                const showAvatar = !isMe && (!prevMsg || prevMsg.senderId !== msg.senderId);
-
-                return (
-                  <div key={msg.id} className={`flex flex-col max-w-[85%] ${isMe ? 'self-end items-end' : 'self-start items-start'} animate-in fade-in slide-in-from-bottom-2`}>
-                    {!isMe && showAvatar && (
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 pl-1">
-                        {msg.senderRole.replace("_", " ")}
-                      </span>
-                    )}
-                    <div className={`
-                      px-4 py-2.5 rounded-2xl text-[14px] leading-relaxed relative
-                      ${isMe 
-                        ? 'bg-blue-600 text-white rounded-tr-sm shadow-md shadow-blue-500/20' 
-                        : 'bg-white text-slate-800 border border-slate-200 rounded-tl-sm shadow-sm'
-                      }
-                    `}>
-                      {msg.content}
-                    </div>
-                    {/* Timestamp */}
-                    <span className="text-[9px] font-semibold text-slate-400 mt-1 px-1">
-                      {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
+              {messages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center text-center space-y-3 py-8">
+                  <div className="w-14 h-14 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center">
+                    <AlertCircle size={22} className="text-slate-300" />
                   </div>
-                );
-              })}
+                  <div>
+                    <p className="text-sm font-bold text-slate-500">No messages yet</p>
+                    <p className="text-xs text-slate-400 mt-1 max-w-[200px]">Send a message to start the conversation.</p>
+                  </div>
+                </div>
+              ) : (
+                messages.map((msg, i) => {
+                  const isMe = msg.senderId === currentUser.id;
+                  const prevMsg = i > 0 ? messages[i - 1] : null;
+                  const showAvatar = !isMe && (!prevMsg || prevMsg.senderId !== msg.senderId);
+
+                  return (
+                    <div key={msg.id} className={`flex flex-col max-w-[85%] ${isMe ? 'self-end items-end' : 'self-start items-start'} animate-in fade-in slide-in-from-bottom-2`}>
+                      {!isMe && showAvatar && (
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 pl-1">
+                          {msg.senderRole.replace("_", " ")}
+                        </span>
+                      )}
+                      <div className={`
+                        px-4 py-2.5 rounded-2xl text-[14px] leading-relaxed
+                        ${isMe 
+                          ? 'bg-blue-600 text-white rounded-tr-sm shadow-md shadow-blue-500/20' 
+                          : 'bg-white text-slate-800 border border-slate-200 rounded-tl-sm shadow-sm'
+                        }
+                      `}>
+                        {msg.imageUrl && (
+                          <img src={msg.imageUrl} alt="attachment" className="rounded-xl mb-2 max-w-full max-h-48 object-cover" />
+                        )}
+                        {msg.content}
+                      </div>
+                      <span className="text-[9px] font-semibold text-slate-400 mt-1 px-1">
+                        {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  );
+                })
+              )}
               <div ref={messagesEndRef} />
             </div>
           )}
@@ -319,37 +377,88 @@ export default function TicketChatDrawer({ isOpen, onClose, ticket, currentUser 
               )}
             </div>
           ) : (
-            <form onSubmit={handleSendMessage} className="flex gap-2 items-end">
-              <div className="flex-1 bg-slate-50 border border-slate-200 focus-within:bg-white focus-within:border-blue-300 focus-within:ring-4 focus-within:ring-blue-500/10 rounded-2xl flex items-center px-2 transition-all p-1">
+            <div className="flex flex-col gap-2">
+              {/* Image preview panel — shown when user has picked an image but not sent yet */}
+              {pendingImage && (
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                  <div className="flex items-start gap-3">
+                    <img
+                      src={pendingImage.previewUrl}
+                      alt="Preview"
+                      className="w-20 h-20 rounded-xl object-cover border border-slate-200 shrink-0"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-slate-600 mb-1.5">Add a caption (optional)</p>
+                      <input
+                        type="text"
+                        value={pendingImage.caption}
+                        onChange={(e) => setPendingImage(prev => ({ ...prev, caption: e.target.value }))}
+                        placeholder="Type a caption..."
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300"
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSendPendingImage(); } }}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleCancelPendingImage}
+                      className="flex-1 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-100 transition-all"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSendPendingImage}
+                      disabled={uploadingImage}
+                      className="flex-1 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
+                    >
+                      {uploadingImage ? <><Loader2 size={13} className="animate-spin" /> Sending...</> : <><Send size={13} /> Send Image</>}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <form onSubmit={handleSendMessage} className="flex gap-2 items-end">
+                <div className="flex-1 bg-slate-50 border border-slate-200 focus-within:bg-white focus-within:border-blue-300 focus-within:ring-4 focus-within:ring-blue-500/10 rounded-2xl flex items-center px-2 transition-all p-1">
+                  <button 
+                    type="button"
+                    onClick={() => imageInputRef.current?.click()}
+                    disabled={uploadingImage || !!pendingImage}
+                    title="Attach image"
+                    className="p-2.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors shrink-0 disabled:opacity-40"
+                  >
+                    <ImageIcon size={20} />
+                  </button>
+                  <input
+                    ref={imageInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleImageSelected}
+                  />
+                  <textarea
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    placeholder="Type a message..."
+                    className="text-black flex-1 max-h-32 min-h-[44px] bg-transparent border-none outline-none resize-none text-sm py-3 px-2"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage(e);
+                      }
+                    }}
+                  />
+                </div>
                 <button 
-                  type="button" 
-                  title="Attach image (Coming Soon)"
-                  className="p-2.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors shrink-0"
+                  type="submit"
+                  disabled={!newMessage.trim() || loading}
+                  className="bg-blue-600 text-white p-3.5 rounded-2xl hover:bg-blue-700 disabled:opacity-50 disabled:hover:bg-blue-600 transition-all shadow-md shadow-blue-500/20 shrink-0"
                 >
-                  <ImageIcon size={20} />
+                  {loading ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
                 </button>
-                {/* Text Area for Input */}
-                <textarea
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="Type a message..."
-                  className="text-black flex-1 max-h-32 min-h-[44px] bg-transparent border-none outline-none resize-none text-sm py-3 px-2"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSendMessage(e);
-                    }
-                  }}
-                />
-              </div>
-              <button 
-                type="submit"
-                disabled={!newMessage.trim() || loading}
-                className="bg-blue-600 text-white p-3.5 rounded-2xl hover:bg-blue-700 disabled:opacity-50 disabled:hover:bg-blue-600 transition-all shadow-md shadow-blue-500/20 shrink-0"
-              >
-                {loading ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
-              </button>
-            </form>
+              </form>
+            </div>
           )}
         </div>
       </div>

@@ -1,10 +1,11 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import {
   CreditCard, Receipt, History, AlertCircle,
-  TrendingUp, FileText, Clock, ArrowRight, CheckCircle2
+  TrendingUp, Clock, ArrowRight, CheckCircle2
 } from "lucide-react";
 import RecurringChargePaymentForm from "@/components/RecurringChargePaymentForm";
 import PaymentBreakdownPanel from "@/components/PaymentBreakdownPanel";
@@ -13,55 +14,9 @@ import InteractivePaymentTable from "@/components/InteractivePaymentTable";
 export const dynamic = "force-dynamic";
 
 
-// Reusable payment history table rows
-function PaymentRow({ pmt }) {
-  return (
-    <tr className="hover:bg-slate-50/50 transition-colors">
-      <td className="px-6 py-4">
-        {pmt.receiptUrl ? (
-          <a href={pmt.receiptUrl} target="_blank" className="flex items-center gap-2 text-sm font-bold text-blue-600 hover:underline">
-            <FileText size={14} /> View Receipt
-          </a>
-        ) : (
-          <span className="text-sm font-bold text-slate-500">
-            {pmt.reference ? `#${pmt.reference.slice(-6).toUpperCase()}` : "Paystack"}
-          </span>
-        )}
-      </td>
-      <td className="px-6 py-4 font-bold text-slate-900">₦{pmt.amount.toLocaleString()}</td>
-      <td className="px-6 py-4">
-        {pmt.paymentType === "PARTIAL" ? (
-          <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
-            Installment {pmt.installmentNumber}/{pmt.totalInstallments}
-          </span>
-        ) : pmt.paymentType === "RECURRING" ? (
-          <span className="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100">
-            Recurring
-          </span>
-        ) : (
-          <span className="text-xs font-bold text-slate-500">Full</span>
-        )}
-      </td>
-      <td className="px-6 py-4">
-        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-tighter border ${
-          pmt.status === "VERIFIED" || pmt.status === "SUCCESS"
-            ? "bg-green-50 text-green-600 border-green-100"
-            : pmt.status === "PENDING"
-            ? "bg-amber-50 text-amber-600 border-amber-100"
-            : "bg-red-50 text-red-600 border-red-100"
-        }`}>
-          {pmt.status === "SUCCESS" ? "Confirmed" : pmt.status}
-        </span>
-      </td>
-      <td className="px-6 py-4 text-right text-xs text-slate-500">
-        {new Date(pmt.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-      </td>
-    </tr>
-  );
-}
-
 export default async function TenantPaymentsPage() {
   const session = await getServerSession(authOptions);
+  if (!session) redirect("/login");
 
   // Single query — fetch profile, room, and user status together
   const profile = await prisma.tenantProfile.findUnique({
@@ -158,19 +113,23 @@ export default async function TenantPaymentsPage() {
   const baseRentAmount = rentRule ? rentRule.amount : room.rentAmount;
 
   const seen = new Set();
+  // billingRules used in checkout — BASE_RENT excluded to avoid double-counting
+  // (base rent is already the mandatory first line in PaymentBreakdownPanel)
   const billingRules = allRules.filter(r => {
-    // Filter out Base Rent rules because the room's rentAmount is already used for the base rent
     const t = String(r.type || "").toUpperCase();
     if (t === "BASE_RENT" || t === "BASE RENT") return false;
-    
     if (seen.has(r.id)) return false;
     seen.add(r.id);
     return true;
   });
 
   const RECURRING = ["MONTHLY", "QUARTERLY", "YEARLY", "PER_SEMESTER", "DAILY"];
-  const recurringRules = billingRules.filter(r => RECURRING.includes(r.frequency));
-  // Only ONCE fees count toward the base rent total — recurring fees are billed separately
+
+  // recurringRules for the info display — use ALL ticked rules filtered by frequency.
+  // This includes BASE_RENT if it's monthly/yearly, and any other recurring charges.
+  const recurringRules = allRules.filter(r => RECURRING.includes(r.frequency));
+
+  // Only ONCE fees from non-base-rent rules count toward totalDue
   const oneTimeFees = billingRules.filter(r => !RECURRING.includes(r.frequency));
 
   const totalFees = oneTimeFees.reduce((s, r) => s + r.amount, 0);
