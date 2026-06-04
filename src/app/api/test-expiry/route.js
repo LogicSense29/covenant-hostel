@@ -35,8 +35,8 @@ export async function GET(req) {
   }
 
   if (action === "set-expiry") {
-    // Just moves the expiry date to N days from now — no emails, no status change.
-    // Use this to put the tenant in the "about to expire" window, then run the cron.
+    // Moves the expiry date to N days from now, then immediately triggers the cron
+    // so the full reminder flow fires in one click.
     const daysParam = parseInt(searchParams.get("days") || "7", 10);
     const days = [7, 3, 1].includes(daysParam) ? daysParam : 7;
 
@@ -48,33 +48,43 @@ export async function GET(req) {
       data: { rentExpiryDate: targetDate },
     });
 
+    // Trigger the cron job — it will detect the expiry window and fire emails + notifications
+    const baseUrl = req.nextUrl?.origin || process.env.NEXTAUTH_URL || "http://localhost:3000";
+    let cronResult = "unknown";
+    try {
+      const cronHeaders = {};
+      if (process.env.CRON_SECRET) cronHeaders["Authorization"] = `Bearer ${process.env.CRON_SECRET}`;
+      const cronRes = await fetch(`${baseUrl}/api/cron/rent-reminders`, { headers: cronHeaders });
+      cronResult = cronRes.ok ? "✅ Cron ran successfully" : `⚠️ Cron returned ${cronRes.status}`;
+    } catch (e) {
+      cronResult = `⚠️ Cron error: ${e.message}`;
+    }
+
     return new NextResponse(`
       <html>
-        <head><title>Expiry Date Set</title>
+        <head><title>Expiry Set + Cron Triggered</title>
         <style>
           body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8fafc; padding: 40px; color: #1e293b; }
           .card { background: white; border: 1px solid #e2e8f0; border-radius: 24px; padding: 40px; max-width: 520px; margin: auto; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
           h1 { color: #0b69ff; margin-top: 0; }
           .status { font-weight: bold; color: #0b69ff; background: #eff6ff; padding: 8px 16px; border-radius: 12px; display: inline-block; margin-bottom: 20px; }
-          .note { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 18px; font-size: 0.85rem; color: #475569; margin: 16px 0; }
+          .note { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 18px; font-size: 0.85rem; color: #475569; margin: 16px 0; line-height: 1.7; }
           .btn { display: inline-block; padding: 11px 20px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 0.85rem; margin-right: 8px; margin-top: 12px; }
           .btn-blue { background: #2563eb; color: white; }
-          .btn-red { background: #e11d48; color: white; }
           .btn-green { background: #16a34a; color: white; }
         </style></head>
         <body>
           <div class="card">
-            <h1>Expiry Date Updated</h1>
+            <h1>Done!</h1>
             <div class="status">EXPIRY IN ${days} DAY${days > 1 ? "S" : ""}</div>
             <p><strong>Tenant:</strong> ${tenant.user.name} (${tenant.user.email})</p>
             <p><strong>New expiry date:</strong> ${targetDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</p>
             <div class="note">
-              ℹ️ No emails or notifications were sent. The tenant's status is still <strong>${tenant.user.status}</strong>.<br/>
-              Now run <code>/api/cron/rent-reminders</code> to trigger the actual reminder flow, or use the buttons below to fire reminders manually.
+              <strong>Cron result:</strong> ${cronResult}<br/>
+              The cron checked all expiry windows. If this tenant fell in the ${days}-day window, reminder emails and in-app notifications were sent.
             </div>
-            <a href="/api/test-expiry?action=remind&days=${days}&email=${encodeURIComponent(email)}" class="btn btn-blue">Fire ${days}-Day Reminder Now</a>
-            <a href="/api/test-expiry?action=expire&email=${encodeURIComponent(email)}" class="btn btn-red">Simulate Full Expiry</a>
-            <a href="/api/test-expiry?email=${encodeURIComponent(email)}" class="btn btn-green">Back to Controls</a>
+            <a href="/api/test-expiry?email=${encodeURIComponent(email)}" class="btn btn-blue">Back to Controls</a>
+            <a href="/api/test-expiry?action=activate&email=${encodeURIComponent(email)}" class="btn btn-green">Restore to Active</a>
           </div>
         </body>
       </html>
@@ -141,8 +151,8 @@ export async function GET(req) {
             <div class="status">${days} DAY${days > 1 ? "S" : ""} WARNING SENT</div>
             <p><strong>Tenant:</strong> ${tenant.user.name} (${tenant.user.email})</p>
             <p><strong>Expiry set to:</strong> ${targetDate.toLocaleDateString("en-GB")} (${days} day${days > 1 ? "s" : ""} from now)</p>
-            <p><strong>Email:</strong> ${emailSent ? "Sent ✅" : "Skipped ⚠️"}</p>
-            <p><strong>In-app notification:</strong> Sent ✅</p>
+            <p><strong>Email:</strong> ${emailSent ? "Sent" : "Skipped"}</p>
+            <p><strong>In-app notification:</strong> Sent</p>
             <a href="/api/test-expiry?email=${encodeURIComponent(email)}" class="btn">Back to Controls</a>
             <a href="/api/test-expiry?action=expire&email=${encodeURIComponent(email)}" class="btn btn-red">Simulate Expiry</a>
             <a href="/api/test-expiry?action=activate&email=${encodeURIComponent(email)}" class="btn btn-green">Restore Active</a>
@@ -184,6 +194,16 @@ export async function GET(req) {
       console.warn("SMTP email notification skipped or failed:", e.message);
     }
 
+    // Also trigger the cron to process any other expiry side-effects
+    const baseUrl = req.nextUrl?.origin || process.env.NEXTAUTH_URL || "http://localhost:3000";
+    try {
+      const cronHeaders = {};
+      if (process.env.CRON_SECRET) cronHeaders["Authorization"] = `Bearer ${process.env.CRON_SECRET}`;
+      await fetch(`${baseUrl}/api/cron/rent-reminders`, { headers: cronHeaders });
+    } catch (e) {
+      console.warn("Cron trigger failed:", e.message);
+    }
+
     return new NextResponse(`
       <html>
         <head>
@@ -204,7 +224,7 @@ export async function GET(req) {
             <div class="status">STATUS: EXPIRED</div>
             <p><strong>Tenant:</strong> ${tenant.user.name} (${tenant.user.email})</p>
             <p><strong>Rent Expiry Date:</strong> set to yesterday (${yesterday.toLocaleDateString("en-GB")})</p>
-            <p><strong>Email Notification:</strong> ${emailSent ? "Sent Successfully ✅" : "Skipped (check server console logs) ⚠️"}</p>
+            <p><strong>Email Notification:</strong> ${emailSent ? "Sent Successfully" : "Skipped (check server console logs)"}</p>
             <p class="meta">If you log in as this tenant, you will now see the Rent Expired block page.</p>
             <a href="/tenant" class="btn">Go to Tenant Dashboard</a>
             <a href="/api/test-expiry?action=activate&email=${encodeURIComponent(email)}" class="btn btn-secondary">Restore to Active</a>
@@ -280,7 +300,7 @@ export async function GET(req) {
             <p><strong>Rent Expiry Date:</strong> reset dynamically based on rent frequency (${expiryDate.toLocaleDateString("en-GB")})</p>
             <p>Your tenant profile is now active and the dashboard is unlocked.</p>
             <a href="/tenant" class="btn">Go to Tenant Dashboard</a>
-            <a href="/api/test-expiry?action=expire&email=${encodeURIComponent(email)}" class="btn btn-secondary">Simulate Expiry</a>
+            <a href="/api/test-expiry" class="btn btn-secondary">Simulate Expiry</a>
           </div>
         </body>
       </html>
@@ -319,16 +339,16 @@ export async function GET(req) {
             <strong>Current Expiry:</strong> ${tenant.rentExpiryDate ? new Date(tenant.rentExpiryDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "Not set"}
           </div>
 
-          <h3>Set Expiry Date Only</h3>
-          <p style="font-size:0.85rem;color:#64748b;margin:0 0 10px">Moves the expiry date without sending any notifications. Use this to set up the window, then run the cron to test the full flow.</p>
+          <h3>Set Expiry + Auto-run Cron</h3>
+          <p style="font-size:0.85rem;color:#64748b;margin:0 0 10px">Sets expiry to N days from now then automatically runs the cron — reminder emails and in-app notifications fire if the tenant falls in the window.</p>
           <div class="btn-row">
             <a href="/api/test-expiry?action=set-expiry&days=7&email=${encodeURIComponent(email)}" class="btn btn-blue">Set to 7 Days</a>
             <a href="/api/test-expiry?action=set-expiry&days=3&email=${encodeURIComponent(email)}" class="btn btn-amber">Set to 3 Days</a>
             <a href="/api/test-expiry?action=set-expiry&days=1&email=${encodeURIComponent(email)}" class="btn btn-red">Set to 1 Day</a>
           </div>
 
-          <h3>Reminder Notifications</h3>
-          <p style="font-size:0.85rem;color:#64748b;margin:0 0 10px">Sets expiry to N days from now AND fires the reminder email + in-app notification immediately — same as what the cron does.</p>
+          <h3>Manual Reminder Fire</h3>
+          <p style="font-size:0.85rem;color:#64748b;margin:0 0 10px">Sets expiry AND directly fires the reminder email + in-app notification without going through the cron.</p>
           <div class="btn-row">
             <a href="/api/test-expiry?action=remind&days=7&email=${encodeURIComponent(email)}" class="btn btn-blue">7-Day Warning</a>
             <a href="/api/test-expiry?action=remind&days=3&email=${encodeURIComponent(email)}" class="btn btn-amber">3-Day Warning</a>
@@ -351,3 +371,6 @@ export async function GET(req) {
     </html>
   `, { headers: { "Content-Type": "text/html" } });
 }
+
+{/* <a href="/api/test-expiry?action=expire&email=${encodeURIComponent(email)}" class="btn btn-secondary">Simulate Expiry</a>
+          </div> */}
