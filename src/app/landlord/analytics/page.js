@@ -188,8 +188,7 @@ export default async function AnalyticsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
-
-     {/* Expiring Tenancies */}
+        {/* Expiring Tenancies */}
         <div className="bg-white rounded-[2rem] border border-slate-100/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-shadow duration-300 h-full flex flex-col">
           <div className="p-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
             <div className="flex items-center gap-4">
@@ -211,7 +210,7 @@ export default async function AnalyticsPage() {
         </div>
 
         {/* Monthly Revenue Bar Chart */}
-        <div className="bg-white rounded-[2rem] border border-slate-100/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-shadow duration-300">
+        <div className="bg-white rounded-[2rem] border border-slate-100/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-shadow duration-300 h-full flex flex-col">
           <div className="p-6 border-b border-slate-50 flex items-center gap-4 bg-slate-50/50">
             <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center border border-white shadow-sm">
               <Activity size={24} strokeWidth={2.5} />
@@ -221,8 +220,8 @@ export default async function AnalyticsPage() {
               <p className="text-xs text-slate-500 font-medium">Last 6 months — confirmed payments</p>
             </div>
           </div>
-          <div className="p-6">
-            <div className="flex items-end gap-3 h-48">
+          <div className="p-6 flex-1 flex items-end">
+            <div className="flex items-end gap-3 h-48 w-full">
               {monthlyRevenue.map((m) => {
                 const heightPct = maxMonthly > 0 ? (m.total / maxMonthly) * 100 : 0;
                 return (
@@ -244,9 +243,8 @@ export default async function AnalyticsPage() {
           </div>
         </div>
 
-
         {/* Tenant Status Breakdown */}
-        <div className="bg-white rounded-[2rem] border border-slate-100/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-shadow duration-300">
+        <div className="bg-white rounded-[2rem] border border-slate-100/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-shadow duration-300 h-full flex flex-col">
           <div className="p-6 border-b border-slate-50 flex items-center gap-4 bg-slate-50/50">
             <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-600 flex items-center justify-center border border-white shadow-sm">
               <Users size={24} strokeWidth={2.5} />
@@ -256,7 +254,7 @@ export default async function AnalyticsPage() {
               <p className="text-xs text-slate-500 font-medium">{totalTenants} total tenants</p>
             </div>
           </div>
-          <div className="p-6 space-y-4">
+          <div className="p-6 space-y-4 flex-1 flex flex-col justify-center">
             {[
               { key: "ACTIVE", label: "Active", color: "bg-green-500", text: "text-green-700", bg: "bg-green-50", border: "border-green-100/50" },
               { key: "AWAITING_PAYMENT", label: "Awaiting Payment", color: "bg-blue-500", text: "text-blue-700", bg: "bg-blue-50", border: "border-blue-100/50" },
@@ -282,10 +280,10 @@ export default async function AnalyticsPage() {
           </div>
         </div>
 
-        {/* Room Status + Payment Types */}
-        <div className="space-y-6">
+        {/* Room Status + Payment Types Stacked */}
+        <div className="flex flex-col gap-6 lg:gap-8 h-full">
           {/* Room Status */}
-          <div className="bg-white rounded-[2rem] border border-slate-100/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-shadow duration-300">
+          <div className="bg-white rounded-[2rem] border border-slate-100/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-shadow duration-300 flex-1 flex flex-col">
             <div className="p-6 border-b border-slate-50 flex items-center gap-4 bg-slate-50/50">
               <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center border border-white shadow-sm">
                 <Home size={24} strokeWidth={2.5} />
@@ -295,14 +293,14 @@ export default async function AnalyticsPage() {
                 <p className="text-xs text-slate-500 font-medium">Real-time room availability</p>
               </div>
             </div>
-            <div className="p-6 grid grid-cols-2 gap-4">
+            <div className="p-6 grid grid-cols-2 gap-4 flex-1">
               {[
                 { label: "Occupied", value: occupiedRooms, color: "text-green-600", bg: "bg-green-50", border: "border-green-100/50" },
                 { label: "Vacant", value: vacantRooms, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100/50" },
                 { label: "Maintenance", value: maintenanceRooms, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-100/50" },
                 { label: "Total Rooms", value: totalRooms, color: "text-slate-700", bg: "bg-slate-50", border: "border-slate-100/50" },
               ].map(s => (
-                <div key={s.label} className={`${s.bg} border ${s.border} rounded-[1.5rem] p-5 transition-transform duration-300 hover:scale-[1.02] hover:shadow-sm`}>
+                <div key={s.label} className={`${s.bg} border ${s.border} rounded-[1.5rem] p-5 transition-transform duration-300 hover:scale-[1.02] hover:shadow-sm flex flex-col justify-center`}>
                   <p className={`text-3xl font-black ${s.color}`}>{s.value}</p>
                   <p className="text-xs font-bold text-slate-500 mt-1 uppercase tracking-wider">{s.label}</p>
                 </div>
@@ -311,7 +309,7 @@ export default async function AnalyticsPage() {
           </div>
 
           {/* Payment Type Breakdown */}
-          <div className="bg-white rounded-[2rem] border border-slate-100/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-shadow duration-300">
+          <div className="bg-white rounded-[2rem] border border-slate-100/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-shadow duration-300 flex-1 flex flex-col">
             <div className="p-6 border-b border-slate-50 flex items-center gap-4 bg-slate-50/50">
               <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-white shadow-sm">
                 <CreditCard size={24} strokeWidth={2.5} />
@@ -321,7 +319,7 @@ export default async function AnalyticsPage() {
                 <p className="text-xs text-slate-500 font-medium">Confirmed transaction breakdown</p>
               </div>
             </div>
-            <div className="p-6 grid grid-cols-3 gap-3">
+            <div className="p-6 grid grid-cols-3 gap-3 flex-1">
               {[
                 { label: "Full", count: fullPayments.length, amount: fullPayments.reduce((s, p) => s + p.amount, 0), color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100/50" },
                 { label: "Install", count: partialPayments.length, amount: partialPayments.reduce((s, p) => s + p.amount, 0), color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100/50" },
@@ -336,10 +334,6 @@ export default async function AnalyticsPage() {
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Maintenance Summary + Expiring Tenancies */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
 
         {/* Maintenance Ticket Status */}
         <div className="bg-white rounded-[2rem] border border-slate-100/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-shadow duration-300 h-full flex flex-col">
@@ -357,7 +351,7 @@ export default async function AnalyticsPage() {
               View All <ArrowUpRight size={14} strokeWidth={3} />
             </Link>
           </div>
-          <div className="p-6 space-y-4 flex-1">
+          <div className="p-6 space-y-4 flex-1 flex flex-col justify-center">
             {[
               { key: "OPEN", label: "Open", color: "bg-red-500", text: "text-red-700", bg: "bg-red-50", border: "border-red-100/50" },
               { key: "IN_PROGRESS", label: "In Progress", color: "bg-amber-400", text: "text-amber-700", bg: "bg-amber-50", border: "border-amber-100/50" },
@@ -381,9 +375,8 @@ export default async function AnalyticsPage() {
           </div>
         </div>
 
-   
-  {/* Occupancy by Block */}
-        <div className="bg-white rounded-[2rem] border border-slate-100/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-shadow duration-300">
+        {/* Occupancy by Block */}
+        <div className="bg-white rounded-[2rem] border border-slate-100/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-shadow duration-300 h-full flex flex-col">
           <div className="p-6 border-b border-slate-50 flex items-center gap-4 bg-slate-50/50">
             <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-white shadow-sm">
               <Home size={24} strokeWidth={2.5} />
@@ -393,7 +386,7 @@ export default async function AnalyticsPage() {
               <p className="text-xs text-slate-500 font-medium">Beds filled vs total capacity</p>
             </div>
           </div>
-          <div className="p-6 space-y-6 max-h-[280px] overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-300">
+          <div className="p-6 space-y-6 flex-1 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-300">
             {blockStats.length === 0 ? (
               <p className="text-sm font-semibold text-slate-400 text-center py-8">No blocks configured yet.</p>
             ) : (

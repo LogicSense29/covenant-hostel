@@ -186,7 +186,7 @@ export default async function LandlordDashboard() {
               
               <div className="relative z-10 mt-auto">
                 <p className="text-[13px] font-semibold text-slate-500 mb-1">{stat.name}</p>
-                <p className="text-3xl font-black text-slate-900 tracking-tight">{stat.value}</p>
+                <p className="text-3xl font-bold text-slate-900 tracking-tight">{stat.value}</p>
               </div>
             </Link>
           ))}
@@ -215,7 +215,7 @@ export default async function LandlordDashboard() {
                   </Link>
                 </div>
                 <Link href="/landlord/tenants?status=EXPIRED_TENANT" className="text-right group/expired pl-4 border-l border-slate-100">
-                  <p className={`text-4xl font-black tracking-tight ${expiredTenantCount > 0 ? "text-red-600" : "text-slate-300"} group-hover/expired:scale-105 transition-transform origin-right`}>{expiredTenantCount}</p>
+                  <p className={`text-4xl font-bold tracking-tight ${expiredTenantCount > 0 ? "text-red-600" : "text-slate-300"} group-hover/expired:scale-105 transition-transform origin-right`}>{expiredTenantCount}</p>
                   <p className="text-[11px] font-bold text-red-400 uppercase tracking-wider mt-1">Expired</p>
                 </Link>
               </div>
@@ -241,7 +241,7 @@ export default async function LandlordDashboard() {
               </div>
               <div>
                 <p className="text-[13px] font-semibold text-blue-800/70 mb-1">Billings Collected</p>
-                <p className="text-3xl font-black text-slate-900 tracking-tight">₦{(totalRentCollected + totalOtherBillings).toLocaleString()}</p>
+                <p className="text-3xl font-bold text-slate-900 tracking-tight">₦{(totalRentCollected + totalOtherBillings).toLocaleString()}</p>
               </div>
             </div>
           </Link>
@@ -259,7 +259,7 @@ export default async function LandlordDashboard() {
               </div>
               <div>
                 <p className="text-[13px] font-semibold text-emerald-800/70 mb-1">Inspection Fees</p>
-                <p className="text-3xl font-black text-slate-900 tracking-tight">₦{totalInspectionFees.toLocaleString()}</p>
+                <p className="text-3xl font-bold text-slate-900 tracking-tight">₦{totalInspectionFees.toLocaleString()}</p>
               </div>
             </div>
           </Link>
@@ -278,7 +278,7 @@ export default async function LandlordDashboard() {
               </div>
               <div>
                 <p className="text-[13px] font-semibold text-slate-400 mb-1">Grand Total Revenue</p>
-                <p className="text-3xl font-black text-white tracking-tight">₦{grandTotalRevenue.toLocaleString()}</p>
+                <p className="text-3xl font-bold text-white tracking-tight">₦{grandTotalRevenue.toLocaleString()}</p>
               </div>
             </div>
           </Link>
