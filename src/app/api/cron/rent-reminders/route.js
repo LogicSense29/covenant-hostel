@@ -24,6 +24,8 @@ export async function GET(req) {
     const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0));
     const adminEmail = process.env.ADMIN_EMAIL;
     const thresholds = [7, 3, 1];
+    // Extended thresholds for YEARLY tenants — 30 days and 14 days ahead
+    const yearlyThresholds = [30, 14];
     let adminSummaryList = [];
 
     // ── 1. Standard rent expiry reminders ──
@@ -81,6 +83,53 @@ export async function GET(req) {
 
     if (adminSummaryList.length > 0) {
       await sendAdminRentSummary({ expiries: adminSummaryList });
+    }
+
+    // ── 1b. Extended reminders for YEARLY tenants: 30 days and 14 days ──
+    for (const days of yearlyThresholds) {
+      const targetDate = new Date(today);
+      targetDate.setDate(today.getDate() + days);
+      const nextDay = new Date(targetDate);
+      nextDay.setDate(targetDate.getDate() + 1);
+
+      const yearlyExpiringTenants = await prisma.tenantProfile.findMany({
+        where: { rentExpiryDate: { gte: targetDate, lt: nextDay } },
+        include: {
+          user: true,
+          room: {
+            include: {
+              billingRules: {
+                where: {
+                  type: { in: ["Base Rent", "Base_Rent", "BaseRent", "Rent", "RENT", "BASE_RENT"] },
+                  frequency: "YEARLY",
+                }
+              }
+            }
+          }
+        },
+      });
+
+      for (const tenant of yearlyExpiringTenants) {
+        if (!tenant.room?.billingRules?.length) continue;
+        if (tenant.user?.email) {
+          await sendRentExpiryReminder({
+            email: tenant.user.email,
+            name: tenant.user.name,
+            roomNumber: tenant.room?.roomNumber || "N/A",
+            expiryDate: tenant.rentExpiryDate,
+            daysLeft: days,
+          });
+        }
+        await createNotification({
+          userId: tenant.userId,
+          title: "Annual Rent Expiry Reminder",
+          message: days === 30
+            ? "Your annual tenancy expires in 1 month. Please start your renewal process soon."
+            : "Your annual tenancy expires in 2 weeks. Please renew to avoid disruption.",
+          type: "PAYMENT",
+          link: "/tenant/payments",
+        });
+      }
     }
 
     // ── 2. Mark expired tenants and notify them ──

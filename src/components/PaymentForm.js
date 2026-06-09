@@ -132,10 +132,10 @@ export default function PaymentForm({
   const handleReceiptUpload = async (e) => {
     e.preventDefault();
     if (!receiptFile) return toast.error("Please select a receipt file.");
+    if (uploadProgress || success) return; // prevent double submit
 
     setUploadProgress(true);
     try {
-      // Upload file via existing upload API
       const formData = new FormData();
       formData.append("file", receiptFile);
       const uploadRes = await fetch("/api/upload", { method: "POST", body: formData });
@@ -143,7 +143,6 @@ export default function PaymentForm({
       const { fileUrl } = await uploadRes.json();
       if (!fileUrl) throw new Error("No file URL returned");
 
-      // Create payment record
       const res = await fetch("/api/payments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -164,7 +163,9 @@ export default function PaymentForm({
 
       if (res.ok) {
         setSuccess(true);
-        setTimeout(() => { setSuccess(false); router.refresh(); }, 3000);
+        // Don't reset success — keeps the form locked so tenant can't re-submit.
+        // Page refresh is only triggered on next navigation.
+        setTimeout(() => router.refresh(), 2500);
       } else {
         toast.error("Failed to submit receipt. Please try again.");
       }

@@ -11,13 +11,11 @@ import {
   Briefcase,
   ShieldCheck,
   X,
-  CreditCard,
-  Building,
-  Calendar,
   Mail,
-  ChevronUp,
-  ChevronDown
+  ExternalLink
 } from "lucide-react";
+import Link from "next/link";
+import TenantActionsMenu from "./TenantActionsMenu";
 import ApprovalActions from "./ApprovalActions";
 import AssignRoomActions from "./AssignRoomActions";
 import PartialPaymentToggle from "@/components/PartialPaymentToggle";
@@ -29,7 +27,6 @@ export default function TenantDirectoryClient({ tenants, availableRooms }) {
   const [statusFilter, setStatusFilter] = useState("");
   const [selectedTenant, setSelectedTenant] = useState(null);
   const [emailTenant, setEmailTenant] = useState(null);
-  const [actionsOpen, setActionsOpen] = useState(true);
   const [showBulkEmail, setShowBulkEmail] = useState(false);
 
   useEffect(() => {
@@ -41,12 +38,29 @@ export default function TenantDirectoryClient({ tenants, availableRooms }) {
     return () => { document.body.style.overflow = "unset"; };
   }, [selectedTenant]);
 
+  const now = new Date();
+
   const filteredTenants = tenants.filter(t => {
     const matchesSearch =
       t.user?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       t.phone?.includes(searchTerm) ||
       t.guarantorName?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = !statusFilter || t.user?.status === statusFilter;
+
+    let matchesStatus = !statusFilter || t.user?.status === statusFilter;
+
+    // Expiry filters
+    if (statusFilter === "EXPIRING_7") {
+      const exp = t.rentExpiryDate ? new Date(t.rentExpiryDate) : null;
+      const days = exp ? Math.ceil((exp - now) / (1000 * 60 * 60 * 24)) : null;
+      matchesStatus = days !== null && days > 0 && days <= 7;
+    } else if (statusFilter === "EXPIRING_30") {
+      const exp = t.rentExpiryDate ? new Date(t.rentExpiryDate) : null;
+      const days = exp ? Math.ceil((exp - now) / (1000 * 60 * 60 * 24)) : null;
+      matchesStatus = days !== null && days > 0 && days <= 30;
+    } else if (statusFilter === "EXPIRED_TENANT") {
+      matchesStatus = t.user?.status === "EXPIRED";
+    }
+
     return matchesSearch && matchesStatus;
   });
 
@@ -79,6 +93,10 @@ export default function TenantDirectoryClient({ tenants, availableRooms }) {
           <option value="PAYMENT_MADE">Payment Made</option>
           <option value="ACTIVE">Active</option>
           <option value="REJECTED">Rejected</option>
+          <option disabled>──────────</option>
+          <option value="EXPIRING_7">⚠ Expiring in 7 days</option>
+          <option value="EXPIRING_30">📅 Expiring in 30 days</option>
+          <option value="EXPIRED_TENANT">🔴 Expired</option>
         </select>
         <button
           onClick={() => setShowBulkEmail(true)}
@@ -122,8 +140,7 @@ export default function TenantDirectoryClient({ tenants, availableRooms }) {
                         if (selectedTenant && selectedTenant.id === profile.id) {
                           setSelectedTenant(null);
                         } else {
-                          setSelectedTenant(profile); 
-                          setActionsOpen(true); 
+                          setSelectedTenant(profile);
                         }
                       }}
                       className="hover:bg-blue-50/50 transition-colors cursor-pointer group"
@@ -155,6 +172,14 @@ export default function TenantDirectoryClient({ tenants, availableRooms }) {
                               {status === 'REJECTED' && <span className="shrink-0 text-[8px] px-1.5 py-0.5 bg-red-100 text-red-700 rounded font-bold uppercase tracking-tighter">Rejected</span>}
                               {status === 'AWAITING_PAYMENT' && <span className="shrink-0 text-[8px] px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded font-bold uppercase tracking-tighter border border-blue-100">Awaiting Payment</span>}
                               {status === 'PAYMENT_MADE' && <span className="shrink-0 text-[8px] px-1.5 py-0.5 bg-emerald-50 text-emerald-600 rounded font-bold uppercase tracking-tighter border border-emerald-100">Payment Made</span>}
+                              {(() => {
+                                if (!profile.rentExpiryDate) return null;
+                                const days = Math.ceil((new Date(profile.rentExpiryDate) - now) / (1000 * 60 * 60 * 24));
+                                if (days <= 0) return <span className="shrink-0 text-[8px] px-1.5 py-0.5 bg-red-100 text-red-700 rounded font-bold uppercase tracking-tighter">Expired</span>;
+                                if (days <= 7) return <span className="shrink-0 text-[8px] px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded font-bold uppercase tracking-tighter">{days}d left</span>;
+                                if (days <= 30) return <span className="shrink-0 text-[8px] px-1.5 py-0.5 bg-amber-50 text-amber-600 rounded font-bold uppercase tracking-tighter border border-amber-100">{days}d left</span>;
+                                return null;
+                              })()}
                             </div>
                             <p className="text-[10px] text-slate-400 font-medium truncate">{profile.phone}</p>
                           </div>
@@ -243,23 +268,11 @@ export default function TenantDirectoryClient({ tenants, availableRooms }) {
 
                       {/* Actions */}
                       <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
-                        <div className="flex justify-end items-center gap-1.5">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setEmailTenant(profile); }}
-                            title="Send email"
-                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg border border-transparent hover:border-blue-100 transition-all"
-                          >
-                            <Mail size={14} />
-                          </button>
-                          <ApprovalActions userId={profile.userId} status={status} payments={profile.payments} />
-                          {status !== "REJECTED" && (
-                            <AssignRoomActions 
-                              tenantId={profile.id} 
-                              currentRoomId={profile.roomId} 
-                              availableRooms={availableRooms} 
-                            />
-                          )}
-                        </div>
+                        <TenantActionsMenu
+                          profile={profile}
+                          availableRooms={availableRooms}
+                          onEmail={(p) => setEmailTenant(p)}
+                        />
                       </td>
 
                     </tr>
@@ -271,350 +284,109 @@ export default function TenantDirectoryClient({ tenants, availableRooms }) {
         </div>
       )}
 
-      {/* DRAWER OVERLAY */}
+      {/* SLIM DRAWER */}
       {selectedTenant && (
         <>
-          {/* Backdrop */}
-          <div 
-            className="fixed h-screen inset-0 bg-slate-900/40 backdrop-blur-sm z-40 animate-in fade-in duration-300" 
+          <div
+            className="fixed h-screen inset-0 bg-slate-900/40 backdrop-blur-sm z-40 animate-in fade-in duration-300"
             onClick={() => setSelectedTenant(null)}
           />
-          
-          {/* Drawer / Bottom Sheet */}
-          <div className="fixed left-0 right-0 bottom-0 top-16 md:top-0 md:bottom-0 md:left-auto md:right-0 md:w-full md:max-w-md bg-white z-50 rounded-t-3xl md:rounded-none md:rounded-l-3xl shadow-2xl flex flex-col animate-in slide-in-from-bottom md:slide-in-from-right duration-300">
-            
-            {/* Drawer Header (Sticky) */}
-            <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-white sticky top-0 rounded-t-3xl md:rounded-tl-3xl z-10 shrink-0">
-               <div>
-                  <h2 className="text-xl font-bold text-slate-900 tracking-tight">Application Profile</h2>
-                  <p className="text-xs text-slate-400 font-medium">Review tenant details</p>
-               </div>
-               <button 
-                 onClick={() => setSelectedTenant(null)}
-                 className="p-2 bg-slate-50 text-slate-500 rounded-full hover:bg-slate-100 hover:text-slate-900 transition-colors"
-               >
-                 <X size={20} />
-               </button>
-            </div>
+          <div className="fixed left-0 right-0 bottom-0 top-16 md:top-0 md:bottom-0 md:left-auto md:right-0 md:w-full md:max-w-sm bg-white z-50 rounded-t-3xl md:rounded-none md:rounded-l-3xl shadow-2xl flex flex-col animate-in slide-in-from-bottom md:slide-in-from-right duration-300">
 
-            {/* Drawer Content (Scrollable) */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-8">
-               
-               {/* 1. Profile Summary */}
-               <div className="flex items-start gap-4">
-                  <div className="w-16 h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-2xl border border-blue-100 shrink-0">
-                    {selectedTenant.user?.name?.[0]?.toUpperCase() || "T"}
-                  </div>
-                  <div className="space-y-1">
-                     <h3 className="text-xl font-bold text-slate-900 leading-tight">
-                        {selectedTenant.user?.name || "Unnamed Applicant"}
-                     </h3>
-                     <p className="text-sm font-medium text-slate-500 flex items-center gap-1.5 pt-0.5">
-                       <Phone size={14} className="text-slate-400" /> {selectedTenant.phone}
-                     </p>
-                     <div className="flex flex-wrap gap-2 pt-2">
-                        {selectedTenant.isStudent ? (
-                          <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 bg-blue-100 text-blue-700 rounded-lg font-bold">
-                            <GraduationCap size={14} /> Student
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-lg font-bold">
-                            <Briefcase size={14} /> Professional
-                          </span>
-                        )}
-                        <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg font-bold border border-slate-200">
-                          {selectedTenant.user?.status?.replace("_", " ")}
-                        </span>
-                     </div>
-                  </div>
-               </div>
-
-               {/* 2. Personal & Academic/Work Detail Cards */}
-               <div className="space-y-4">
-                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1">Primary Information</h4>
-                  <div className="bg-slate-50 rounded-2xl border border-slate-100 p-5 space-y-4">
-                     
-                     <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Email Address</p>
-                        <p className="text-sm font-semibold text-slate-800">{selectedTenant.user?.email}</p>
-                     </div>
-                     <div className="h-px bg-slate-200" />
-
-                     {selectedTenant.isStudent ? (
-                       <>
-                         <div className="space-y-1">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Matriculation Number</p>
-                            <p className="text-sm font-semibold text-slate-800">{selectedTenant.matricNumber}</p>
-                         </div>
-                         <div className="h-px bg-slate-200" />
-                         <div className="space-y-1">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Institution & Course</p>
-                            <p className="text-sm font-semibold text-slate-800">{selectedTenant.schoolName} — {selectedTenant.schoolYear}</p>
-                            <p className="text-xs text-slate-500 mt-0.5">{selectedTenant.courseOfStudy} ({selectedTenant.department}, {selectedTenant.faculty})</p>
-                         </div>
-                       </>
-                     ) : (
-                       <>
-                         <div className="space-y-1">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Employment Type</p>
-                            <p className="text-sm font-semibold text-slate-800">{selectedTenant.workType}</p>
-                         </div>
-                         <div className="h-px bg-slate-200" />
-                         <div className="space-y-1">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Company / Workplace</p>
-                            <p className="text-sm font-semibold text-slate-800">{selectedTenant.companyName}</p>
-                            <p className="text-xs text-slate-500 mt-0.5 flex items-start gap-1">
-                              <MapPin size={12} className="shrink-0 mt-0.5" /> 
-                              {selectedTenant.workAddress}
-                            </p>
-                         </div>
-                       </>
-                     )}
-                     
-                     {selectedTenant.permanentAddress && selectedTenant.permanentAddress.trim() !== "" && (
-                        <>
-                          <div className="h-px bg-slate-200" />
-                          <div className="space-y-1">
-                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Permanent Address</p>
-                             <p className="text-sm font-semibold text-slate-800">{selectedTenant.permanentAddress}</p>
-                          </div>
-                        </>
-                      )}
-                  </div>
-               </div>
-
-               {/* 3. Guarantor (If Applicable) */}
-               {selectedTenant.guarantorName && selectedTenant.guarantorName.trim() !== "" && selectedTenant.guarantorName.trim().toLowerCase() !== "null" && (
-                 <div className="space-y-4">
-                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1">Guarantor Information</h4>
-                    <div className="bg-blue-50/50 rounded-2xl border border-blue-100 p-5 space-y-4">
-                       <div className="flex items-center justify-between">
-                         <div className="space-y-1">
-                            <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Guarantor Name</p>
-                            <p className="text-sm font-semibold text-slate-900">{selectedTenant.guarantorName}</p>
-                         </div>
-                         <span className="text-[10px] font-bold px-2 py-1 bg-white text-blue-600 rounded-lg border border-blue-100 uppercase tracking-wider">
-                           {selectedTenant.guarantorRelationship}
-                         </span>
-                       </div>
-                       
-                       <div className="h-px bg-blue-100/50" />
-                       
-                       <div className="space-y-1">
-                          <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Contact Phone</p>
-                          <p className="text-sm font-semibold text-slate-900">{selectedTenant.guarantorPhone}</p>
-                       </div>
-
-                       <div className="h-px bg-blue-100/50" />
-                       
-                       <div className="space-y-1">
-                          <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Guarantor Address</p>
-                          <p className="text-sm font-semibold text-slate-900">{selectedTenant.guarantorAddress}</p>
-                       </div>
-                    </div>
-                 </div>
-               )}
-
-               {/* 4. Documents Grid */}
-               <div className="space-y-4">
-                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1">Verification Documents</h4>
-                  <div className="grid grid-cols-2 gap-3">
-                     
-                     {selectedTenant.isStudent && selectedTenant.studentIdUrl && (
-                       <a href={selectedTenant.studentIdUrl} target="_blank" rel="noopener noreferrer" 
-                          className="group relative aspect-[4/3] rounded-2xl border border-slate-200 overflow-hidden bg-slate-50 flex items-center justify-center hover:border-blue-300 transition-all">
-                          <img src={selectedTenant.studentIdUrl} alt="Student ID" className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" />
-                          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent flex flex-col justify-end p-3">
-                            <p className="text-white text-xs font-bold flex items-center gap-1.5"><GraduationCap size={14} /> Student ID</p>
-                          </div>
-                       </a>
-                     )}
-
-                     {!selectedTenant.isStudent && selectedTenant.workType === "Employee" && selectedTenant.workIdUrl && (
-                       <a href={selectedTenant.workIdUrl} target="_blank" rel="noopener noreferrer" 
-                          className="group relative aspect-[4/3] rounded-2xl border border-slate-200 overflow-hidden bg-slate-50 flex items-center justify-center hover:border-blue-300 transition-all">
-                          <img src={selectedTenant.workIdUrl} alt="Work ID" className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" />
-                          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent flex flex-col justify-end p-3">
-                            <p className="text-white text-xs font-bold flex items-center gap-1.5"><Briefcase size={14} /> Work ID</p>
-                          </div>
-                       </a>
-                     )}
-
-                     {selectedTenant.guarantorIdUrl && (
-                       <a href={selectedTenant.guarantorIdUrl} target="_blank" rel="noopener noreferrer" 
-                          className="group relative aspect-[4/3] rounded-2xl border border-slate-200 overflow-hidden bg-slate-50 flex items-center justify-center hover:border-blue-300 transition-all">
-                          <img src={selectedTenant.guarantorIdUrl} alt="Guarantor ID" className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" />
-                          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent flex flex-col justify-end p-3">
-                            <p className="text-white text-xs font-bold flex items-center gap-1.5"><FileText size={14} /> Guarantor ID</p>
-                          </div>
-                       </a>
-                     )}
-                     
-                     {!selectedTenant.studentIdUrl && !selectedTenant.workIdUrl && !selectedTenant.guarantorIdUrl && (
-                       <div className="col-span-2 p-6 bg-slate-50 rounded-2xl border border-slate-200 text-center text-slate-400 text-xs font-bold">
-                         No documents uploaded
-                       </div>
-                     )}
-                  </div>
-               </div>
-
-                {/* 5. Tenancy & Payment History */}
-                <div className="space-y-6 pt-2">
-                   <div className="h-px bg-slate-100" />
-                   <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1">Tenancy & Payment History</h4>
-                   
-                   {/* Stays History Timeline */}
-                   <div className="space-y-3">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider pl-1">Stay History</p>
-                      {!selectedTenant.stayHistory || selectedTenant.stayHistory.length === 0 ? (
-                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-center text-slate-400 text-xs font-semibold">
-                          No previous stay history recorded.
-                        </div>
-                      ) : (
-                        <div className="space-y-3 pl-2 border-l-2 border-slate-100 ml-2">
-                          {selectedTenant.stayHistory.map((stay) => (
-                            <div key={stay.id} className="relative pl-4">
-                              <div className="absolute -left-[17px] top-1.5 w-2 h-2 rounded-full bg-blue-500 ring-4 ring-white" />
-                              <div className="flex items-center justify-between">
-                                <p className="text-xs font-bold text-slate-800">
-                                  Room {stay.room?.roomNumber} 
-                                  {stay.room?.block?.name && ` (${stay.room.block.name})`}
-                                </p>
-                                <span className={`text-[8px] px-1.5 py-0.5 rounded font-black uppercase ${
-                                  stay.status === "ACTIVE" 
-                                    ? "bg-green-100 text-green-700" 
-                                    : "bg-slate-100 text-slate-500"
-                                }`}>
-                                  {stay.status}
-                                </span>
-                              </div>
-                              <p className="text-[10px] text-slate-400 font-medium">
-                                {new Date(stay.startDate).toLocaleDateString()} — {stay.endDate ? new Date(stay.endDate).toLocaleDateString() : "Present"}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                   </div>
-
-                   {/* Payment & Receipts List */}
-                   <div className="space-y-3">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider pl-1">Payment Receipts</p>
-                      {!selectedTenant.payments || selectedTenant.payments.length === 0 ? (
-                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-center text-slate-400 text-xs font-semibold">
-                          No payments recorded.
-                        </div>
-                      ) : (
-                        <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                          {selectedTenant.payments.map((pmt) => (
-                            <div key={pmt.id} className="bg-slate-50 rounded-2xl border border-slate-100 p-4 flex items-center justify-between hover:bg-slate-100/50 transition-colors">
-                              <div className="space-y-1">
-                                <p className="text-xs font-bold text-slate-800">₦{pmt.amount.toLocaleString()}</p>
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className="text-[9px] font-bold text-slate-400">
-                                    {new Date(pmt.createdAt).toLocaleDateString()}
-                                  </span>
-                                  <span className="text-[9px] font-bold text-slate-300">•</span>
-                                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider">
-                                    {pmt.paymentType?.toLowerCase()}
-                                  </span>
-                                </div>
-                              </div>
-                              <div className="flex flex-col items-end gap-1.5">
-                                <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase border ${
-                                  pmt.status === "VERIFIED" || pmt.status === "SUCCESS"
-                                    ? "bg-green-50 text-green-600 border-green-100"
-                                    : pmt.status === "PENDING"
-                                    ? "bg-amber-50 text-amber-600 border-amber-100"
-                                    : "bg-red-50 text-red-600 border-red-100"
-                                }`}>
-                                  {pmt.status === "SUCCESS" ? "Confirmed" : pmt.status}
-                                </span>
-                                {pmt.receiptUrl && (
-                                  <a 
-                                    href={pmt.receiptUrl} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer" 
-                                    className="text-[9px] font-bold text-blue-600 hover:underline flex items-center gap-1"
-                                  >
-                                    <FileText size={10} /> View Receipt
-                                  </a>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                   </div>
-                </div>
-
-            </div>
-
-            {/* Drawer Footer Actions (Sticky Bottom) */}
-            <div className="bg-white border-t border-slate-100 shrink-0">
-
-              {/* Accordion Toggle */}
-              <button
-                onClick={() => setActionsOpen(o => !o)}
-                className="w-full flex items-center justify-between px-6 py-4 hover:bg-slate-50 transition-colors"
-              >
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Actions & Details</span>
-                {actionsOpen ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronUp size={16} className="text-slate-400" />}
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-white sticky top-0 rounded-t-3xl md:rounded-tl-3xl z-10 shrink-0">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Quick View</h2>
+                <p className="text-xs text-slate-400">Tenant snapshot</p>
+              </div>
+              <button onClick={() => setSelectedTenant(null)} className="p-2 bg-slate-50 text-slate-500 rounded-full hover:bg-slate-100 transition-colors">
+                <X size={20} />
               </button>
+            </div>
 
-              {/* Collapsible Content */}
-              {actionsOpen && (
-                <div className="px-6 pb-6 space-y-4">
-                  {/* Quick info bar */}
-                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Calendar size={14} className="text-slate-400" />
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Applied</span>
-                    </div>
-                    <span className="text-xs font-bold text-slate-700">{new Date(selectedTenant.createdAt).toLocaleDateString()}</span>
-                  </div>
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-5">
 
-                  {/* Requested room */}
-                  {selectedTenant.room && (
-                    <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex items-center gap-3">
-                      <Building size={16} className="text-[#0b69ff] shrink-0" />
-                      <div>
-                        <p className="text-[10px] font-black text-[#0b69ff] uppercase tracking-widest">Requested Room</p>
-                        <p className="text-sm font-bold text-[#102a43]">
-                          Room {selectedTenant.room.roomNumber}
-                          {selectedTenant.room.block?.name && ` · ${selectedTenant.room.block.name}`}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Partial payment toggle */}
-                  {(selectedTenant.user?.status === "ACTIVE" || selectedTenant.user?.status === "AWAITING_PAYMENT" || selectedTenant.user?.status === "PAYMENT_MADE") && (
-                    <PartialPaymentToggle
-                      tenantProfileId={selectedTenant.id}
-                      allowPartialPayment={selectedTenant.allowPartialPayment}
-                      partialPaymentInstallments={selectedTenant.partialPaymentInstallments}
-                      totalDue={selectedTenant.room?.rentAmount || null}
-                    />
-                  )}
-
-                  {/* Approval actions */}
-                  <div className="flex gap-2 w-full [&>*]:flex-1">
-                    <ApprovalActions userId={selectedTenant.userId} status={selectedTenant.user?.status} payments={selectedTenant.payments} />
-                  </div>
-
-                  {/* Send email */}
-                  <button
-                    onClick={() => setEmailTenant(selectedTenant)}
-                    className="w-full flex items-center justify-center gap-2 py-3 border border-slate-200 text-slate-700 text-sm font-bold rounded-2xl hover:bg-slate-50 hover:border-slate-300 transition-all"
-                  >
-                    <Mail size={16} />
-                    Send Email to Tenant
-                  </button>
+              {/* Avatar + name */}
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-2xl border border-blue-100 shrink-0">
+                  {selectedTenant.user?.name?.[0]?.toUpperCase() || "T"}
                 </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">{selectedTenant.user?.name || "Unnamed"}</h3>
+                  <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
+                    <Phone size={12} className="text-slate-400" /> {selectedTenant.phone}
+                  </p>
+                  <div className="flex gap-1.5 mt-1.5 flex-wrap">
+                    {selectedTenant.isStudent
+                      ? <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-blue-100 text-blue-700 rounded font-bold"><GraduationCap size={10} /> Student</span>
+                      : <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded font-bold"><Briefcase size={10} /> Professional</span>
+                    }
+                    <span className="text-[10px] px-2 py-0.5 bg-slate-100 text-slate-600 rounded font-bold border border-slate-200">
+                      {selectedTenant.user?.status?.replace(/_/g, " ")}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Key info */}
+              <div className="bg-slate-50 rounded-2xl border border-slate-100 divide-y divide-slate-100">
+                <div className="flex items-center justify-between px-4 py-3">
+                  <span className="text-xs text-slate-400 font-semibold">Email</span>
+                  <span className="text-xs font-bold text-slate-700 truncate max-w-[180px]">{selectedTenant.user?.email}</span>
+                </div>
+                <div className="flex items-center justify-between px-4 py-3">
+                  <span className="text-xs text-slate-400 font-semibold">Room</span>
+                  <span className="text-xs font-bold text-slate-700">
+                    {selectedTenant.room
+                      ? `Room ${selectedTenant.room.roomNumber}${selectedTenant.room.block?.name ? ` · ${selectedTenant.room.block.name}` : ""}`
+                      : "Not assigned"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between px-4 py-3">
+                  <span className="text-xs text-slate-400 font-semibold">Applied</span>
+                  <span className="text-xs font-bold text-slate-700">{new Date(selectedTenant.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span>
+                </div>
+                {selectedTenant.guarantorName && selectedTenant.guarantorName.toLowerCase() !== "null" && (
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <span className="text-xs text-slate-400 font-semibold">Guarantor</span>
+                    <span className="text-xs font-bold text-slate-700 truncate max-w-[180px]">{selectedTenant.guarantorName}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Quick approval actions */}
+              <div className="space-y-2">
+                <ApprovalActions userId={selectedTenant.userId} status={selectedTenant.user?.status} payments={selectedTenant.payments} />
+                <button
+                  onClick={() => setEmailTenant(selectedTenant)}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 border border-slate-200 text-slate-700 text-sm font-bold rounded-xl hover:bg-slate-50 transition-all"
+                >
+                  <Mail size={15} /> Send Email
+                </button>
+              </div>
+
+              {/* Partial payment toggle — for eligible statuses */}
+              {["ACTIVE", "AWAITING_PAYMENT", "PAYMENT_MADE"].includes(selectedTenant.user?.status) && (
+                <PartialPaymentToggle
+                  tenantProfileId={selectedTenant.id}
+                  allowPartialPayment={selectedTenant.allowPartialPayment}
+                  partialPaymentInstallments={selectedTenant.partialPaymentInstallments}
+                  totalDue={selectedTenant.room?.rentAmount || null}
+                />
               )}
             </div>
-            
+
+            {/* Footer — View Full Profile */}
+            <div className="p-5 border-t border-slate-100 shrink-0">
+              <Link
+                href={`/landlord/tenants/${selectedTenant.id}`}
+                className="w-full flex items-center justify-center gap-2 py-3 bg-slate-900 text-white text-sm font-bold rounded-2xl hover:bg-blue-600 transition-all"
+              >
+                <ExternalLink size={16} />
+                View Full Profile
+              </Link>
+            </div>
           </div>
         </>
       )}

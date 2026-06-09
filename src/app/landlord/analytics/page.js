@@ -126,11 +126,7 @@ export default async function AnalyticsPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-200 pb-8">
         <div className="space-y-1">
-          <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-600 rounded-full w-fit">
-            <TrendingUp size={14} />
-            <span className="text-[10px] font-bold uppercase tracking-widest">Property Intelligence</span>
-          </div>
-          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">Analytics</h1>
+          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Analytics</h1>
           <p className="text-slate-500">Occupancy, revenue, and operational overview.</p>
         </div>
         <Link
@@ -142,7 +138,7 @@ export default async function AnalyticsPage() {
       </div>
 
       {/* Top KPI row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
         {[
           {
             label: "Occupancy Rate",
@@ -177,44 +173,70 @@ export default async function AnalyticsPage() {
             bg: "bg-amber-50",
           },
         ].map(kpi => (
-          <div key={kpi.label} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-            <div className={`p-2.5 ${kpi.bg} ${kpi.color} rounded-xl w-fit mb-3`}>
-              <kpi.icon size={20} />
+          <div key={kpi.label} className="relative bg-white rounded-[2rem] border border-slate-100/60 p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all duration-300 hover:-translate-y-1 overflow-hidden group">
+            <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full ${kpi.bg} opacity-60 group-hover:scale-150 transition-transform duration-700 ease-in-out blur-2xl`}></div>
+            <div className="relative z-10">
+              <div className={`p-3 ${kpi.bg} ${kpi.color} rounded-2xl w-fit mb-4 group-hover:scale-110 transition-transform duration-300 shadow-sm border border-white/50`}>
+                <kpi.icon size={22} strokeWidth={2.5} />
+              </div>
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{kpi.label}</p>
+              <p className="text-3xl font-bold text-slate-900 mt-1 tracking-tight">{kpi.value}</p>
+              <p className="text-[11px] text-slate-500 mt-1 font-medium">{kpi.sub}</p>
             </div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{kpi.label}</p>
-            <p className="text-2xl font-black text-slate-900 mt-0.5">{kpi.value}</p>
-            <p className="text-xs text-slate-400 mt-1">{kpi.sub}</p>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+
+     {/* Expiring Tenancies */}
+        <div className="bg-white rounded-[2rem] border border-slate-100/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-shadow duration-300 h-full flex flex-col">
+          <div className="p-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center border border-white shadow-sm">
+                <Calendar size={24} strokeWidth={2.5} />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Expiring Soon</h2>
+                <p className="text-xs text-slate-500 font-medium">Within the next 30 days</p>
+              </div>
+            </div>
+            <Link href="/landlord/tenants" className="text-[13px] font-bold text-orange-600 hover:text-orange-700 flex items-center gap-1.5 bg-orange-50/50 px-3 py-1.5 rounded-full transition-colors hover:bg-orange-100/50 border border-orange-100/50">
+              View All <ArrowUpRight size={14} strokeWidth={3} />
+            </Link>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            <ExpiringTenancies />
+          </div>
+        </div>
 
         {/* Monthly Revenue Bar Chart */}
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-slate-100 flex items-center gap-3 bg-slate-50/20">
-            <Activity size={20} className="text-blue-600" />
+        <div className="bg-white rounded-[2rem] border border-slate-100/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-shadow duration-300">
+          <div className="p-6 border-b border-slate-50 flex items-center gap-4 bg-slate-50/50">
+            <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center border border-white shadow-sm">
+              <Activity size={24} strokeWidth={2.5} />
+            </div>
             <div>
               <h2 className="text-lg font-bold text-slate-900">Monthly Revenue</h2>
-              <p className="text-xs text-slate-400">Last 6 months — confirmed payments only</p>
+              <p className="text-xs text-slate-500 font-medium">Last 6 months — confirmed payments</p>
             </div>
           </div>
           <div className="p-6">
-            <div className="flex items-end gap-3 h-40">
+            <div className="flex items-end gap-3 h-48">
               {monthlyRevenue.map((m) => {
                 const heightPct = maxMonthly > 0 ? (m.total / maxMonthly) * 100 : 0;
                 return (
-                  <div key={m.label} className="flex-1 flex flex-col items-center gap-2">
-                    <p className="text-[10px] font-bold text-slate-500">
+                  <div key={m.label} className="flex-1 flex flex-col items-center gap-2 group">
+                    <p className="text-[10px] font-bold text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 -translate-y-2 group-hover:translate-y-0">
                       {m.total > 0 ? `₦${(m.total / 1000).toFixed(0)}k` : "—"}
                     </p>
-                    <div className="w-full bg-slate-100 rounded-lg overflow-hidden" style={{ height: "80px" }}>
+                    <div className="w-full bg-slate-50 rounded-xl overflow-hidden relative shadow-inner" style={{ height: "120px" }}>
                       <div
-                        className="w-full bg-blue-500 rounded-lg transition-all duration-500"
+                        className="w-full bg-gradient-to-t from-blue-600 to-blue-400 rounded-xl transition-all duration-700 ease-out group-hover:brightness-110"
                         style={{ height: `${heightPct}%`, marginTop: `${100 - heightPct}%` }}
                       />
                     </div>
-                    <p className="text-[10px] font-bold text-slate-400">{m.label}</p>
+                    <p className="text-[11px] font-bold text-slate-400 group-hover:text-blue-600 transition-colors">{m.label}</p>
                   </div>
                 );
               })}
@@ -222,76 +244,38 @@ export default async function AnalyticsPage() {
           </div>
         </div>
 
-        {/* Occupancy by Block */}
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-slate-100 flex items-center gap-3 bg-slate-50/20">
-            <Home size={20} className="text-indigo-600" />
+
+        {/* Tenant Status Breakdown */}
+        <div className="bg-white rounded-[2rem] border border-slate-100/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-shadow duration-300">
+          <div className="p-6 border-b border-slate-50 flex items-center gap-4 bg-slate-50/50">
+            <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-600 flex items-center justify-center border border-white shadow-sm">
+              <Users size={24} strokeWidth={2.5} />
+            </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900">Occupancy by Block</h2>
-              <p className="text-xs text-slate-400">Beds filled vs total capacity</p>
+              <h2 className="text-lg font-bold text-slate-900">Tenant Status</h2>
+              <p className="text-xs text-slate-500 font-medium">{totalTenants} total tenants</p>
             </div>
           </div>
           <div className="p-6 space-y-4">
-            {blockStats.length === 0 ? (
-              <p className="text-sm text-slate-400 text-center py-8">No blocks configured yet.</p>
-            ) : (
-              blockStats.map(block => (
-                <div key={block.name}>
-                  <div className="flex justify-between items-center mb-1.5">
-                    <div>
-                      <span className="text-sm font-bold text-slate-800">{block.name}</span>
-                      <span className="text-xs text-slate-400 ml-2">{block.rooms} room{block.rooms !== 1 ? "s" : ""}</span>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-sm font-black text-slate-900">{block.rate.toFixed(0)}%</span>
-                      <span className="text-xs text-slate-400 ml-1">{block.occupants}/{block.capacity}</span>
-                    </div>
-                  </div>
-                  <div className="w-full bg-slate-100 rounded-full h-2">
-                    <div
-                      className={`h-2 rounded-full transition-all duration-500 ${
-                        block.rate >= 90 ? "bg-green-500" :
-                        block.rate >= 60 ? "bg-blue-500" :
-                        block.rate >= 30 ? "bg-amber-400" : "bg-red-400"
-                      }`}
-                      style={{ width: `${block.rate}%` }}
-                    />
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Tenant Status Breakdown */}
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-slate-100 flex items-center gap-3 bg-slate-50/20">
-            <Users size={20} className="text-indigo-600" />
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">Tenant Status</h2>
-              <p className="text-xs text-slate-400">{totalTenants} total tenants</p>
-            </div>
-          </div>
-          <div className="p-6 space-y-3">
             {[
-              { key: "ACTIVE", label: "Active", color: "bg-green-500", text: "text-green-700", bg: "bg-green-50" },
-              { key: "AWAITING_PAYMENT", label: "Awaiting Payment", color: "bg-blue-500", text: "text-blue-700", bg: "bg-blue-50" },
-              { key: "PAYMENT_MADE", label: "Payment Under Review", color: "bg-amber-400", text: "text-amber-700", bg: "bg-amber-50" },
-              { key: "PENDING", label: "Pending Approval", color: "bg-slate-400", text: "text-slate-600", bg: "bg-slate-50" },
-              { key: "EXPIRED", label: "Expired", color: "bg-red-400", text: "text-red-700", bg: "bg-red-50" },
-              { key: "REJECTED", label: "Rejected", color: "bg-rose-300", text: "text-rose-600", bg: "bg-rose-50" },
+              { key: "ACTIVE", label: "Active", color: "bg-green-500", text: "text-green-700", bg: "bg-green-50", border: "border-green-100/50" },
+              { key: "AWAITING_PAYMENT", label: "Awaiting Payment", color: "bg-blue-500", text: "text-blue-700", bg: "bg-blue-50", border: "border-blue-100/50" },
+              { key: "PAYMENT_MADE", label: "Payment Under Review", color: "bg-amber-400", text: "text-amber-700", bg: "bg-amber-50", border: "border-amber-100/50" },
+              { key: "PENDING", label: "Pending Approval", color: "bg-slate-400", text: "text-slate-600", bg: "bg-slate-50", border: "border-slate-100/50" },
+              { key: "EXPIRED", label: "Expired", color: "bg-red-400", text: "text-red-700", bg: "bg-red-50", border: "border-red-100/50" },
+              { key: "REJECTED", label: "Rejected", color: "bg-rose-400", text: "text-rose-700", bg: "bg-rose-50", border: "border-rose-100/50" },
             ].map(s => {
               const count = statusMap[s.key] || 0;
               const pct = totalTenants > 0 ? (count / totalTenants) * 100 : 0;
               return (
-                <div key={s.key} className="flex items-center gap-3">
-                  <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${s.bg} ${s.text} w-44 shrink-0`}>
+                <div key={s.key} className="flex items-center gap-4 group">
+                  <span className={`text-[11px] font-bold px-3 py-1.5 rounded-xl ${s.bg} ${s.text} border ${s.border} w-44 shrink-0 transition-colors`}>
                     {s.label}
                   </span>
-                  <div className="flex-1 bg-slate-100 rounded-full h-2">
-                    <div className={`h-2 rounded-full ${s.color}`} style={{ width: `${pct}%` }} />
+                  <div className="flex-1 bg-slate-50 rounded-full h-3 shadow-inner overflow-hidden">
+                    <div className={`h-full rounded-full ${s.color} transition-all duration-700 ease-out`} style={{ width: `${pct}%` }} />
                   </div>
-                  <span className="text-sm font-black text-slate-900 w-8 text-right">{count}</span>
+                  <span className="text-sm font-black text-slate-900 w-8 text-right tabular-nums">{count}</span>
                 </div>
               );
             })}
@@ -301,42 +285,52 @@ export default async function AnalyticsPage() {
         {/* Room Status + Payment Types */}
         <div className="space-y-6">
           {/* Room Status */}
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-slate-100 flex items-center gap-3 bg-slate-50/20">
-              <Home size={20} className="text-blue-600" />
-              <h2 className="text-lg font-bold text-slate-900">Room Status</h2>
+          <div className="bg-white rounded-[2rem] border border-slate-100/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-shadow duration-300">
+            <div className="p-6 border-b border-slate-50 flex items-center gap-4 bg-slate-50/50">
+              <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center border border-white shadow-sm">
+                <Home size={24} strokeWidth={2.5} />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Room Status</h2>
+                <p className="text-xs text-slate-500 font-medium">Real-time room availability</p>
+              </div>
             </div>
             <div className="p-6 grid grid-cols-2 gap-4">
               {[
-                { label: "Occupied", value: occupiedRooms, color: "text-green-600", bg: "bg-green-50", border: "border-green-100" },
-                { label: "Vacant", value: vacantRooms, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100" },
-                { label: "Maintenance", value: maintenanceRooms, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-100" },
-                { label: "Total Rooms", value: totalRooms, color: "text-slate-700", bg: "bg-slate-50", border: "border-slate-100" },
+                { label: "Occupied", value: occupiedRooms, color: "text-green-600", bg: "bg-green-50", border: "border-green-100/50" },
+                { label: "Vacant", value: vacantRooms, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100/50" },
+                { label: "Maintenance", value: maintenanceRooms, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-100/50" },
+                { label: "Total Rooms", value: totalRooms, color: "text-slate-700", bg: "bg-slate-50", border: "border-slate-100/50" },
               ].map(s => (
-                <div key={s.label} className={`${s.bg} border ${s.border} rounded-2xl p-4`}>
-                  <p className={`text-2xl font-black ${s.color}`}>{s.value}</p>
-                  <p className="text-xs font-bold text-slate-500 mt-0.5">{s.label}</p>
+                <div key={s.label} className={`${s.bg} border ${s.border} rounded-[1.5rem] p-5 transition-transform duration-300 hover:scale-[1.02] hover:shadow-sm`}>
+                  <p className={`text-3xl font-black ${s.color}`}>{s.value}</p>
+                  <p className="text-xs font-bold text-slate-500 mt-1 uppercase tracking-wider">{s.label}</p>
                 </div>
               ))}
             </div>
           </div>
 
           {/* Payment Type Breakdown */}
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-slate-100 flex items-center gap-3 bg-slate-50/20">
-              <CreditCard size={20} className="text-blue-600" />
-              <h2 className="text-lg font-bold text-slate-900">Payment Types</h2>
+          <div className="bg-white rounded-[2rem] border border-slate-100/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-shadow duration-300">
+            <div className="p-6 border-b border-slate-50 flex items-center gap-4 bg-slate-50/50">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-white shadow-sm">
+                <CreditCard size={24} strokeWidth={2.5} />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Payment Types</h2>
+                <p className="text-xs text-slate-500 font-medium">Confirmed transaction breakdown</p>
+              </div>
             </div>
             <div className="p-6 grid grid-cols-3 gap-3">
               {[
-                { label: "Full", count: fullPayments.length, amount: fullPayments.reduce((s, p) => s + p.amount, 0), color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100" },
-                { label: "Installment", count: partialPayments.length, amount: partialPayments.reduce((s, p) => s + p.amount, 0), color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100" },
-                { label: "Recurring", count: recurringPayments.length, amount: recurringPayments.reduce((s, p) => s + p.amount, 0), color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-100" },
+                { label: "Full", count: fullPayments.length, amount: fullPayments.reduce((s, p) => s + p.amount, 0), color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100/50" },
+                { label: "Install", count: partialPayments.length, amount: partialPayments.reduce((s, p) => s + p.amount, 0), color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100/50" },
+                { label: "Recur", count: recurringPayments.length, amount: recurringPayments.reduce((s, p) => s + p.amount, 0), color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-100/50" },
               ].map(t => (
-                <div key={t.label} className={`${t.bg} border ${t.border} rounded-2xl p-4`}>
-                  <p className={`text-xl font-black ${t.color}`}>{t.count}</p>
-                  <p className="text-xs font-bold text-slate-500">{t.label}</p>
-                  <p className="text-[10px] text-slate-400 mt-1">₦{(t.amount / 1000).toFixed(0)}k</p>
+                <div key={t.label} className={`${t.bg} border ${t.border} rounded-[1.25rem] p-4 flex flex-col justify-center transition-transform duration-300 hover:scale-[1.02] hover:shadow-sm`}>
+                  <p className={`text-2xl font-black ${t.color} leading-none`}>{t.count}</p>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-2">{t.label}</p>
+                  <p className="text-[11px] font-semibold text-slate-400 mt-0.5">₦{(t.amount / 1000).toFixed(0)}k</p>
                 </div>
               ))}
             </div>
@@ -345,61 +339,92 @@ export default async function AnalyticsPage() {
       </div>
 
       {/* Maintenance Summary + Expiring Tenancies */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
 
         {/* Maintenance Ticket Status */}
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/20">
-            <div className="flex items-center gap-3">
-              <Wrench size={20} className="text-purple-600" />
+        <div className="bg-white rounded-[2rem] border border-slate-100/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-shadow duration-300 h-full flex flex-col">
+          <div className="p-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center border border-white shadow-sm">
+                <Wrench size={24} strokeWidth={2.5} />
+              </div>
               <div>
                 <h2 className="text-lg font-bold text-slate-900">Maintenance Tickets</h2>
-                <p className="text-xs text-slate-400">{totalTickets} total</p>
+                <p className="text-xs text-slate-500 font-medium">{totalTickets} total recorded</p>
               </div>
             </div>
-            <Link href="/landlord/maintenance" className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1">
-              View All <ArrowUpRight size={12} />
+            <Link href="/landlord/maintenance" className="text-[13px] font-bold text-purple-600 hover:text-purple-700 flex items-center gap-1.5 bg-purple-50/50 px-3 py-1.5 rounded-full transition-colors hover:bg-purple-100/50 border border-purple-100/50">
+              View All <ArrowUpRight size={14} strokeWidth={3} />
             </Link>
           </div>
-          <div className="p-6 space-y-3">
+          <div className="p-6 space-y-4 flex-1">
             {[
-              { key: "OPEN", label: "Open", color: "bg-red-500", text: "text-red-700", bg: "bg-red-50" },
-              { key: "IN_PROGRESS", label: "In Progress", color: "bg-amber-400", text: "text-amber-700", bg: "bg-amber-50" },
-              { key: "RESOLVED", label: "Resolved", color: "bg-green-500", text: "text-green-700", bg: "bg-green-50" },
-              { key: "CANCELLED", label: "Cancelled", color: "bg-slate-300", text: "text-slate-500", bg: "bg-slate-50" },
+              { key: "OPEN", label: "Open", color: "bg-red-500", text: "text-red-700", bg: "bg-red-50", border: "border-red-100/50" },
+              { key: "IN_PROGRESS", label: "In Progress", color: "bg-amber-400", text: "text-amber-700", bg: "bg-amber-50", border: "border-amber-100/50" },
+              { key: "RESOLVED", label: "Resolved", color: "bg-green-500", text: "text-green-700", bg: "bg-green-50", border: "border-green-100/50" },
+              { key: "CANCELLED", label: "Cancelled", color: "bg-slate-400", text: "text-slate-600", bg: "bg-slate-50", border: "border-slate-100/50" },
             ].map(s => {
               const count = ticketStatusMap[s.key] || 0;
               const pct = totalTickets > 0 ? (count / totalTickets) * 100 : 0;
               return (
-                <div key={s.key} className="flex items-center gap-3">
-                  <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${s.bg} ${s.text} w-28 shrink-0`}>
+                <div key={s.key} className="flex items-center gap-4 group">
+                  <span className={`text-[11px] font-bold px-3 py-1.5 rounded-xl ${s.bg} ${s.text} border ${s.border} w-32 shrink-0 transition-colors`}>
                     {s.label}
                   </span>
-                  <div className="flex-1 bg-slate-100 rounded-full h-2">
-                    <div className={`h-2 rounded-full ${s.color}`} style={{ width: `${pct}%` }} />
+                  <div className="flex-1 bg-slate-50 rounded-full h-3 shadow-inner overflow-hidden">
+                    <div className={`h-full rounded-full ${s.color} transition-all duration-700 ease-out`} style={{ width: `${pct}%` }} />
                   </div>
-                  <span className="text-sm font-black text-slate-900 w-8 text-right">{count}</span>
+                  <span className="text-sm font-black text-slate-900 w-8 text-right tabular-nums">{count}</span>
                 </div>
               );
             })}
           </div>
         </div>
 
-        {/* Expiring Tenancies */}
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/20">
-            <div className="flex items-center gap-3">
-              <Calendar size={20} className="text-amber-500" />
-              <div>
-                <h2 className="text-lg font-bold text-slate-900">Expiring Soon</h2>
-                <p className="text-xs text-slate-400">Active tenancies expiring in the next 30 days</p>
-              </div>
+   
+  {/* Occupancy by Block */}
+        <div className="bg-white rounded-[2rem] border border-slate-100/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-shadow duration-300">
+          <div className="p-6 border-b border-slate-50 flex items-center gap-4 bg-slate-50/50">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-white shadow-sm">
+              <Home size={24} strokeWidth={2.5} />
             </div>
-            <Link href="/landlord/tenants" className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1">
-              View All <ArrowUpRight size={12} />
-            </Link>
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">Occupancy by Block</h2>
+              <p className="text-xs text-slate-500 font-medium">Beds filled vs total capacity</p>
+            </div>
           </div>
-          <ExpiringTenancies />
+          <div className="p-6 space-y-6 max-h-[280px] overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-300">
+            {blockStats.length === 0 ? (
+              <p className="text-sm font-semibold text-slate-400 text-center py-8">No blocks configured yet.</p>
+            ) : (
+              blockStats.map(block => (
+                <div key={block.name} className="group">
+                  <div className="flex justify-between items-center mb-2">
+                    <div>
+                      <span className="text-sm font-bold text-slate-800">{block.name}</span>
+                      <span className="text-xs font-semibold text-slate-400 ml-2">{block.rooms} room{block.rooms !== 1 ? "s" : ""}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-sm font-black text-slate-900">{block.rate.toFixed(0)}%</span>
+                      <span className="text-xs font-semibold text-slate-400 ml-1">{block.occupants}/{block.capacity}</span>
+                    </div>
+                  </div>
+                  <div className="w-full bg-slate-50 rounded-full h-3 shadow-inner overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-700 ease-out relative overflow-hidden ${
+                        block.rate >= 90 ? "bg-green-500" :
+                        block.rate >= 60 ? "bg-blue-500" :
+                        block.rate >= 30 ? "bg-amber-400" : "bg-red-400"
+                      }`}
+                      style={{ width: `${block.rate}%` }}
+                    >
+                      <div className="absolute top-0 right-0 bottom-0 left-0 bg-white/20 -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -431,20 +456,25 @@ async function ExpiringTenancies() {
   }
 
   return (
-    <div className="divide-y divide-slate-100">
+    <div className="p-2 space-y-1">
       {expiring.map(profile => {
         const daysLeft = Math.ceil((new Date(profile.rentExpiryDate) - new Date()) / (1000 * 60 * 60 * 24));
         return (
-          <div key={profile.id} className="px-6 py-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
-            <div>
-              <p className="text-sm font-bold text-slate-900">{profile.user.name}</p>
-              <p className="text-xs text-slate-400">
-                Room {profile.room?.roomNumber || "—"}
-                {profile.room?.block?.name ? ` · ${profile.room.block.name}` : ""}
-              </p>
+          <div key={profile.id} className="px-5 py-3.5 rounded-[1rem] flex items-center justify-between hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100/60">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-sm uppercase shrink-0">
+                {(profile.user.name || "U").charAt(0)}
+              </div>
+              <div>
+                <p className="text-[13px] font-bold text-slate-900">{profile.user.name}</p>
+                <p className="text-[11px] font-semibold text-slate-400">
+                  Room {profile.room?.roomNumber || "—"}
+                  {profile.room?.block?.name ? ` · ${profile.room.block.name}` : ""}
+                </p>
+              </div>
             </div>
             <div className="text-right">
-              <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${
+              <span className={`text-[11px] font-bold px-3 py-1 rounded-full border ${
                 daysLeft <= 7
                   ? "bg-red-50 text-red-600 border-red-100"
                   : daysLeft <= 14
@@ -453,7 +483,7 @@ async function ExpiringTenancies() {
               }`}>
                 {daysLeft}d left
               </span>
-              <p className="text-[10px] text-slate-400 mt-1">
+              <p className="text-[10px] font-medium text-slate-400 mt-1">
                 {new Date(profile.rentExpiryDate).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
               </p>
             </div>

@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import Image from "next/image";
 import { 
   Home, 
   MapPin, 
@@ -89,16 +90,21 @@ export default async function TenantDashboard() {
   if (user.status === "PENDING") {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 bg-white rounded-3xl border border-slate-200 shadow-xl border-t-4 border-t-amber-500 animate-in fade-in duration-700">
-        <div className="bg-amber-50 p-4 rounded-2xl mb-6">
-          <AlertCircle size={48} className="text-amber-600" />
-        </div>
+        <Image src="/convenant-hostel-logo.png" alt="Covenant Hostel" width={72} height={72} className="rounded-2xl mb-6 shadow-sm" />
         <h1 className="text-3xl font-extrabold text-slate-900 text-center">Profile Under Review</h1>
         <p className="text-slate-500 mt-4 text-center max-w-md leading-relaxed">
           Your profile is currently being reviewed by the administration. You will have full access to your portal once your application is approved.
         </p>
-        <div className="mt-8 p-4 bg-slate-50 rounded-xl border border-slate-100 w-full max-w-sm text-center">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Current Status</p>
-            <p className="text-sm font-bold text-amber-600 uppercase tracking-tight">Pending Approval</p>
+        {room && (
+          <div className="mt-6 flex items-center gap-2 px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm text-slate-600">
+            <MapPin size={14} className="text-blue-500 shrink-0" />
+            <span className="font-semibold">Room {room.roomNumber}</span>
+            {room.block?.name && <span className="text-slate-400">· {room.block.name}</span>}
+          </div>
+        )}
+        <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-100 w-full max-w-sm text-center">
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Current Status</p>
+          <p className="text-sm font-bold text-amber-600 uppercase tracking-tight">Pending Approval</p>
         </div>
       </div>
     );
@@ -107,16 +113,22 @@ export default async function TenantDashboard() {
   if (user.status === "AWAITING_PAYMENT") {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 bg-white rounded-3xl border border-slate-200 shadow-xl border-t-4 border-t-blue-500 animate-in fade-in duration-700">
-        <div className="bg-blue-50 p-4 rounded-2xl mb-6">
-          <AlertCircle size={48} className="text-blue-600" />
-        </div>
+        <Image src="/convenant-hostel-logo.png" alt="Covenant Hostel" width={72} height={72} className="rounded-2xl mb-6 shadow-sm" />
         <h1 className="text-3xl font-extrabold text-slate-900 text-center">Action Required: Payment</h1>
         <p className="text-slate-500 mt-4 text-center max-w-md leading-relaxed">
           Your application has been approved! To finalize your tenancy and activate your portal, please proceed to the payment section.
         </p>
+        {room && (
+          <div className="mt-6 flex items-center gap-2 px-4 py-2.5 bg-blue-50 border border-blue-100 rounded-xl text-sm text-slate-700">
+            <MapPin size={14} className="text-blue-500 shrink-0" />
+            <span className="font-semibold">Room {room.roomNumber}</span>
+            {room.block?.name && <span className="text-slate-500">· {room.block.name}</span>}
+            {room.block?.address && <span className="text-slate-400 text-xs">· {room.block.address}</span>}
+          </div>
+        )}
         <Link 
           href="/tenant/payments"
-          className="mt-8 flex items-center gap-3 px-8 py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 shadow-xl shadow-blue-500/20 active:scale-95 transition-all"
+          className="mt-6 flex items-center gap-3 px-8 py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 shadow-xl shadow-blue-500/20 active:scale-95 transition-all"
         >
           Proceed to Payment <ArrowRight size={20} />
         </Link>
@@ -127,16 +139,22 @@ export default async function TenantDashboard() {
   if (user.status === "PAYMENT_MADE") {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 bg-white rounded-3xl border border-slate-200 shadow-xl border-t-4 border-t-emerald-500 animate-in fade-in duration-700">
-        <div className="bg-emerald-50 p-4 rounded-2xl mb-6">
-          <Clock size={48} className="text-emerald-600" />
-        </div>
+        <Image src="/convenant-hostel-logo.png" alt="Covenant Hostel" width={72} height={72} className="rounded-2xl mb-6 shadow-sm" />
         <h1 className="text-3xl font-extrabold text-slate-900 text-center">Payment Under Review</h1>
         <p className="text-slate-500 mt-4 text-center max-w-md leading-relaxed">
           Your receipt has been submitted and is awaiting landlord confirmation. Your tenancy will be activated once approved.
         </p>
-        <div className="mt-8 p-4 bg-slate-50 rounded-xl border border-slate-100 w-full max-w-sm text-center">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Current Status</p>
-            <p className="text-sm font-bold text-amber-600 uppercase tracking-tight">Pending Approval</p>
+        {room && (
+          <div className="mt-6 flex items-center gap-2 px-4 py-2.5 bg-emerald-50 border border-emerald-100 rounded-xl text-sm text-slate-700">
+            <MapPin size={14} className="text-emerald-500 shrink-0" />
+            <span className="font-semibold">Room {room.roomNumber}</span>
+            {room.block?.name && <span className="text-slate-500">· {room.block.name}</span>}
+            {room.block?.address && <span className="text-slate-400 text-xs">· {room.block.address}</span>}
+          </div>
+        )}
+        <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-100 w-full max-w-sm text-center">
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Current Status</p>
+          <p className="text-sm font-bold text-amber-600 uppercase tracking-tight">Pending Approval</p>
         </div>
       </div>
     );
@@ -146,9 +164,7 @@ export default async function TenantDashboard() {
   if (user.status === "EXPIRED") {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 bg-white rounded-3xl border border-slate-200 shadow-xl border-t-4 border-t-red-500 animate-in fade-in duration-700">
-        <div className="bg-red-50 p-4 rounded-2xl mb-6">
-          <ShieldAlert size={48} className="text-red-600" />
-        </div>
+        <Image src="/convenant-hostel-logo.png" alt="Covenant Hostel" width={72} height={72} className="rounded-2xl mb-6 shadow-sm" />
         <h1 className="text-3xl font-extrabold text-slate-900 text-center">Tenancy Expired</h1>
         <p className="text-slate-500 mt-4 text-center max-w-md leading-relaxed">
           Your tenancy expired on{" "}
@@ -158,9 +174,17 @@ export default async function TenantDashboard() {
               : "N/A"}
           </strong>. Please contact the hostel management office to renew your tenancy.
         </p>
+        {room && (
+          <div className="mt-6 flex items-center gap-2 px-4 py-2.5 bg-red-50 border border-red-100 rounded-xl text-sm text-slate-700">
+            <MapPin size={14} className="text-red-400 shrink-0" />
+            <span className="font-semibold">Room {room.roomNumber}</span>
+            {room.block?.name && <span className="text-slate-500">· {room.block.name}</span>}
+            {room.block?.address && <span className="text-slate-400 text-xs">· {room.block.address}</span>}
+          </div>
+        )}
         <Link
           href="/tenant/payments"
-          className="mt-8 flex items-center gap-2 px-8 py-4 bg-red-600 text-white text-sm font-bold rounded-2xl hover:bg-red-700 shadow-xl shadow-red-500/20 transition-all"
+          className="mt-6 flex items-center gap-2 px-8 py-4 bg-red-600 text-white text-sm font-bold rounded-2xl hover:bg-red-700 shadow-xl shadow-red-500/20 transition-all"
         >
           <CreditCard size={18} /> Renew Tenancy
         </Link>
@@ -173,11 +197,17 @@ export default async function TenantDashboard() {
   }
 
   // ── ACTIVE tenant ──
-  // Derive payment status from actual payment records
   const latestPayment = payments[0] || null;
   const hasPendingReceipt = payments.some(p => p.status === "PENDING" && p.receiptUrl);
   const hasVerifiedPayment = payments.some(p => p.status === "VERIFIED" || p.status === "SUCCESS");
   const hasNoPayment = payments.length === 0;
+
+  // Days until rent expires
+  const daysUntilExpiry = profile.rentExpiryDate
+    ? Math.ceil((new Date(profile.rentExpiryDate) - new Date()) / (1000 * 60 * 60 * 24))
+    : null;
+  const isExpiringSoon = daysUntilExpiry !== null && daysUntilExpiry <= 7 && daysUntilExpiry > 0;
+  const isExpiringVerySoon = daysUntilExpiry !== null && daysUntilExpiry <= 3 && daysUntilExpiry > 0;
 
   // Rent status label + color
   let rentStatusLabel = "Active";
@@ -197,60 +227,112 @@ export default async function TenantDashboard() {
     rentStatusIcon = <AlertCircle size={20} />;
   }
 
-  const showPaymentAlert = hasNoPayment || (hasPendingReceipt && !hasVerifiedPayment);
+  const showPaymentAlert = hasNoPayment || (hasPendingReceipt && !hasVerifiedPayment) || isExpiringSoon;
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
 
-      {/* ── Payment alert banner ── */}
+      {/* ── Alert banners ── */}
       {showPaymentAlert && (
-        <div className={`rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border ${
-          hasNoPayment
-            ? "bg-red-50 border-red-200"
-            : "bg-amber-50 border-amber-200"
-        }`}>
-          <div className="flex items-start gap-3">
-            <div className={`p-2 rounded-xl shrink-0 ${hasNoPayment ? "bg-red-100 text-red-600" : "bg-amber-100 text-amber-600"}`}>
-              {hasNoPayment ? <AlertCircle size={20} /> : <Clock size={20} />}
+        <div className="space-y-3">
+          {/* Expiry warning — shown when ≤ 7 days left */}
+          {isExpiringSoon && (
+            <div className={`rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border ${
+              isExpiringVerySoon ? "bg-red-50 border-red-200" : "bg-amber-50 border-amber-200"
+            }`}>
+              <div className="flex items-start gap-3">
+                <div className={`p-2 rounded-xl shrink-0 ${isExpiringVerySoon ? "bg-red-100 text-red-600" : "bg-amber-100 text-amber-600"}`}>
+                  <Calendar size={20} />
+                </div>
+                <div>
+                  <p className={`text-sm font-bold ${isExpiringVerySoon ? "text-red-800" : "text-amber-800"}`}>
+                    {isExpiringVerySoon
+                      ? `Rent expires in ${daysUntilExpiry} day${daysUntilExpiry === 1 ? "" : "s"} — action required`
+                      : `Rent expires in ${daysUntilExpiry} days`}
+                  </p>
+                  <p className={`text-xs mt-0.5 ${isExpiringVerySoon ? "text-red-600" : "text-amber-600"}`}>
+                    {isExpiringVerySoon
+                      ? "Please renew immediately to avoid losing portal access."
+                      : "Start your renewal process soon to avoid any disruption."}
+                  </p>
+                </div>
+              </div>
+              <Link
+                href="/tenant/payments"
+                className={`shrink-0 flex items-center gap-2 px-5 py-2.5 text-white text-sm font-bold rounded-xl transition-colors ${
+                  isExpiringVerySoon ? "bg-red-600 hover:bg-red-700" : "bg-amber-500 hover:bg-amber-600"
+                }`}
+              >
+                Renew Now <ArrowRight size={16} />
+              </Link>
             </div>
-            <div>
-              <p className={`text-sm font-bold ${hasNoPayment ? "text-red-800" : "text-amber-800"}`}>
-                {hasNoPayment ? "Payment required" : "Receipt pending approval"}
-              </p>
-              <p className={`text-xs mt-0.5 ${hasNoPayment ? "text-red-600" : "text-amber-600"}`}>
-                {hasNoPayment
-                  ? "Your rent has not been paid yet. Please make a payment to keep your tenancy active."
-                  : "Your uploaded receipt is awaiting landlord confirmation. You'll be notified once approved."}
-              </p>
+          )}
+
+          {/* Payment / receipt banner */}
+          {(hasNoPayment || (hasPendingReceipt && !hasVerifiedPayment)) && (
+            <div className={`rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border ${
+              hasNoPayment ? "bg-red-50 border-red-200" : "bg-amber-50 border-amber-200"
+            }`}>
+              <div className="flex items-start gap-3">
+                <div className={`p-2 rounded-xl shrink-0 ${hasNoPayment ? "bg-red-100 text-red-600" : "bg-amber-100 text-amber-600"}`}>
+                  {hasNoPayment ? <AlertCircle size={20} /> : <Clock size={20} />}
+                </div>
+                <div>
+                  <p className={`text-sm font-bold ${hasNoPayment ? "text-red-800" : "text-amber-800"}`}>
+                    {hasNoPayment ? "Payment required" : "Receipt pending approval"}
+                  </p>
+                  <p className={`text-xs mt-0.5 ${hasNoPayment ? "text-red-600" : "text-amber-600"}`}>
+                    {hasNoPayment
+                      ? "Your rent has not been paid yet. Please make a payment to keep your tenancy active."
+                      : "Your uploaded receipt is awaiting landlord confirmation. You'll be notified once approved."}
+                  </p>
+                </div>
+              </div>
+              {hasNoPayment && (
+                <Link
+                  href="/tenant/payments"
+                  className="shrink-0 flex items-center gap-2 px-5 py-2.5 bg-red-600 text-white text-sm font-bold rounded-xl hover:bg-red-700 transition-colors"
+                >
+                  Pay Now <ArrowRight size={16} />
+                </Link>
+              )}
             </div>
-          </div>
-          {hasNoPayment && (
-            <Link
-              href="/tenant/payments"
-              className="shrink-0 flex items-center gap-2 px-5 py-2.5 bg-red-600 text-white text-sm font-bold rounded-xl hover:bg-red-700 transition-colors"
-            >
-              Pay Now <ArrowRight size={16} />
-            </Link>
           )}
         </div>
       )}
 
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-slate-200 pb-8">
         <div>
-          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">Welcome, {user.name}</h1>
-          <p className="text-slate-500 mt-2 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-green-500"></span>
-            Profile Active • Tenant Portal
+          <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-slate-900 tracking-tight">Welcome, {user.name}</h1>
+          <p className="text-slate-500 mt-2 flex items-center gap-2 flex-wrap">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
+              Profile Active · Tenant Portal
+            </span>
+            {profile.rentExpiryDate && (
+              <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
+                isExpiringVerySoon
+                  ? "bg-red-50 text-red-600 border-red-200"
+                  : isExpiringSoon
+                  ? "bg-amber-50 text-amber-600 border-amber-200"
+                  : "bg-slate-50 text-slate-500 border-slate-200"
+              }`}>
+                <Calendar size={11} />
+                {daysUntilExpiry !== null && daysUntilExpiry > 0
+                  ? `Expires in ${daysUntilExpiry} day${daysUntilExpiry === 1 ? "" : "s"}`
+                  : `Expires ${new Date(profile.rentExpiryDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`}
+              </span>
+            )}
           </p>
         </div>
-        <div className="bg-white px-5 py-3 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
+        <div className="bg-white px-5 py-3 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-center gap-4">
            <div className="text-right">
              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Rent Status</p>
              <p className={`text-sm font-bold ${rentStatusColor}`}>{rentStatusLabel}</p>
            </div>
-           <div className={`p-2 rounded-xl ${rentStatusBg}`}>
+           {/* <div className={`p-2 rounded-xl ${rentStatusBg}`}>
              {rentStatusIcon}
-           </div>
+           </div> */}
         </div>
       </div>
 
@@ -260,7 +342,7 @@ export default async function TenantDashboard() {
             <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-8 text-white relative">
               <div className="relative z-10">
                 <p className="text-blue-100 text-xs font-bold uppercase tracking-widest mb-1">Your Allocation</p>
-                <h2 className="text-6xl font-black mb-4 group-hover:scale-105 transition-transform origin-left duration-500">
+                <h2 className="text-4xl font-bold mb-4 group-hover:scale-105 transition-transform origin-left duration-500">
                   {room ? `Room ${room.roomNumber}` : 'Not Allocated'}
                 </h2>
                 {room && (
@@ -378,3 +460,8 @@ export default async function TenantDashboard() {
     </div>
   );
 }
+
+// so asfter clicking Renew now... it took me to the payment page..but the rent  and maybe other payment linked to it...isnt there
+
+
+

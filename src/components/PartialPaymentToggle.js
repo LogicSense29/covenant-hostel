@@ -1,15 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Layers, Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "react-hot-toast";
 
 export default function PartialPaymentToggle({ tenantProfileId, allowPartialPayment, partialPaymentInstallments, totalDue }) {
-  const router = useRouter();
   const [enabled, setEnabled] = useState(allowPartialPayment);
   const [installments, setInstallments] = useState(partialPaymentInstallments || 12);
   const [loading, setLoading] = useState(false);
+  // Track saved state so the UI reflects the last saved values without a page reload
+  const [savedEnabled, setSavedEnabled] = useState(allowPartialPayment);
+  const [savedInstallments, setSavedInstallments] = useState(partialPaymentInstallments || 12);
 
   const installmentAmount = totalDue ? (totalDue / installments) : null;
 
@@ -26,8 +27,9 @@ export default function PartialPaymentToggle({ tenantProfileId, allowPartialPaym
       });
 
       if (res.ok) {
+        setSavedEnabled(enabled);
+        setSavedInstallments(installments);
         toast.success(enabled ? `Partial payment enabled (${installments} installments)` : "Partial payment disabled");
-        router.refresh();
       } else {
         const err = await res.text();
         toast.error(err || "Failed to update");
