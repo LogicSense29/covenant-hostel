@@ -158,20 +158,15 @@ export async function GET(req) {
         });
       }
 
-      // Notify admin
+      // Notify admin via the shared email helper (consistent with the rest of this file)
       if (adminEmail) {
-        await createTransporter().sendMail({
-          from: `"Covenant Hostel" <${smtpUser}>`,
-          to: adminEmail,
-          subject: `Tenancy Expired — ${tenant.user?.name} (Room ${tenant.room?.roomNumber || "N/A"})`,
-          html: `
-            <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px;">
-              <h3 style="color: #e11d48;">Tenancy Expired</h3>
-              <p>Tenant <strong>${tenant.user?.name}</strong> (Room ${tenant.room?.roomNumber || "N/A"}) tenancy expired on <strong>${new Date(tenant.rentExpiryDate).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</strong>.</p>
-              <p>Their portal access has been restricted. They will need to renew and be re-activated.</p>
-            </div>
-          `,
-        }).catch(err => console.error("Admin expiry alert error:", err));
+        await sendAdminRentSummary({
+          expiries: [{
+            roomNumber: tenant.room?.roomNumber || "N/A",
+            tenantName: `${tenant.user?.name} — TENANCY EXPIRED`,
+            expiryDate: tenant.rentExpiryDate,
+          }],
+        });
       }
     }
 

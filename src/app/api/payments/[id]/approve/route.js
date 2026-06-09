@@ -44,16 +44,17 @@ export async function POST(req, { params }) {
         },
       });
 
-      // If this payment is linked to a recurring charge, mark it paid
-      const linkedCharge = await tx.recurringCharge.findUnique({
+      // If this payment is linked to any recurring charges (can be multiple from checklist flow), mark them paid
+      const linkedCharges = await tx.recurringCharge.findMany({
         where: { paymentId: id },
       });
-      if (linkedCharge) {
+      
+      for (const charge of linkedCharges) {
         await tx.recurringCharge.update({
-          where: { id: linkedCharge.id },
+          where: { id: charge.id },
           data: { status: "PAID" },
         });
-        await autoCreateNextCharge(tx, linkedCharge.id);
+        await autoCreateNextCharge(tx, charge.id);
       }
 
       if (payment.tenant.user.status === "PAYMENT_MADE") {

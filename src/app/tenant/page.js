@@ -461,7 +461,4 @@ export default async function TenantDashboard() {
   );
 }
 
-// so asfter clicking Renew now... it took me to the payment page..but the rent  and maybe other payment linked to it...isnt there
-
-
 

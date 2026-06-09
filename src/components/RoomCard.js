@@ -1,423 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import {
-  Edit,
-  Calendar,
-  MapPin,
-  ChevronLeft,
-  ChevronRight,
-  ImageOff,
-  Settings
-} from "lucide-react";
-import { useRouter } from "next/navigation";
-import { toast } from "react-hot-toast";
-import RoomActions from "@/app/landlord/rooms/RoomActions";
-import ManageBillingsModal from "./ManageBillingsModal";
-
-export default function RoomCard({ room }) {
-  // Build the photos list: prefer photos[], fall back to imageUrl
-  const photos = (room.photos?.length > 0)
-    ? room.photos
-    : (room.imageUrl ? [room.imageUrl] : []);
-
-  const hasPhotos = photos.length > 0;
-  const hasMultiple = photos.length > 1;
-
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
-  const intervalRef = useRef(null);
-  
-  const router = useRouter();
-  const [isBillingModalOpen, setIsBillingModalOpen] = useState(false);
-  const [savingBillings, setSavingBillings] = useState(false);
-
-  const handleSaveBillings = async (newIds) => {
-    setSavingBillings(true);
-    try {
-      const payload = {
-        roomNumber: room.roomNumber,
-        rentAmount: room.rentAmount,
-        status: room.status,
-        capacity: room.capacity,
-        blockId: room.blockId,
-        billingRuleIds: newIds,
-      };
-
-      const res = await fetch(`/api/rooms/${room.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (res.ok) {
-        toast.success("Billing rules updated!");
-        router.refresh();
-      } else {
-        const text = await res.text();
-        toast.error(text || "Failed to update billing rules");
-      }
-    } catch (err) {
-      toast.error("An error occurred");
-    } finally {
-      setSavingBillings(false);
-    }
-  };
-
-  const next = useCallback(() => {
-    setCurrentIndex(i => (i + 1) % photos.length);
-  }, [photos.length]);
-
-  const prev = useCallback(() => {
-    setCurrentIndex(i => (i - 1 + photos.length) % photos.length);
-  }, [photos.length]);
-
-  // Auto-advance every 3.5s, pause on hover
-  useEffect(() => {
-    if (!hasMultiple || isPaused) return;
-    intervalRef.current = setInterval(next, 3500);
-    return () => clearInterval(intervalRef.current);
-  }, [hasMultiple, isPaused, next]);
-
-  const statusColors = {
-    AVAILABLE: "bg-green-50 text-green-700 border-green-100",
-    OCCUPIED: "bg-blue-50 text-blue-700 border-blue-100",
-    EXPIRED_RENT: "bg-red-50 text-red-700 border-red-100",
-    UNDER_MAINTENANCE: "bg-slate-50 text-slate-600 border-slate-100",
-  };
-
-  // Split tenants by status for display
-  const activeTenants = room.tenants.filter(t =>
-    t.user?.status === "ACTIVE" || t.user?.status === "PAYMENT_MADE"
-  );
-  const pendingTenants = room.tenants.filter(t =>
-    t.user?.status === "AWAITING_PAYMENT" || t.user?.status === "PENDING"
-  );
-  const allTenants = room.tenants;
-
-  const displayStatus = allTenants.length >= room.capacity
-    ? "FULL"
-    : activeTenants.length > 0
-    ? `${activeTenants.length}/${room.capacity} Beds`
-    : pendingTenants.length > 0
-    ? `${pendingTenants.length} Reserved`
-    : room.status.replace("_", " ");
-
-  const statusColorClass = allTenants.length >= room.capacity
-    ? "bg-amber-50 text-amber-700 border-amber-100"
-    : pendingTenants.length > 0 && activeTenants.length === 0
-    ? "bg-amber-50 text-amber-700 border-amber-100"
-    : statusColors[room.status] || "bg-slate-50 text-slate-600 border-slate-100";
-
-  return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all group flex flex-col overflow-hidden">
-
-      {/* ── IMAGE CAROUSEL ── */}
-      <div
-        className="relative w-full h-52 bg-slate-100 overflow-hidden shrink-0"
-        onMouseEnter={() => setIsPaused(true)}
-        onMouseLeave={() => setIsPaused(false)}
-      >
-        {hasPhotos ? (
-          <>
-            {/* Slides */}
-            {photos.map((src, i) => {
-              const isVideo = /\.(mp4|mov|webm|ogg|avi)(\?|$)/i.test(src) || src.includes('video');
-              return isVideo ? (
-                <video
-                  key={i}
-                  src={src}
-                  muted
-                  playsInline
-                  loop
-                  autoPlay={i === currentIndex}
-                  className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${
-                    i === currentIndex ? "opacity-100" : "opacity-0"
-                  }`}
-                />
-              ) : (
-                <img
-                  key={i}
-                  src={src}
-                  alt={`Room ${room.roomNumber} – photo ${i + 1}`}
-                  className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${
-                    i === currentIndex ? "opacity-100" : "opacity-0"
-                  }`}
-                />
-              );
-            })}
-
-            {/* Gradient overlay for readability */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent pointer-events-none" />
-
-            {/* Status badge floating top-left */}
-            <span className={`absolute top-3 left-3 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider border backdrop-blur-sm bg-white/80 ${statusColorClass}`}>
-              {displayStatus}
-            </span>
-
-            {/* Edit button floating top-right */}
-            <Link
-              href={`/landlord/rooms/${room.id}/edit`}
-              title="Edit Room"
-              className="absolute top-3 right-3 p-2 bg-white/80 backdrop-blur-sm text-slate-600 hover:text-blue-600 hover:bg-white rounded-lg transition-colors border border-white/50 shadow-sm"
-            >
-              <Edit size={15} />
-            </Link>
-
-            {/* Prev / Next arrows — only if multiple */}
-            {hasMultiple && (
-              <>
-                <button
-                  onClick={() => { prev(); setIsPaused(true); }}
-                  className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 bg-black/30 hover:bg-black/50 text-white rounded-full transition-all backdrop-blur-sm opacity-0 group-hover:opacity-100"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <button
-                  onClick={() => { next(); setIsPaused(true); }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-black/30 hover:bg-black/50 text-white rounded-full transition-all backdrop-blur-sm opacity-0 group-hover:opacity-100"
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </>
-            )}
-
-            {/* Dot indicators */}
-            {hasMultiple && (
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
-                {photos.map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => { setCurrentIndex(i); setIsPaused(true); }}
-                    className={`rounded-full transition-all duration-300 ${
-                      i === currentIndex
-                        ? "w-5 h-1.5 bg-white"
-                        : "w-1.5 h-1.5 bg-white/50 hover:bg-white/80"
-                    }`}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Photo count badge */}
-            {hasMultiple && (
-              <span className="absolute bottom-3 right-3 text-[10px] font-bold text-white/80 bg-black/30 backdrop-blur-sm px-2 py-0.5 rounded-full">
-                {currentIndex + 1} / {photos.length}
-              </span>
-            )}
-          </>
-        ) : (
-          /* No photo fallback */
-          <div className={`w-full h-full flex flex-col items-center justify-center gap-2 ${
-            room.status === 'AVAILABLE' ? 'bg-green-50' :
-            room.status === 'OCCUPIED'  ? 'bg-blue-50'  :
-            room.status === 'EXPIRED_RENT' ? 'bg-red-50' : 'bg-slate-50'
-          }`}>
-            <ImageOff size={28} className="text-slate-300" />
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">No Photos</span>
-            {/* Status + Edit still shown */}
-            <span className={`absolute top-3 left-3 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider border ${statusColorClass}`}>
-              {displayStatus}
-            </span>
-            <Link
-              href={`/landlord/rooms/${room.id}/edit`}
-              title="Edit Room"
-              className="absolute top-3 right-3 p-2 bg-white/80 text-slate-600 hover:text-blue-600 hover:bg-white rounded-lg transition-colors border border-slate-100 shadow-sm"
-            >
-              <Edit size={15} />
-            </Link>
-          </div>
-        )}
-      </div>
-
-      {/* ── CARD BODY ── */}
-      <div className="p-5 flex-1 flex flex-col gap-4">
-
-        {/* Room number + block name on right, address below, billings below that */}
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            <h3 className="font-bold text-slate-900 text-lg leading-tight">Room {room.roomNumber}</h3>
-            {room.block?.address && (
-              <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1 mt-0.5">
-                <MapPin size={9} /> {room.block.address}
-              </span>
-            )}
-          </div>
-          {/* Block name top-right */}
-          {room.block && (
-            <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100 shrink-0">
-              {room.block.name}
-            </span>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between mt-2 mb-1">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Billing & Rules</span>
-          <button
-            onClick={() => setIsBillingModalOpen(true)}
-            disabled={savingBillings}
-            className="text-[10px] font-bold text-blue-600 hover:bg-blue-50 px-2 py-0.5 rounded transition-colors flex items-center gap-1"
-          >
-            {savingBillings ? "Saving..." : <>Manage</>}
-          </button>
-        </div>
-
-        {/* Billing rules */}
-        {(() => {
-          const allRules = room.allBillingRules || [];
-          
-          const additionalRules = allRules.filter(r => {
-            const t = String(r.type || "").toUpperCase();
-            return t !== "BASE_RENT" && t !== "BASE RENT";
-          });
-
-          // Use the ticked BASE_RENT rule's amount and frequency directly.
-          // If none is ticked, fall back to room.rentAmount with no frequency label.
-          const baseRentRule = allRules.find(r => {
-            const t = String(r.type || "").toUpperCase();
-            return t === "BASE_RENT" || t === "BASE RENT";
-          });
-
-          const rentDisplay = baseRentRule
-            ? { amount: baseRentRule.amount, freq: freqLabel(baseRentRule.frequency) }
-            : { amount: room.rentAmount, freq: "yr" };
-
-          return (
-            <div className="space-y-1.5 max-h-36 overflow-y-auto">
-              {/* Base rent — amount and frequency from the ticked BASE_RENT rule */}
-              <div className="flex items-center justify-between py-1.5 px-3 bg-slate-50 rounded-lg border border-slate-100">
-                <span className="text-[11px] font-semibold text-slate-600">Base Rent</span>
-                <span className="text-[11px] font-bold text-slate-900">
-                  ₦{rentDisplay.amount?.toLocaleString() || 0}
-                  <span className="text-slate-400 font-normal">/{rentDisplay.freq}</span>
-                </span>
-              </div>
-              
-              {/* Additional billing rules */}
-              {additionalRules.map((rule) => {
-                const isGlobal = rule.isGlobal;
-                const isBlock = rule.blockId === room.blockId;
-                return (
-                  <div key={rule.id} className="flex items-center justify-between py-1.5 px-3 bg-slate-50 rounded-lg border border-slate-100">
-                    <span className="text-[11px] font-semibold text-slate-600 truncate mr-2 flex items-center gap-1.5">
-                      {rule.title || rule.description}
-                      {isGlobal && (
-                        <span className="text-[8px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
-                          Global
-                        </span>
-                      )}
-                      {!isGlobal && isBlock && (
-                        <span className="text-[8px] bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
-                          Block
-                        </span>
-                      )}
-                    </span>
-                    <span className="text-[11px] font-bold text-slate-900 shrink-0">
-                      ₦{rule.amount?.toLocaleString()}
-                      <span className="text-slate-400 font-normal">
-                        /{freqLabel(rule.frequency)}
-                      </span>
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          );
-        })()}
-
-        {/* Expiry */}
-        {room.rentExpiryDate && (
-          <div className="flex items-center justify-between text-[11px] py-1.5 px-3 bg-amber-50 text-amber-700 rounded-lg border border-amber-100">
-            <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider">
-              <Calendar size={11} /> Rent Expires
-            </div>
-            <span className="font-bold">{new Date(room.rentExpiryDate).toLocaleDateString()}</span>
-          </div>
-        )}
-
-        {/* Occupants */}
-        <div className="flex-1">
-          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 px-1">Current Occupants</div>
-          {room.tenants.length > 0 ? (
-            <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
-              {room.tenants.map((tenant) => {
-                const isPending = tenant.user?.status === "AWAITING_PAYMENT" || tenant.user?.status === "PENDING";
-                return (
-                  <div
-                    key={tenant.id}
-                    className={`flex flex-col gap-1 p-2 rounded-xl border ${
-                      isPending
-                        ? "bg-amber-50/60 border-amber-100"
-                        : "bg-indigo-50/50 border-indigo-100"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-white font-bold text-[10px] shrink-0 ${
-                        isPending ? "bg-amber-500" : "bg-indigo-600"
-                      }`}>
-                        {tenant.user?.name?.[0]?.toUpperCase() || "T"}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-xs font-bold truncate ${isPending ? "text-amber-900" : "text-indigo-900"}`}>
-                          {tenant.user?.name}
-                        </p>
-                        <p className={`text-[10px] truncate ${isPending ? "text-amber-500" : "text-indigo-500"}`}>
-                          {isPending ? (
-                            tenant.user?.status === "PENDING" ? "Pending approval" : "Awaiting payment"
-                          ) : tenant.phone}
-                        </p>
-                      </div>
-                      {isPending && (
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-full border border-amber-200 shrink-0">
-                          Reserved
-                        </span>
-                      )}
-                    </div>
-                    {!isPending && tenant.rentExpiryDate && (
-                      <div className="flex items-center gap-1 px-2 py-0.5 bg-white/60 rounded-md border border-indigo-100/50 w-fit">
-                        <Calendar size={9} className="text-indigo-400" />
-                        <span className="text-[9px] font-bold text-indigo-500">Expires: {new Date(tenant.rentExpiryDate).toLocaleDateString()}</span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="flex items-center justify-center p-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-              <span className="text-xs text-slate-400 font-medium italic">Room is currently vacant</span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ── CARD FOOTER ── */}
-      <div className="px-5 py-3.5 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between">
-        {room.tenants.length > 0 ? (
-          <Link
-            href={`/landlord/tenants?search=${room.tenants.map(t => t.user?.name).join(",")}`}
-            className="text-xs font-bold text-blue-600 hover:underline transition-all"
-          >
-            All Occupants ({room.tenants.length})
-          </Link>
-        ) : (
-          <span className="text-xs font-bold text-slate-400 italic">No occupants</span>
-        )}
-        <RoomActions room={room} />
-      </div>
-
-      <ManageBillingsModal
-        isOpen={isBillingModalOpen}
-        onClose={() => setIsBillingModalOpen(false)}
-        initialSelectedIds={room.allBillingRules?.map(r => r.id) || []}
-        onSave={handleSaveBillings}
-        blockId={room.blockId}
-        roomId={room.id}
-      />
-    </div>
-  );
-}
+import { ImageOff, MapPin, CheckCircle2, AlertCircle, Edit } from "lucide-react";
+import RoomDetailsSlideOver from "./RoomDetailsSlideOver";
 
 // Frequency label shorthand
 function freqLabel(frequency) {
@@ -430,4 +16,167 @@ function freqLabel(frequency) {
     PER_SEMESTER: "sem",
   };
   return map[frequency] || frequency?.toLowerCase() || "yr";
+}
+
+export default function RoomCard({ room }) {
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  // Split tenants by status for display
+  const activeTenants = room.tenants.filter(t => t.user?.status === "ACTIVE");
+  const pendingApprovalTenants = room.tenants.filter(t => t.user?.status === "PAYMENT_MADE");
+  const pendingTenants = room.tenants.filter(t => t.user?.status === "AWAITING_PAYMENT" || t.user?.status === "PENDING");
+  const allTenants = room.tenants;
+
+  const displayStatus = allTenants.length >= room.capacity
+    ? "FULL"
+    : activeTenants.length > 0
+    ? `${activeTenants.length}/${room.capacity}`
+    : pendingApprovalTenants.length > 0
+    ? `${pendingApprovalTenants.length} Pending Approval`
+    : pendingTenants.length > 0
+    ? `${pendingTenants.length} Reserved`
+    : room.status.replace("_", " ");
+
+  const statusColors = {
+    AVAILABLE: "bg-green-50 text-green-700 border-green-100",
+    OCCUPIED: "bg-blue-50 text-blue-700 border-blue-100",
+    EXPIRED_RENT: "bg-red-50 text-red-700 border-red-100",
+    UNDER_MAINTENANCE: "bg-slate-50 text-slate-600 border-slate-100",
+  };
+
+  const statusColorClass = allTenants.length >= room.capacity
+    ? "bg-amber-50 text-amber-700 border-amber-100"
+    : pendingApprovalTenants.length > 0 && activeTenants.length === 0
+    ? "bg-purple-50 text-purple-700 border-purple-100"
+    : pendingTenants.length > 0 && activeTenants.length === 0
+    ? "bg-amber-50 text-amber-700 border-amber-100"
+    : statusColors[room.status] || "bg-slate-50 text-slate-600 border-slate-100";
+
+  // Base image
+  const primaryImage = (room.photos?.length > 0) ? room.photos[0] : (room.imageUrl || null);
+  const isVideo = primaryImage && (/\.(mp4|mov|webm|ogg|avi)(\?|$)/i.test(primaryImage) || primaryImage.includes('video'));
+
+  // Base Rent
+  const allRules = room.allBillingRules || [];
+  const baseRentRule = allRules.find(r => {
+    const t = String(r.type || "").toUpperCase();
+    return t === "BASE_RENT" || t === "BASE RENT";
+  });
+  const rentDisplay = baseRentRule
+    ? { amount: baseRentRule.amount, freq: freqLabel(baseRentRule.frequency) }
+    : { amount: room.rentAmount, freq: "yr" };
+
+  return (
+    <>
+      <div 
+        onClick={() => setIsDrawerOpen(true)}
+        className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-300 group flex flex-col overflow-hidden cursor-pointer "
+      >
+        {/* ── CARD HEADER (Image) ── */}
+        <div className="relative w-full h-44 bg-slate-100 overflow-hidden shrink-0">
+          {primaryImage ? (
+            isVideo ? (
+              <video
+                src={primaryImage}
+                muted
+                playsInline
+                loop
+                autoPlay
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+              />
+            ) : (
+              <img
+                src={primaryImage}
+                alt={`Room ${room.roomNumber}`}
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+              />
+            )
+          ) : (
+            <div className={`w-full h-full flex flex-col items-center justify-center gap-2 ${
+              room.status === 'AVAILABLE' ? 'bg-green-50' :
+              room.status === 'OCCUPIED'  ? 'bg-blue-50'  :
+              room.status === 'EXPIRED_RENT' ? 'bg-red-50' : 'bg-slate-50'
+            }`}>
+              <ImageOff size={28} className="text-slate-300" />
+            </div>
+          )}
+
+          {/* Dark gradient overlay for text readability */}
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/30 to-transparent pointer-events-none z-0" />
+
+          {/* Status Badge */}
+          <span className={`absolute top-3 left-3 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider border backdrop-blur-md bg-white/90 shadow-sm ${statusColorClass}`}>
+            {displayStatus}
+          </span>
+          
+          {/* Edit button floating top-right */}
+          <Link
+            href={`/landlord/rooms/${room.id}/edit`}
+            title="Edit Room"
+            onClick={(e) => e.stopPropagation()}
+            className="absolute top-3 right-3 p-2 bg-white/80 backdrop-blur-sm text-slate-600 hover:text-blue-600 hover:bg-white rounded-lg transition-colors shadow-sm z-10"
+          >
+            <Edit size={15} />
+          </Link>
+
+          {/* Quick Stats on bottom of image */}
+          <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between z-10">
+            <div className="text-white">
+              <h3 className="font-bold text-xl leading-tight tracking-tight drop-shadow-md">Room {room.roomNumber}</h3>
+              {room.block && (
+                <span className="text-[10px] font-semibold flex items-center gap-1 opacity-90 drop-shadow-md">
+                  <MapPin size={10} /> {room.block.name}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ── CARD BODY (Minimal) ── */}
+        <div className="p-4 flex flex-col gap-4 bg-white">
+          <div className="flex items-center justify-between">
+            <div className="flex flex-col">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Base Rent</span>
+              <span className="font-bold text-slate-900 text-lg leading-none mt-1">
+                ₦{rentDisplay.amount?.toLocaleString() || 0}
+                <span className="text-slate-400 font-medium text-xs ml-0.5">/{rentDisplay.freq}</span>
+              </span>
+            </div>
+            
+            <div className="flex -space-x-2">
+              {room.tenants.length > 0 ? (
+                room.tenants.slice(0, 3).map((t, i) => (
+                  <div key={i} className="w-8 h-8 rounded-full border-2 border-white bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600 shadow-sm">
+                    {t.user?.name?.[0]?.toUpperCase() || "T"}
+                  </div>
+                ))
+              ) : (
+                <div className="text-[10px] font-bold text-slate-400 italic px-2 py-1 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                  Vacant
+                </div>
+              )}
+              {room.tenants.length > 3 && (
+                <div className="w-8 h-8 rounded-full border-2 border-white bg-slate-50 flex items-center justify-center text-[10px] font-bold text-slate-500 shadow-sm">
+                  +{room.tenants.length - 3}
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <div className="w-full flex items-center justify-center py-2.5 bg-slate-50 hover:bg-slate-100 text-xs font-bold text-slate-600 rounded-xl transition-colors border border-slate-100">
+            View Details
+          </div>
+        </div>
+      </div>
+
+      {/* Slide-out Drawer Component */}
+      <RoomDetailsSlideOver 
+        isOpen={isDrawerOpen} 
+        onClose={() => setIsDrawerOpen(false)} 
+        room={room}
+        displayStatus={displayStatus}
+        statusColorClass={statusColorClass}
+      />
+    </>
+  );
 }

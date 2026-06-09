@@ -125,16 +125,16 @@ export default function RoomActions({ room }) {
     });
   };
 
-  const confirmMarkExpired = async () => {
+  const confirmMarkUnavailable = async () => {
     setLoading(true);
     try {
       const res = await fetch(`/api/rooms/${room.id}/status`, { 
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "EXPIRED_RENT" })
+        body: JSON.stringify({ status: "UNDER_MAINTENANCE" })
       });
       if (res.ok) {
-        toast.success("Room marked as expired!");
+        toast.success("Room marked as unavailable!");
         router.refresh();
       } else {
         toast.error("Failed to update status.");
@@ -145,15 +145,15 @@ export default function RoomActions({ room }) {
     setLoading(false);
   };
 
-  const handleMarkExpired = async () => {
+  const handleMarkUnavailable = async () => {
     toast((t) => (
       <ConfirmationToast
-        title={`Mark Room ${room.roomNumber} as Expired?`}
+        title={`Mark Room ${room.roomNumber} as Unavailable?`}
         confirmText="Confirm"
         confirmColor="amber"
         onConfirm={() => {
           toast.dismiss(t.id);
-          confirmMarkExpired();
+          confirmMarkUnavailable();
         }}
         onCancel={() => toast.dismiss(t.id)}
       />
@@ -165,7 +165,7 @@ export default function RoomActions({ room }) {
 
   return (
     <div className="flex items-center gap-2">
-      {room.status === "EXPIRED_RENT" ? (
+      {(room.status === "EXPIRED_RENT" || room.status === "UNDER_MAINTENANCE") ? (
         <button 
           onClick={handleMarkAvailable} 
           disabled={loading} 
@@ -173,13 +173,13 @@ export default function RoomActions({ room }) {
         >
           {loading ? "..." : "Mark Available"}
         </button>
-      ) : room.status !== "UNDER_MAINTENANCE" && (
+      ) : (
         <button 
-          onClick={handleMarkExpired} 
+          onClick={handleMarkUnavailable} 
           disabled={loading} 
-          className="text-[10px] font-bold px-3 py-1.5 rounded-lg border border-amber-200 text-amber-600 hover:bg-amber-50 transition-all disabled:opacity-50"
+          className="text-[10px] font-bold px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50"
         >
-          {loading ? "..." : "Mark Expired"}
+          {loading ? "..." : "Mark Unavailable"}
         </button>
       )}
       <button 

@@ -8,6 +8,7 @@ import {
   Activity, Wrench, Calendar
 } from "lucide-react";
 import Link from "next/link";
+import RevenueChart from "@/components/RevenueChart";
 
 export const dynamic = "force-dynamic";
 
@@ -127,7 +128,7 @@ export default async function AnalyticsPage() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-200 pb-8">
         <div className="space-y-1">
           <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Analytics</h1>
-          <p className="text-slate-500">Occupancy, revenue, and operational overview.</p>
+          <p className="text-slate-500">Operational overview.</p>
         </div>
         <Link
           href="/landlord"
@@ -220,26 +221,8 @@ export default async function AnalyticsPage() {
               <p className="text-xs text-slate-500 font-medium">Last 6 months — confirmed payments</p>
             </div>
           </div>
-          <div className="p-6 flex-1 flex items-end">
-            <div className="flex items-end gap-3 h-48 w-full">
-              {monthlyRevenue.map((m) => {
-                const heightPct = maxMonthly > 0 ? (m.total / maxMonthly) * 100 : 0;
-                return (
-                  <div key={m.label} className="flex-1 flex flex-col items-center gap-2 group">
-                    <p className="text-[10px] font-bold text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 -translate-y-2 group-hover:translate-y-0">
-                      {m.total > 0 ? `₦${(m.total / 1000).toFixed(0)}k` : "—"}
-                    </p>
-                    <div className="w-full bg-slate-50 rounded-xl overflow-hidden relative shadow-inner" style={{ height: "120px" }}>
-                      <div
-                        className="w-full bg-gradient-to-t from-blue-600 to-blue-400 rounded-xl transition-all duration-700 ease-out group-hover:brightness-110"
-                        style={{ height: `${heightPct}%`, marginTop: `${100 - heightPct}%` }}
-                      />
-                    </div>
-                    <p className="text-[11px] font-bold text-slate-400 group-hover:text-blue-600 transition-colors">{m.label}</p>
-                  </div>
-                );
-              })}
-            </div>
+          <div className="p-6 flex-1 flex flex-col justify-end">
+            <RevenueChart data={monthlyRevenue} />
           </div>
         </div>
 

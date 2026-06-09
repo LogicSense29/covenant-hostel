@@ -135,8 +135,8 @@ export default async function LandlordDashboard() {
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
       <div>
-        <h1 className="text-3xl font-bold text-slate-900">Dashboard Overview</h1>
-        <p className="text-slate-500 mt-1">Welcome back, {session?.user?.name}</p>
+        <h1 className="text-3xl font-bold text-slate-900">Overview</h1>
+        <p className="text-slate-500 mt-1">Welcome back, {session?.user?.name} 👋</p>
       </div>
 
       {/* Admin Stats Grid */}

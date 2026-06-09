@@ -92,11 +92,12 @@ export default async function TenantPaymentsPage() {
     }),
   ]);
 
-  // Find the ticked BASE_RENT rule from the room's connected rules.
-  // Its amount is the authoritative rent figure; its frequency drives the label.
+  // Find the BASE_RENT rule — match all known type variants case-insensitively.
+  // This is especially important for EXPIRED tenant renewals where the rule may
+  // use different casing or formatting.
   const rentRule = allRules.find(r => {
-    const t = String(r.type || "").toUpperCase().replace(/_/g, " ").trim();
-    return t === "BASE RENT" || t === "RENT";
+    const t = String(r.type || "").toUpperCase().replace(/[_\s-]/g, "").trim();
+    return t === "BASERENT" || t === "RENT" || t === "BASE";
   }) || null;
 
   const rentFrequencyShorthandMap = {
@@ -109,8 +110,9 @@ export default async function TenantPaymentsPage() {
   };
   const rentFrequencyShorthand = rentFrequencyShorthandMap[rentRule?.frequency || "YEARLY"] || "yr";
 
-  // Use the ticked BASE_RENT rule's amount as the base rent; fall back to room.rentAmount
-  const baseRentAmount = rentRule ? rentRule.amount : room.rentAmount;
+  // Use the ticked BASE_RENT rule's amount as the base rent.
+  // Final hard fallback to room.rentAmount so the amount is NEVER 0 for a valid room.
+  const baseRentAmount = (rentRule?.amount || room.rentAmount) || 0;
 
   const seen = new Set();
   // billingRules used in checkout — BASE_RENT excluded to avoid double-counting
