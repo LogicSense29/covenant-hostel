@@ -180,14 +180,19 @@ export default function RegisterForm() {
       }
       
       if (formData.role !== "TENANT") {
-        setStep(3); // Go to Security
-      } else if (formData.isStudent) {
-        setStep(1.5); // Go to Student Details
+        handleSubmitInternal(); // Submit directly since password is set via email
       } else {
-        setStep(1.6); // Go to Work Details
+        if (!roomId && blocksData.length > 0 && (!selectedBlockId || !selectedRoomId)) {
+          return toast.error("Please select a block and room");
+        }
+        if (formData.isStudent) {
+          setStep(1.5); // Go to Student Details
+        } else {
+          setStep(1.6); // Go to Work Details
+        }
       }
     } else if (step === 1.5) {
-        if (!formData.matricNumber || !formData.schoolName || !formData.courseOfStudy || !formData.studentIdUrl || !formData.permanentAddress) {
+        if (!formData.matricNumber || !formData.schoolName || !formData.faculty || !formData.department || !formData.courseOfStudy || !formData.schoolYear || !formData.studentIdUrl || !formData.permanentAddress) {
             return toast.error("Please provide all student and permanent address details");
         }
         setStep(2);
@@ -671,31 +676,7 @@ export default function RegisterForm() {
                 </div>
               )}
 
-              {step === 3 && formData.role !== "TENANT" && (
-                <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Create Password</label>
-                    <div className="relative group">
-                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={18} />
-                      <input required name="password" type={showPassword ? "text" : "password"} className="w-full pl-10 pr-12 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all text-sm font-semibold text-slate-900" placeholder="Minimum 6 characters" value={formData.password} onChange={handleChange} />
-                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                      </button>
-                    </div>
-                  </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Confirm Password</label>
-                    <div className="relative group">
-                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={18} />
-                      <input required name="confirmPassword" type={showConfirmPassword ? "text" : "password"} className="w-full pl-10 pr-12 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all text-sm font-semibold text-slate-900" placeholder="Re-enter password" value={formData.confirmPassword} onChange={handleChange} />
-                      <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                        {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* Rules agreement — shown on final step for tenants */}
               {formData.role === "TENANT" && (step === 2 || step === 1.6) && (

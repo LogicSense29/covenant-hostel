@@ -253,6 +253,7 @@ model GuestInspection {
   feePaid    Boolean          @default(false)
   paymentRef String?          @unique
   amountPaid Float?
+  receiptUrl String?
   createdAt  DateTime         @default(now())
   updatedAt  DateTime         @updatedAt
 }

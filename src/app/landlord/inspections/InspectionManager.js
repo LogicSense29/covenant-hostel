@@ -11,7 +11,8 @@ import {
   User,
   Home,
   Calendar,
-  Loader2
+  Loader2,
+  ArrowRight
 } from "lucide-react";
 
 export default function InspectionManager({ initialInspections, tenants }) {
@@ -300,9 +301,13 @@ export default function InspectionManager({ initialInspections, tenants }) {
                         <div className="bg-green-100 text-green-700 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider flex items-center gap-1">
                           <CheckCircle2 size={10} /> ₦{Number(guest.amountPaid || 0).toLocaleString()} Paid
                         </div>
+                      ) : guest.receiptUrl ? (
+                        <div className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider">
+                          Receipt Uploaded
+                        </div>
                       ) : (
                         <div className="bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider">
-                          Free
+                          Unpaid/Free
                         </div>
                       )}
                     </div>
@@ -334,6 +339,13 @@ export default function InspectionManager({ initialInspections, tenants }) {
                       <div className="flex items-center gap-2 text-xs text-slate-500">
                         <span className="w-3.5" />
                         <span className="truncate">{guest.phone}</span>
+                      </div>
+                    )}
+                    {guest.receiptUrl && (
+                      <div className="pt-2">
+                        <a href={guest.receiptUrl} target="_blank" rel="noreferrer" className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1">
+                          View Payment Receipt <ArrowRight size={12} />
+                        </a>
                       </div>
                     )}
                   </div>

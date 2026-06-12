@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export async function POST(request) {
   try {
     const data = await request.json();
-    const { name, email, phone, date, roomNumber, blockName, address } = data;
+    const { name, email, phone, date, roomNumber, blockName, address, receiptUrl } = data;
 
     if (!name || !email || !date) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -71,6 +71,7 @@ export async function POST(request) {
         status: "PENDING",
         feePaid: false,
         amountPaid: isFree ? 0 : null,
+        receiptUrl: receiptUrl || null,
       }
     });
 
