@@ -135,7 +135,7 @@ export default async function LandlordDashboard() {
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
       <div>
-        <h1 className="text-3xl font-bold text-slate-900">Overview</h1>
+        <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Dashboard</h1>
         <p className="text-slate-500 mt-1">Welcome back, {session?.user?.name} 👋</p>
       </div>
 
@@ -170,7 +170,7 @@ export default async function LandlordDashboard() {
             <Link
               key={stat.name}
               href={stat.href}
-              className="relative bg-white rounded-[2rem] p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all duration-300 hover:-translate-y-1 overflow-hidden group flex flex-col border border-slate-100/60"
+              className="relative bg-white rounded-[2rem] p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] border border-slate-200 transition-all duration-300 hover:-translate-y-1 overflow-hidden group flex flex-col border border-slate-100/60"
             >
               {/* Soft background gradient blob */}
               <div className={`absolute -right-6 -top-6 w-32 h-32 rounded-full ${stat.bg} opacity-60 group-hover:scale-150 transition-transform duration-700 ease-in-out blur-3xl`}></div>
@@ -287,7 +287,7 @@ export default async function LandlordDashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pt-4 pb-10">
         {/* Recent Tickets */}
-        <div className="bg-white rounded-[2rem] border border-slate-100/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden flex flex-col h-[340px]">
+        <div className="bg-white rounded-[2rem] border border-slate-200 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden flex flex-col h-[340px]">
           <div className="p-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
             <h2 className="text-lg font-bold text-slate-900">Recent Maintenance Tickets</h2>
             <Link href="/landlord/maintenance" className="text-[13px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1.5 bg-blue-50 px-3 py-1.5 rounded-full transition-colors hover:bg-blue-100">
@@ -334,7 +334,7 @@ export default async function LandlordDashboard() {
         </div>
 
         {/* Quick Actions */}
-        <div className="bg-white rounded-[2rem] border border-slate-100/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden flex flex-col h-[340px]">
+        <div className="bg-white rounded-[2rem] border border-slate-200 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden flex flex-col h-[340px]">
           <div className="p-6 border-b border-slate-50 bg-slate-50/50">
             <h2 className="text-lg font-bold text-slate-900">Quick Actions</h2>
           </div>

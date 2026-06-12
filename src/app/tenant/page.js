@@ -137,6 +137,33 @@ export default async function TenantDashboard() {
   }
 
   if (user.status === "PAYMENT_MADE") {
+    const hasUnverifiedPayment = payments.some(p => p.status === "PENDING");
+    const hasVerifiedPayment = payments.some(p => p.status === "VERIFIED" || p.status === "SUCCESS");
+
+    if (!hasUnverifiedPayment && hasVerifiedPayment) {
+      return (
+        <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 bg-white rounded-3xl border border-slate-200 shadow-xl border-t-4 border-t-blue-500 animate-in fade-in duration-700">
+          <Image src="/convenant-hostel-logo.png" alt="Covenant Hostel" width={72} height={72} className="rounded-2xl mb-6 shadow-sm" />
+          <h1 className="text-3xl font-extrabold text-slate-900 text-center">Payment Approved</h1>
+          <p className="text-slate-500 mt-4 text-center max-w-md leading-relaxed">
+            Your payment has been successfully verified! The management will activate your portal shortly.
+          </p>
+          {room && (
+            <div className="mt-6 flex items-center gap-2 px-4 py-2.5 bg-blue-50 border border-blue-100 rounded-xl text-sm text-slate-700">
+              <MapPin size={14} className="text-blue-500 shrink-0" />
+              <span className="font-semibold">Room {room.roomNumber}</span>
+              {room.block?.name && <span className="text-slate-500">· {room.block.name}</span>}
+              {room.block?.address && <span className="text-slate-400 text-xs">· {room.block.address}</span>}
+            </div>
+          )}
+          <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-100 w-full max-w-sm text-center">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Current Status</p>
+            <p className="text-sm font-bold text-blue-600 uppercase tracking-tight">Awaiting Activation</p>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 bg-white rounded-3xl border border-slate-200 shadow-xl border-t-4 border-t-emerald-500 animate-in fade-in duration-700">
         <Image src="/convenant-hostel-logo.png" alt="Covenant Hostel" width={72} height={72} className="rounded-2xl mb-6 shadow-sm" />

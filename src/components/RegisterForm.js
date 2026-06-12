@@ -61,6 +61,17 @@ export default function RegisterForm() {
   const [uploading, setUploading] = useState(false);
   const [registered, setRegistered] = useState(false);
   const [rulesAgreed, setRulesAgreed] = useState(false);
+  const [blocksData, setBlocksData] = useState([]);
+  const [selectedBlockId, setSelectedBlockId] = useState("");
+  const [selectedRoomId, setSelectedRoomId] = useState("");
+
+  useEffect(() => {
+    if (roomId) return;
+    fetch("/api/public/blocks-rooms")
+      .then(r => r.ok ? r.json() : [])
+      .then(data => { if (data) setBlocksData(data); })
+      .catch(() => {});
+  }, [roomId]);
 
   // Fetch room info if coming from a room page
   useEffect(() => {
@@ -222,7 +233,7 @@ export default function RegisterForm() {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, roomId: roomId || null }),
+        body: JSON.stringify({ ...formData, roomId: roomId || selectedRoomId || null }),
       });
 
       const data = await res.json();
@@ -330,6 +341,41 @@ export default function RegisterForm() {
             <main className="space-y-5">
               {step === 1 && (
                 <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  {!roomId && formData.role === "TENANT" && blocksData.length > 0 && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Block</label>
+                        <select 
+                          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all text-sm font-semibold text-slate-900"
+                          value={selectedBlockId}
+                          onChange={(e) => {
+                            setSelectedBlockId(e.target.value);
+                            setSelectedRoomId("");
+                          }}
+                        >
+                          <option value="">Select Block</option>
+                          {blocksData.map(b => (
+                            <option key={b.id} value={b.id}>{b.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Room</label>
+                        <select 
+                          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all text-sm font-semibold text-slate-900"
+                          value={selectedRoomId}
+                          onChange={(e) => setSelectedRoomId(e.target.value)}
+                          disabled={!selectedBlockId}
+                        >
+                          <option value="">Select Room</option>
+                          {selectedBlockId && blocksData.find(b => b.id === selectedBlockId)?.rooms.map(r => (
+                            <option key={r.id} value={r.id}>Room {r.roomNumber}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Full Name</label>
                     <div className="relative group">

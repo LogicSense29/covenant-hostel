@@ -96,49 +96,31 @@ export async function POST(req) {
       const chargesTotal = charges.reduce((sum, c) => sum + c.amount, 0);
       const rentAmount = isRentSelected ? Math.max(0, amount - chargesTotal) : 0;
 
-      let rentPayment = null;
+      let consolidatedPayment = null;
 
-      if (isRentSelected && rentAmount > 0) {
-        rentPayment = await tx.payment.create({
-          data: {
-            amount: rentAmount,
-            receiptUrl: receiptUrl || null,
-            isPartial: !!isPartial,
-            paymentType: paymentType || (isPartial ? "PARTIAL" : "FULL"),
-            installmentNumber: installmentNumber || null,
-            totalInstallments: totalInstallments || null,
-            dueDate: dueDate ? new Date(dueDate) : null,
-            status: receiptUrl ? "PENDING" : "SUCCESS",
-            tenantId,
-            breakdown: breakdown || null,
-          },
-        });
-      }
+      // Create ONE single payment record for the entire transaction
+      consolidatedPayment = await tx.payment.create({
+        data: {
+          amount: amount, // Total paid amount
+          receiptUrl: receiptUrl || null,
+          isPartial: !!isPartial,
+          paymentType: isRentSelected ? (isPartial ? "PARTIAL" : "FULL") : "RECURRING",
+          installmentNumber: installmentNumber || null,
+          totalInstallments: totalInstallments || null,
+          dueDate: dueDate ? new Date(dueDate) : null,
+          status: receiptUrl ? "PENDING" : "SUCCESS",
+          tenantId,
+          breakdown: breakdown || null,
+        },
+      });
 
+      // Link all recurring charges to this single payment
       for (const charge of charges) {
-        const rcPayment = await tx.payment.create({
-          data: {
-            amount: charge.amount,
-            receiptUrl: receiptUrl || null,
-            isPartial: false,
-            paymentType: "RECURRING",
-            status: receiptUrl ? "PENDING" : "SUCCESS",
-            tenantId,
-            breakdown: [
-              {
-                name: charge.billingRule?.title || charge.billingRule?.description || "Recurring Charge",
-                amount: charge.amount,
-                frequency: charge.billingRule?.frequency || null,
-              }
-            ],
-          },
-        });
-
         await tx.recurringCharge.update({
           where: { id: charge.id },
           data: {
             status: receiptUrl ? "PENDING" : "PAID",
-            paymentId: rcPayment.id,
+            paymentId: consolidatedPayment.id,
           },
         });
 
@@ -154,7 +136,7 @@ export async function POST(req) {
         });
       }
 
-      return rentPayment || { success: true };
+      return consolidatedPayment;
     });
 
     // Notify landlord and tenant when a receipt is uploaded for approval

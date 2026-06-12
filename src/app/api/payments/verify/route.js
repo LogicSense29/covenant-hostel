@@ -67,6 +67,16 @@ export async function POST(req) {
       }, { status: 400 });
     }
 
+    const actualPaidAmount = paystackData.data.amount / 100;
+    
+    // Ensure the client didn't spoof the amount payload
+    if (Math.abs(actualPaidAmount - amount) > 0.01) {
+      return NextResponse.json({ 
+        error: "Payment verification failed",
+        details: "Amount paid does not match the requested amount."
+      }, { status: 400 });
+    }
+
     const profile = await prisma.tenantProfile.findUnique({
       where: { userId: session.user.id },
       include: { room: { include: { block: true } } },
@@ -80,6 +90,13 @@ export async function POST(req) {
         where: { id: recurringChargeId },
         include: { billingRule: true },
       });
+
+      if (!charge) return NextResponse.json({ error: "Charge not found" }, { status: 404 });
+
+      if (actualPaidAmount < charge.amount) {
+        return NextResponse.json({ error: "Insufficient amount paid for this charge" }, { status: 400 });
+      }
+
       const chargeTitle = charge?.billingRule?.title || charge?.billingRule?.description || "Recurring Charge";
 
       const rcPayment = await prisma.payment.create({
@@ -153,31 +170,36 @@ export async function POST(req) {
     }) : [];
 
     const chargesTotal = charges.reduce((sum, c) => sum + c.amount, 0);
-    const rentAmount = isRentSelected ? Math.max(0, amount - chargesTotal) : 0;
 
-    const txOps = [];
+    if (actualPaidAmount < chargesTotal) {
+      return NextResponse.json({ error: "Amount paid is less than the total of selected charges" }, { status: 400 });
+    }
 
-    // Create main rent/one-time fee payment record
+    // Create ONE single consolidated payment record
+    const consolidatedPayment = await prisma.payment.create({
+      data: {
+        amount: actualPaidAmount, // Full verified amount
+        reference,
+        status: "SUCCESS",
+        isPartial: !!isPartial,
+        paymentType: isRentSelected ? (isPartial ? "PARTIAL" : "FULL") : "RECURRING",
+        installmentNumber: installmentNumber || null,
+        totalInstallments: totalInstallments || null,
+        dueDate: dueDate ? new Date(dueDate) : null,
+        tenantId: profile.id,
+        breakdown: breakdown || null,
+      },
+    });
+
+    const txOps = [
+      prisma.user.update({
+        where: { id: session.user.id },
+        data: { status: "PAYMENT_MADE" },
+      })
+    ];
+
     if (isRentSelected && rentAmount > 0) {
       txOps.push(
-        prisma.payment.create({
-          data: {
-            amount: rentAmount,
-            reference,
-            status: "SUCCESS",
-            isPartial: !!isPartial,
-            paymentType: isPartial ? "PARTIAL" : "FULL",
-            installmentNumber: installmentNumber || null,
-            totalInstallments: totalInstallments || null,
-            dueDate: dueDate ? new Date(dueDate) : null,
-            tenantId: profile.id,
-            breakdown: breakdown || null,
-          },
-        }),
-        prisma.user.update({
-          where: { id: session.user.id },
-          data: { status: "PAYMENT_MADE" },
-        }),
         prisma.tenantProfile.update({
           where: { id: profile.id },
           data: {
@@ -189,122 +211,69 @@ export async function POST(req) {
       );
     }
 
-    let rentPaymentResult = null;
-    if (txOps.length > 0) {
-      const results = await prisma.$transaction(txOps);
-      rentPaymentResult = results[0];
-    }
-
-    if (rentPaymentResult) {
-      // Notify tenant
-      await createNotification({
-        userId: session.user.id,
-        title: "Payment Received",
-        message: `Your payment of ₦${rentPaymentResult.amount.toLocaleString()} has been received successfully.`,
-        type: "PAYMENT",
-        link: "/tenant/payments",
-      });
-
-      // Send receipt email
-      await sendPaymentReceiptEmail({
-        email: session.user.email,
-        name: session.user.name,
-        amount: rentPaymentResult.amount,
-        reference,
-        paymentDate: new Date(),
-        roomNumber: profile.room?.roomNumber || null,
-        blockName: profile.room?.block?.name || null,
-        roomAddress: profile.room?.block?.address || null,
-        breakdown: rentPaymentResult.breakdown || null,
-        paymentType: rentPaymentResult.paymentType,
-      });
-
-      // Notify landlords
-      const landlordIds = await getLandlordUserIds();
-      await createNotification({
-        userIds: landlordIds,
-        title: "Rent Payment Received",
-        message: `${session.user.name} paid ₦${rentPaymentResult.amount.toLocaleString()} via Paystack.`,
-        type: "PAYMENT",
-        link: "/landlord/payments",
-      });
-    }
-
-    // Process individual payment records for recurring utility charges
+    // Link all recurring charges to the consolidated payment
     for (const charge of charges) {
-      const uniqueRcRef = `${reference}-rc-${charge.id}`;
-      const rcPayment = await prisma.payment.create({
-        data: {
-          amount: charge.amount,
-          reference: uniqueRcRef,
-          status: "SUCCESS",
-          isPartial: false,
-          paymentType: "RECURRING",
-          tenantId: profile.id,
-          breakdown: [
-            {
-              name: charge.billingRule?.title || charge.billingRule?.description || "Recurring Charge",
-              amount: charge.amount,
-              frequency: charge.billingRule?.frequency || null,
-            }
-          ],
-        },
-      });
-
-      await prisma.recurringCharge.update({
-        where: { id: charge.id },
-        data: {
-          status: "PAID",
-          paymentId: rcPayment.id,
-        },
-      });
-
-      await autoCreateNextCharge(prisma, charge.id);
-
-      // Notify tenant
-      await createNotification({
-        userId: session.user.id,
-        title: "Bill Paid Successfully",
-        message: `Your payment for the utility charge of ₦${charge.amount.toLocaleString()} was successful.`,
-        type: "PAYMENT",
-        link: "/tenant/payments",
-      });
-
-      // Send receipt email for each recurring charge
-      await sendPaymentReceiptEmail({
-        email: session.user.email,
-        name: session.user.name,
-        amount: charge.amount,
-        reference: uniqueRcRef,
-        paymentDate: new Date(),
-        roomNumber: profile.room?.roomNumber || null,
-        blockName: profile.room?.block?.name || null,
-        roomAddress: profile.room?.block?.address || null,
-        breakdown: rcPayment.breakdown || null,
-        paymentType: "RECURRING",
-      });
-
-      // Notify landlords
-      const landlordIds = await getLandlordUserIds();
-      await createNotification({
-        userIds: landlordIds,
-        title: "Recurring Bill Payment",
-        message: `${session.user.name} paid a recurring charge of ₦${charge.amount.toLocaleString()} via Paystack.`,
-        type: "PAYMENT",
-        link: "/landlord/payments",
-      });
+      txOps.push(
+        prisma.recurringCharge.update({
+          where: { id: charge.id },
+          data: {
+            status: "PAID",
+            paymentId: consolidatedPayment.id,
+          },
+        })
+      );
     }
+
+    await prisma.$transaction(txOps);
+
+    for (const charge of charges) {
+      await autoCreateNextCharge(prisma, charge.id);
+    }
+
+    // Notify tenant
+    await createNotification({
+      userId: session.user.id,
+      title: "Payment Received",
+      message: `Your payment of ₦${actualPaidAmount.toLocaleString()} has been received successfully.`,
+      type: "PAYMENT",
+      link: "/tenant/payments",
+    });
+
+    // Send single consolidated receipt email
+    await sendPaymentReceiptEmail({
+      email: session.user.email,
+      name: session.user.name,
+      amount: actualPaidAmount,
+      reference,
+      paymentDate: new Date(),
+      roomNumber: profile.room?.roomNumber || null,
+      blockName: profile.room?.block?.name || null,
+      roomAddress: profile.room?.block?.address || null,
+      breakdown: breakdown || null,
+      paymentType: consolidatedPayment.paymentType,
+    });
+
+    // Notify landlords
+    const landlordIds = await getLandlordUserIds();
+    await createNotification({
+      userIds: landlordIds,
+      title: "Payment Received",
+      message: `${session.user.name} paid ₦${actualPaidAmount.toLocaleString()} via Paystack.`,
+      type: "PAYMENT",
+      link: "/landlord/payments",
+    });
 
     try {
       const { revalidatePath } = await import("next/cache");
       revalidatePath("/tenant/payments");
       revalidatePath("/tenant/payments/history");
       revalidatePath("/landlord/payments");
+      revalidatePath("/landlord/tenants");
     } catch (e) {
       console.warn("Revalidation failed:", e);
     }
 
-    return NextResponse.json({ success: true, payment: rentPaymentResult });
+    return NextResponse.json({ success: true, payment: consolidatedPayment });
   } catch (err) {
     console.error("Paystack verification error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

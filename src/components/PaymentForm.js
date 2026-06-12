@@ -20,11 +20,13 @@ export default function PaymentForm({
   isRentSelected = true,
   rentFrequencyShorthand = "yr",
   breakdown = [],
+  isRecurringOnly = false,
+  charge = null,
 }) {
   const router = useRouter();
   const { data: session } = useSession();
 
-  const [mode, setMode] = useState("paystack"); // "paystack" | "receipt"
+  const [mode, setMode] = useState("receipt"); // "paystack" | "receipt"
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [signature, setSignature] = useState("");
@@ -70,10 +72,12 @@ export default function PaymentForm({
 
   // Next unpaid installment
   const nextInstallment = installments.find((inst) => !inst.paid);
-  const isPartialMode = canPayPartial && partialPaymentInstallments > 1 && isRentSelected;
-  const payAmount = breakdown && breakdown.length > 0
-    ? breakdown.reduce((sum, item) => sum + item.amount, 0)
-    : (isPartialMode && nextInstallment ? nextInstallment.amount : totalDue);
+  const isPartialMode = !isRecurringOnly && canPayPartial && partialPaymentInstallments > 1 && isRentSelected;
+  const payAmount = isRecurringOnly && charge
+    ? charge.amount
+    : breakdown && breakdown.length > 0
+      ? breakdown.reduce((sum, item) => sum + item.amount, 0)
+      : (isPartialMode && nextInstallment ? nextInstallment.amount : totalDue);
 
   const config = {
     reference: new Date().getTime().toString(),
@@ -94,13 +98,14 @@ export default function PaymentForm({
           reference: reference.reference,
           amount: payAmount,
           signature,
-          isPartial: isPartialMode && isRentSelected,
-          installmentNumber: isRentSelected ? (nextInstallment?.number || null) : null,
-          totalInstallments: isRentSelected ? (partialPaymentInstallments || null) : null,
-          dueDate: isRentSelected ? (nextInstallment?.dueDate || null) : null,
-          recurringChargeIds: recurringChargeIds || [],
-          isRentSelected: isRentSelected,
-          breakdown: breakdown || [],
+          isPartial: isRecurringOnly ? false : (isPartialMode && isRentSelected),
+          installmentNumber: isRecurringOnly || !isRentSelected ? null : (nextInstallment?.number || null),
+          totalInstallments: isRecurringOnly || !isRentSelected ? null : (partialPaymentInstallments || null),
+          dueDate: isRecurringOnly || !isRentSelected ? null : (nextInstallment?.dueDate || null),
+          recurringChargeIds: isRecurringOnly && charge ? [charge.id] : (recurringChargeIds || []),
+          isRentSelected: isRecurringOnly ? false : isRentSelected,
+          breakdown: isRecurringOnly ? [] : (breakdown || []),
+          recurringChargeId: isRecurringOnly && charge ? charge.id : undefined,
         }),
       });
 
@@ -149,15 +154,16 @@ export default function PaymentForm({
         body: JSON.stringify({
           amount: payAmount,
           receiptUrl: fileUrl,
-          isPartial: isPartialMode && isRentSelected,
-          paymentType: isRentSelected ? (isPartialMode ? "PARTIAL" : "FULL") : "RECURRING",
-          installmentNumber: isRentSelected ? (nextInstallment?.number || null) : null,
-          totalInstallments: isRentSelected ? (partialPaymentInstallments || null) : null,
-          dueDate: isRentSelected ? (nextInstallment?.dueDate || null) : null,
+          isPartial: isRecurringOnly ? false : (isPartialMode && isRentSelected),
+          paymentType: isRecurringOnly ? "RECURRING" : (isRentSelected ? (isPartialMode ? "PARTIAL" : "FULL") : "RECURRING"),
+          installmentNumber: isRecurringOnly || !isRentSelected ? null : (nextInstallment?.number || null),
+          totalInstallments: isRecurringOnly || !isRentSelected ? null : (partialPaymentInstallments || null),
+          dueDate: isRecurringOnly || !isRentSelected ? null : (nextInstallment?.dueDate || null),
           tenantId,
-          recurringChargeIds: recurringChargeIds || [],
-          isRentSelected: isRentSelected,
-          breakdown: breakdown || [],
+          recurringChargeIds: isRecurringOnly && charge ? [charge.id] : (recurringChargeIds || []),
+          isRentSelected: isRecurringOnly ? false : isRentSelected,
+          breakdown: isRecurringOnly ? [] : (breakdown || []),
+          recurringChargeId: isRecurringOnly && charge ? charge.id : undefined,
         }),
       });
 
@@ -197,20 +203,37 @@ export default function PaymentForm({
   return (
     <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
       {/* Header */}
-      <div className="bg-slate-50 p-6 border-b border-slate-100">
-        <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-          <CreditCard size={20} className="text-blue-600" />
-          {isPartialMode ? `Installment ${nextInstallment?.number || "—"} of ${partialPaymentInstallments}` : "Make Payment"}
-        </h3>
-        {isPartialMode && nextInstallment && (
-          <p className="text-xs text-slate-500 mt-1">
-            Due: {nextInstallment.dueDate.toLocaleDateString()} · ₦{nextInstallment.amount.toLocaleString()}
-          </p>
-        )}
-        {!isPartialMode && (
-          <p className="text-xs text-slate-500 mt-1">Full payment required.</p>
-        )}
-      </div>
+      {isRecurringOnly && charge ? (
+        <div className="bg-slate-50 p-6 border-b border-slate-100 flex justify-between items-center">
+          <div>
+            <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <CreditCard size={20} className="text-blue-600" />
+              {charge.billingRule.title || charge.billingRule.description}
+            </h3>
+            <p className="text-xs text-slate-500 mt-1">
+              Due: {new Date(charge.dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+            </p>
+          </div>
+          <span className="text-xs font-bold text-slate-500 px-3 py-1 bg-slate-200 rounded-full border border-slate-300">
+            {charge.billingRule.frequency?.replace(/_/g, " ")}
+          </span>
+        </div>
+      ) : (
+        <div className="bg-slate-50 p-6 border-b border-slate-100">
+          <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+            <CreditCard size={20} className="text-blue-600" />
+            {isPartialMode ? `Installment ${nextInstallment?.number || "—"} of ${partialPaymentInstallments}` : "Make Payment"}
+          </h3>
+          {isPartialMode && nextInstallment && (
+            <p className="text-xs text-slate-500 mt-1">
+              Due: {nextInstallment.dueDate.toLocaleDateString()} · ₦{nextInstallment.amount.toLocaleString()}
+            </p>
+          )}
+          {!isPartialMode && (
+            <p className="text-xs text-slate-500 mt-1">Full payment required.</p>
+          )}
+        </div>
+      )}
 
       <div className="p-6 space-y-6">
         {/* Amount display */}
@@ -265,20 +288,20 @@ export default function PaymentForm({
         )}
 
         {/* Payment mode tabs */}
-        <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-xl">
-          <button
+        <div className="grid grid-cols-1 gap-2 bg-slate-100 p-1 rounded-xl">
+          {/* <button
             type="button"
             onClick={() => setMode("paystack")}
             className={`py-2.5 text-xs font-bold rounded-lg transition-all ${mode === "paystack" ? "bg-white shadow text-blue-600" : "text-slate-500"}`}
           >
             Pay via Paystack
-          </button>
+          </button> */}
           <button
             type="button"
             onClick={() => setMode("receipt")}
             className={`py-2.5 text-xs font-bold rounded-lg transition-all ${mode === "receipt" ? "bg-white shadow text-blue-600" : "text-slate-500"}`}
           >
-            Upload Receipt
+          Pay via Transfer
           </button>
         </div>
 
@@ -338,23 +361,25 @@ export default function PaymentForm({
         )}
 
         {/* Signature */}
-        <div className="space-y-4">
-          {mode === "paystack" && (
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
-                Digital Signature <span className="text-red-400">*</span>
-              </label>
-              <input
-                type="text"
-                placeholder="Type your full name to sign"
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-300 outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white transition-all text-center italic"
-                value={signature}
-                onChange={(e) => setSignature(e.target.value)}
-              />
-              <p className="text-xs text-slate-400 mt-1.5">Required before payment can proceed</p>
-            </div>
-          )}
-        </div>
+        {!isRecurringOnly && (
+          <div className="space-y-4">
+            {mode === "paystack" && (
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
+                  Digital Signature <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Type your full name to sign"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-300 outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white transition-all text-center italic"
+                  value={signature}
+                  onChange={(e) => setSignature(e.target.value)}
+                />
+                <p className="text-xs text-slate-400 mt-1.5">Required before payment can proceed</p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Submit button */}
         {mode === "paystack" ? (

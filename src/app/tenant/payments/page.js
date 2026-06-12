@@ -7,7 +7,7 @@ import {
   CreditCard, Receipt, History, AlertCircle,
   TrendingUp, Clock, ArrowRight, CheckCircle2
 } from "lucide-react";
-import RecurringChargePaymentForm from "@/components/RecurringChargePaymentForm";
+import PaymentForm from "@/components/PaymentForm";
 import PaymentBreakdownPanel from "@/components/PaymentBreakdownPanel";
 import InteractivePaymentTable from "@/components/InteractivePaymentTable";
 
@@ -175,14 +175,22 @@ export default async function TenantPaymentsPage() {
     c.status === "UNPAID" && new Date(c.dueDate) > _endOfToday
   );
 
-  // If tenancy is EXPIRED, they must pay for a new cycle, so outstanding rent remaining should be the totalDue
-  const rentRemaining = user?.status === "EXPIRED" ? totalDue : Math.max(0, totalDue - verifiedRentTotal);
+  // Check if tenancy is about to expire (e.g. within 30 days) to allow early renewal
+  const RENEWAL_WINDOW_DAYS = 30;
+  const daysUntilExpiry = profile.rentExpiryDate 
+    ? Math.ceil((new Date(profile.rentExpiryDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) 
+    : null;
+  const isExpiringSoon = daysUntilExpiry !== null && daysUntilExpiry <= RENEWAL_WINDOW_DAYS;
+
+  // If tenancy is EXPIRED or Expiring Soon, they must pay for a new cycle, so outstanding rent remaining should be the totalDue
+  const needsRenewal = user?.status === "EXPIRED" || isExpiringSoon;
+  const rentRemaining = needsRenewal ? totalDue : Math.max(0, totalDue - verifiedRentTotal);
 
   // The true comprehensive outstanding balance includes rent remaining plus any unpaid recurring charges
   const remaining = rentRemaining + unpaidRecurringTotal;
 
   // Rent state and overall state are separate concerns
-  const isRentPaid = user?.status !== "EXPIRED" && rentRemaining === 0 && verifiedRentTotal > 0;
+  const isRentPaid = !needsRenewal && rentRemaining === 0 && verifiedRentTotal > 0;
   const isFullyPaid = isRentPaid && unpaidCharges.length === 0;
 
   // For the status card — use the most recent rent payment (not recurring)
@@ -246,8 +254,9 @@ export default async function TenantPaymentsPage() {
       </div>
       <div className="p-6 space-y-4">
         {unpaidCharges.map(charge => (
-          <RecurringChargePaymentForm
+          <PaymentForm
             key={charge.id}
+            isRecurringOnly={true}
             charge={charge}
             tenantEmail={session.user.email}
             tenantId={profile.id}
@@ -277,18 +286,25 @@ export default async function TenantPaymentsPage() {
         </div>
       </div>
       <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {recurringRules.map(rule => (
-          <div key={rule.id} className="flex justify-between items-center py-3 px-4 bg-slate-50 rounded-2xl border border-slate-100">
-            <div>
-              <p className="text-sm font-semibold text-slate-700">{rule.title || rule.description}</p>
-              <span className="text-[9px] font-bold text-blue-600 uppercase">{rule.frequency?.replace(/_/g, " ")}</span>
+        {recurringRules.map(rule => {
+          const nextCharge = recurringCharges.find(c => c.billingRuleId === rule.id && (c.status === "UNPAID" || c.status === "OVERDUE"));
+          const dueDateStr = nextCharge ? new Date(nextCharge.dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : null;
+          return (
+            <div key={rule.id} className="flex justify-between items-center py-3 px-4 bg-slate-50 rounded-2xl border border-slate-100">
+              <div>
+                <p className="text-sm font-semibold text-slate-700">{rule.title || rule.description}</p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-[9px] font-bold text-blue-600 uppercase">{rule.frequency?.replace(/_/g, " ")}</span>
+                  {dueDateStr && <span className="text-[9px] font-semibold text-slate-400">· Next due: {dueDateStr}</span>}
+                </div>
+              </div>
+              <span className="text-sm font-bold text-slate-900 ml-4">
+                ₦{rule.amount.toLocaleString()}
+                <span className="text-slate-400 font-normal">/{freqLabel(rule.frequency)}</span>
+              </span>
             </div>
-            <span className="text-sm font-bold text-slate-900 ml-4">
-              ₦{rule.amount.toLocaleString()}
-              <span className="text-slate-400 font-normal">/{freqLabel(rule.frequency)}</span>
-            </span>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   ) : null;
@@ -420,6 +436,7 @@ export default async function TenantPaymentsPage() {
             session={session}
             paymentHistory={paymentHistory}
             rentFrequencyShorthand={rentFrequencyShorthand}
+            allRecurringCharges={recurringCharges}
           />
 
           {/* Recent Payments */}

@@ -31,6 +31,7 @@ export default function PaymentBreakdownPanel({
   session,
   paymentHistory,
   rentFrequencyShorthand = "yr",
+  allRecurringCharges = [],
 }) {
   // We keep track of checked state for each billing item.
   // By default, base rent, caution fees, and overdue charges are mandatory (checked and disabled).
@@ -182,7 +183,12 @@ export default function PaymentBreakdownPanel({
                     Mandatory
                   </span>
                 </p>
-                <p className="text-xs text-slate-400 mt-0.5">Allocated Room {room.roomNumber}</p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <p className="text-xs text-slate-400">Room {room.roomNumber}</p>
+                  {profile.rentExpiryDate && (
+                    <p className="text-xs text-slate-400">· Due: {new Date(profile.rentExpiryDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</p>
+                  )}
+                </div>
               </div>
             </div>
             <span className="text-sm sm:text-base font-black text-slate-900">
@@ -190,45 +196,86 @@ export default function PaymentBreakdownPanel({
             </span>
           </div>
 
-          {/* 2. One-Time Global / Caution Fees (Always Mandatory) */}
-          {billingRules.map(rule => (
+          {/* 2. Billing Fees — mandatory (locked) only if within reminder window or overdue, otherwise toggleable */}
+          {billingRules.map(rule => {
+            const matchingCharge = allRecurringCharges
+              .filter(c => c.billingRuleId === rule.id && (c.status === "UNPAID" || c.status === "OVERDUE"))
+              .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))[0];
+            const dueDateStr = matchingCharge
+              ? new Date(matchingCharge.dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+              : null;
+
+            // Apply same lock-window logic as recurring charges
+            const freq = rule.frequency;
+            const lockWindowDays = (freq === "YEARLY" || freq === "PER_SEMESTER") ? 30 : 7;
+            const daysUntilDue = matchingCharge
+              ? Math.ceil((new Date(matchingCharge.dueDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+              : null;
+            // If no charge record found (e.g. pure ONCE fee), treat as mandatory
+            const isMandatory = daysUntilDue === null
+              ? rule.frequency === "ONCE"
+              : (matchingCharge?.status === "OVERDUE" || daysUntilDue <= lockWindowDays);
+
+            const key = `rule_${rule.id}`;
+            const isChecked = selectedItems[key];
+
+            return (
             <div 
               key={rule.id}
-              onClick={() => toggleItem(`rule_${rule.id}`, true)}
-              className="flex items-center justify-between p-4 sm:p-5 bg-slate-50 rounded-2xl border border-slate-100 hover:border-slate-200 transition-all select-none cursor-not-allowed"
+              onClick={() => toggleItem(key, isMandatory)}
+              className={`flex items-center justify-between p-4 sm:p-5 rounded-2xl border transition-all select-none ${
+                isMandatory
+                  ? "bg-slate-50 border-slate-100 cursor-not-allowed"
+                  : isChecked
+                    ? "bg-blue-50/20 border-blue-200 cursor-pointer hover:border-blue-300"
+                    : "bg-white border-slate-100 cursor-pointer hover:border-slate-200"
+              }`}
             >
               <div className="flex items-center gap-4">
                 <div className="relative flex items-center justify-center">
                   <input 
                     type="checkbox"
-                    checked={selectedItems[`rule_${rule.id}`]}
+                    checked={isChecked}
                     readOnly
-                    disabled
-                    className="w-5 h-5 rounded-lg border-slate-300 text-blue-600 focus:ring-blue-500/20 cursor-not-allowed"
+                    disabled={isMandatory}
+                    className={`w-5 h-5 rounded-lg border-slate-300 text-blue-600 focus:ring-blue-500/20 ${isMandatory ? "cursor-not-allowed" : "cursor-pointer"}`}
                   />
-                  <Lock size={10} className="absolute text-slate-400" />
+                  {isMandatory && <Lock size={10} className="absolute text-slate-400" />}
                 </div>
                 <div>
                   <p className="text-sm font-bold text-slate-900 flex items-center gap-2">
                     {rule.title || rule.description}
-                    <span className="text-[9px] font-bold px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full border border-indigo-100">
-                      Mandatory Fee
-                    </span>
+                    {isMandatory ? (
+                      <span className="text-[9px] font-bold px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full border border-indigo-100">
+                        Mandatory Fee
+                      </span>
+                    ) : (
+                      <span className="text-[9px] font-bold px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full border border-slate-200">
+                        Optional
+                      </span>
+                    )}
                   </p>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Category: {rule.type ? rule.type.replace(/_/g, " ").toUpperCase() : "ONE-TIME FEE"}
-                  </p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <p className="text-xs text-slate-400">Category: {rule.type ? rule.type.replace(/_/g, " ").toUpperCase() : "ONE-TIME FEE"}</p>
+                    {dueDateStr && <p className="text-xs text-slate-400">· Due: {dueDateStr}</p>}
+                  </div>
                 </div>
               </div>
               <span className="text-sm sm:text-base font-black text-slate-900">
                 ₦{rule.amount.toLocaleString()}/{freqLabel(rule.frequency)}
               </span>
             </div>
-          ))}
+          )})}
 
-          {/* 3. Unpaid / Overdue Recurring Charges (Toggleable if Unpaid, locked if Overdue) */}
+          {/* 3. Unpaid / Overdue Recurring Charges (Toggleable if Unpaid, locked if Overdue or within reminder window) */}
           {unpaidCharges.map(charge => {
-            const isMandatory = true; // All outstanding due bills are locked & mandatory
+            const freq = charge.billingRule?.frequency;
+            const lockWindowDays = (freq === "YEARLY" || freq === "PER_SEMESTER") ? 30 : 7;
+            const daysUntilDue = Math.ceil((new Date(charge.dueDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+            
+            // Lock if overdue or if it has entered the automated reminder window
+            const isMandatory = charge.status === "OVERDUE" || daysUntilDue <= lockWindowDays; 
+            
             const key = `charge_${charge.id}`;
             const isChecked = selectedItems[key];
 

@@ -47,20 +47,66 @@ export async function POST(req, { params }) {
       // If this payment is linked to any recurring charges (can be multiple from checklist flow), mark them paid
       const linkedCharges = await tx.recurringCharge.findMany({
         where: { paymentId: id },
+        include: { billingRule: true }
       });
       
+      let isRentPayment = false;
+
       for (const charge of linkedCharges) {
         await tx.recurringCharge.update({
           where: { id: charge.id },
           data: { status: "PAID" },
         });
         await autoCreateNextCharge(tx, charge.id);
+
+        const rType = charge.billingRule?.type;
+        if (rType && ["Base Rent", "Base_Rent", "BaseRent", "Rent", "RENT", "BASE_RENT"].includes(rType)) {
+          isRentPayment = true;
+        }
       }
 
       if (payment.tenant.user.status === "PAYMENT_MADE") {
         await tx.user.update({
           where: { id: payment.tenant.userId },
           data: { status: "PAYMENT_MADE" },
+        });
+      } else if (isRentPayment || payment.tenant.user.status === "EXPIRED") {
+        // Automatic rent extension for returning tenants
+        const matchingRules = payment.tenant.roomId ? await tx.billingRule.findMany({
+          where: {
+            type: { in: ["Base Rent", "Base_Rent", "BaseRent", "Rent", "RENT", "BASE_RENT"] },
+            rooms: { some: { id: payment.tenant.roomId } },
+          },
+        }) : [];
+
+        const rentRule = matchingRules[0] || null;
+        const frequency = rentRule?.frequency || "YEARLY";
+
+        // If ACTIVE and paying ahead, extend from current expiry date. Else from today.
+        let baseDate = new Date();
+        if (payment.tenant.user.status === "ACTIVE" && payment.tenant.rentExpiryDate && payment.tenant.rentExpiryDate > new Date()) {
+          baseDate = new Date(payment.tenant.rentExpiryDate);
+        }
+
+        const expiryDate = new Date(baseDate);
+        
+        switch (frequency) {
+          case "DAILY": expiryDate.setDate(expiryDate.getDate() + 1); break;
+          case "MONTHLY": expiryDate.setMonth(expiryDate.getMonth() + 1); break;
+          case "QUARTERLY": expiryDate.setMonth(expiryDate.getMonth() + 3); break;
+          case "YEARLY": expiryDate.setFullYear(expiryDate.getFullYear() + 1); break;
+          case "PER_SEMESTER": expiryDate.setMonth(expiryDate.getMonth() + 6); break;
+          default: expiryDate.setFullYear(expiryDate.getFullYear() + 1); break;
+        }
+
+        await tx.user.update({
+          where: { id: payment.tenant.userId },
+          data: { status: "ACTIVE" },
+        });
+
+        await tx.tenantProfile.update({
+          where: { userId: payment.tenant.userId },
+          data: { rentExpiryDate: expiryDate }
         });
       }
 

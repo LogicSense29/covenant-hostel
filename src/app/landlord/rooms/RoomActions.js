@@ -177,7 +177,7 @@ export default function RoomActions({ room }) {
         <button 
           onClick={handleMarkUnavailable} 
           disabled={loading} 
-          className="text-[10px] font-bold px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50"
+          className="text-base font-bold px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50"
         >
           {loading ? "..." : "Mark Unavailable"}
         </button>
@@ -185,7 +185,7 @@ export default function RoomActions({ room }) {
       <button 
         onClick={handleDelete} 
         disabled={loading} 
-        className="text-[10px] font-bold px-3 py-1.5 rounded-lg border border-red-100 text-red-600 hover:bg-red-50 transition-all disabled:opacity-50"
+        className="text-base font-bold px-3 py-1.5 rounded-lg border border-red-100 text-red-600 hover:bg-red-50 transition-all disabled:opacity-50"
       >
         {loading ? "..." : "Delete"}
       </button>

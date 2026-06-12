@@ -65,7 +65,7 @@ export default function LandlordLayout({ children }) {
     { name: "Billing & Rules", href: "/landlord/billing", icon: CreditCard },
     { name: "Payment Approvals", href: "/landlord/payments", icon: CheckCircle },
     { name: "Maintenance", href: "/landlord/maintenance", icon: Wrench },
-    { name: "Disputes & Complaints", href: "/landlord/disputes", icon: MessageSquareWarning },
+    // { name: "Disputes & Complaints", href: "/landlord/disputes", icon: MessageSquareWarning },
     { name: "Inspections", href: "/landlord/inspections", icon: ClipboardCheck },
     // { name: "Analytics", href: "/landlord/analytics", icon: TrendingUp },
     { name: "Settings", href: "/landlord/settings", icon: Settings },
