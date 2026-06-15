@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Save, Settings2, CreditCard } from "lucide-react";
+import { Save, Settings2, CreditCard, MessageCircle, Phone, Info, ToggleLeft, ToggleRight } from "lucide-react";
 
 export default function SettingsPage() {
   const [fee, setFee] = useState("");
   const [isEnabled, setIsEnabled] = useState(true);
+  const [whatsappEnabled, setWhatsappEnabled] = useState(false);
+  const [savingWhatsapp, setSavingWhatsapp] = useState(false);
   const [bankName, setBankName] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [accountName, setAccountName] = useState("");
@@ -17,21 +19,12 @@ export default function SettingsPage() {
     fetch("/api/settings")
       .then(res => res.json())
       .then(data => {
-        if (data.INSPECTION_FEE) {
-          setFee(data.INSPECTION_FEE);
-        }
-        if (data.INSPECTION_FEE_ENABLED !== undefined) {
-          setIsEnabled(data.INSPECTION_FEE_ENABLED === "true");
-        }
-        if (data.BANK_NAME) {
-          setBankName(data.BANK_NAME);
-        }
-        if (data.ACCOUNT_NUMBER) {
-          setAccountNumber(data.ACCOUNT_NUMBER);
-        }
-        if (data.ACCOUNT_NAME) {
-          setAccountName(data.ACCOUNT_NAME);
-        }
+        if (data.INSPECTION_FEE) setFee(data.INSPECTION_FEE);
+        if (data.INSPECTION_FEE_ENABLED !== undefined) setIsEnabled(data.INSPECTION_FEE_ENABLED === "true");
+        if (data.WHATSAPP_REMINDERS_ENABLED !== undefined) setWhatsappEnabled(data.WHATSAPP_REMINDERS_ENABLED === "true");
+        if (data.BANK_NAME) setBankName(data.BANK_NAME);
+        if (data.ACCOUNT_NUMBER) setAccountNumber(data.ACCOUNT_NUMBER);
+        if (data.ACCOUNT_NAME) setAccountName(data.ACCOUNT_NAME);
         setLoading(false);
       })
       .catch(err => {
@@ -109,6 +102,27 @@ export default function SettingsPage() {
     }
   };
 
+  const handleWhatsappToggle = async () => {
+    const newValue = !whatsappEnabled;
+    setSavingWhatsapp(true);
+    try {
+      await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          key: "WHATSAPP_REMINDERS_ENABLED",
+          value: newValue.toString(),
+          description: "Whether to send WhatsApp reminders via Twilio alongside email notifications.",
+        }),
+      });
+      setWhatsappEnabled(newValue);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSavingWhatsapp(false);
+    }
+  };
+
   if (loading) return <div className="p-8 text-slate-500 font-medium">Loading settings...</div>;
 
   return (
@@ -120,6 +134,51 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {/* ── WhatsApp Reminders Section ── */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-500">
+        <div className="p-4 sm:p-6 border-b border-slate-100 flex items-center gap-3">
+          <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+            <MessageCircle size={20} />
+          </div>
+          <div>
+            <h2 className="font-bold text-slate-900 text-lg">WhatsApp Reminders</h2>
+            <p className="text-xs text-slate-500 mt-0.5">Send automated payment reminders to tenants via WhatsApp using Twilio</p>
+          </div>
+          <span className="ml-auto text-[9px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-full uppercase tracking-widest shrink-0">Twilio</span>
+        </div>
+        <div className="p-4 sm:p-6 space-y-4">
+          <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-100 rounded-xl">
+            <Info size={15} className="text-amber-500 shrink-0 mt-0.5" />
+            <div className="text-xs text-amber-700 leading-relaxed">
+              <p className="font-bold mb-1">Twilio Credentials Required in .env</p>
+              <p className="font-mono text-[10px] space-y-0.5">TWILIO_ACCOUNT_SID • TWILIO_AUTH_TOKEN • TWILIO_WHATSAPP_NUMBER</p>
+            </div>
+          </div>
+          <div className={`flex items-center justify-between p-5 rounded-2xl border transition-all ${
+            whatsappEnabled ? "bg-emerald-50 border-emerald-100" : "bg-slate-50 border-slate-100"
+          }`}>
+            <div className="flex items-center gap-4">
+              <div className={`p-2.5 rounded-xl transition-colors ${whatsappEnabled ? "bg-emerald-500" : "bg-slate-200"}`}>
+                <Phone size={18} className={whatsappEnabled ? "text-white" : "text-slate-400"} />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-slate-900">Enable WhatsApp Reminders</p>
+                <p className="text-xs text-slate-500 mt-0.5">Rent expiry, installments, and recurring charge reminders sent via WhatsApp</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              disabled={savingWhatsapp}
+              onClick={handleWhatsappToggle}
+              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 shrink-0 ml-4 ${whatsappEnabled ? "bg-emerald-500" : "bg-slate-200"}`}
+            >
+              <span className={`${whatsappEnabled ? "translate-x-6" : "translate-x-1"} inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform`} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Financial Configuration Section ── */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-500">
         <div className="p-4 sm:p-6 border-b border-slate-100 flex items-center gap-3">
            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">

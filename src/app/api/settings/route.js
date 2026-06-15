@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma"; // Adjust based on your prisma setup
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-
 export async function GET(request) {
+  const session = await getServerSession(authOptions);
+  if (!session || (session.user.role !== "LANDLORD" && session.user.role !== "ADMIN")) {
+    return new NextResponse("Unauthorized", { status: 403 });
+  }
+
   try {
     const settings = await prisma.systemSetting.findMany();
     
@@ -15,12 +21,9 @@ export async function GET(request) {
     }, {});
 
     // Ensure defaults
-    if (settingsObj.INSPECTION_FEE_ENABLED === undefined) {
-      settingsObj.INSPECTION_FEE_ENABLED = "true";
-    }
-    if (settingsObj.INSPECTION_FEE === undefined) {
-      settingsObj.INSPECTION_FEE = "5000";
-    }
+    if (settingsObj.INSPECTION_FEE_ENABLED === undefined) settingsObj.INSPECTION_FEE_ENABLED = "true";
+    if (settingsObj.INSPECTION_FEE === undefined) settingsObj.INSPECTION_FEE = "5000";
+    if (settingsObj.WHATSAPP_REMINDERS_ENABLED === undefined) settingsObj.WHATSAPP_REMINDERS_ENABLED = "false";
 
     return NextResponse.json(settingsObj);
   } catch (error) {
@@ -29,13 +32,18 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
+  const session = await getServerSession(authOptions);
+  if (!session || (session.user.role !== "LANDLORD" && session.user.role !== "ADMIN")) {
+    return new NextResponse("Unauthorized", { status: 403 });
+  }
+
   try {
     const { key, value, description } = await request.json();
 
     const setting = await prisma.systemSetting.upsert({
       where: { key },
-      update: { value, description },
-      create: { key, value, description }
+      update: { value: String(value), ...(description !== undefined && { description }) },
+      create: { key, value: String(value), description: description || null }
     });
 
     return NextResponse.json({ success: true, setting });

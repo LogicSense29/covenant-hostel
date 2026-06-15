@@ -179,8 +179,8 @@ export default async function TenantPaymentsPage() {
     c.status === "UNPAID" && new Date(c.dueDate) > _endOfToday
   );
 
-  // Check if tenancy is about to expire (e.g. within 30 days) to allow early renewal
-  const RENEWAL_WINDOW_DAYS = 30;
+  // Check if tenancy is about to expire to allow early renewal
+  const RENEWAL_WINDOW_DAYS = (rentFrequencyShorthand === "yr" || rentFrequencyShorthand === "sem") ? 30 : 7;
   const daysUntilExpiry = profile.rentExpiryDate 
     ? Math.ceil((new Date(profile.rentExpiryDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) 
     : null;

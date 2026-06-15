@@ -160,41 +160,53 @@ export default function PaymentBreakdownPanel({
             Check the items you want to settle in this transaction. Mandatory items required to maintain or renew your tenancy are pre-selected and locked.
           </p>
 
-          {/* 1. Base Room Rent (Always Mandatory) */}
-          <div 
-            onClick={() => toggleItem("rent", true)}
-            className="flex items-center justify-between p-4 sm:p-5 bg-slate-50 rounded-2xl border border-slate-100 hover:border-slate-200 transition-all select-none cursor-not-allowed"
-          >
-            <div className="flex items-center gap-4">
-              <div className="relative flex items-center justify-center">
-                <input 
-                  type="checkbox"
-                  checked={selectedItems["rent"]}
-                  readOnly
-                  disabled
-                  className="w-5 h-5 rounded-lg border-slate-300 text-blue-600 focus:ring-blue-500/20 cursor-not-allowed"
-                />
-                <Lock size={10} className="absolute text-slate-400" />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  Base Room Rent
-                  <span className="text-[9px] font-bold px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full border border-blue-100">
-                    Mandatory
-                  </span>
-                </p>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <p className="text-xs text-slate-400">Room {room.roomNumber}</p>
-                  {profile.rentExpiryDate && (
-                    <p className="text-xs text-slate-400">· Due: {new Date(profile.rentExpiryDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</p>
-                  )}
+          {/* 1. Base Room Rent */}
+          {(() => {
+            const rentLockWindowDays = (rentFrequencyShorthand === "yr" || rentFrequencyShorthand === "sem") ? 30 : 7;
+            const daysUntilRentExpiry = profile.rentExpiryDate
+              ? Math.ceil((new Date(profile.rentExpiryDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+              : null;
+            const isRentMandatory = daysUntilRentExpiry === null || daysUntilRentExpiry <= rentLockWindowDays;
+
+            return (
+              <div 
+                onClick={() => toggleItem("rent", isRentMandatory)}
+                className={`flex items-center justify-between p-4 sm:p-5 bg-slate-50 rounded-2xl border transition-all select-none ${isRentMandatory ? "border-slate-100 hover:border-slate-200 cursor-not-allowed" : "border-slate-200 hover:border-blue-300 cursor-pointer shadow-sm hover:shadow-md"}`}
+              >
+                <div className="flex items-center gap-4">
+                  <div className="relative flex items-center justify-center">
+                    <input 
+                      type="checkbox"
+                      checked={selectedItems["rent"]}
+                      readOnly
+                      disabled={isRentMandatory}
+                      className={`w-5 h-5 rounded-lg border-slate-300 text-blue-600 focus:ring-blue-500/20 ${isRentMandatory ? "cursor-not-allowed" : "cursor-pointer"}`}
+                    />
+                    {isRentMandatory && <Lock size={10} className="absolute text-slate-400" />}
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                      Base Room Rent
+                      {isRentMandatory && (
+                        <span className="text-[9px] font-bold px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full border border-blue-100">
+                          Mandatory
+                        </span>
+                      )}
+                    </p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <p className="text-xs text-slate-400">Room {room.roomNumber}</p>
+                      {profile.rentExpiryDate && (
+                        <p className="text-xs text-slate-400">· Due: {new Date(profile.rentExpiryDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
+                <span className="text-sm sm:text-base font-black text-slate-900">
+                  ₦{rentAmount.toLocaleString()}/{rentFrequencyShorthand}
+                </span>
               </div>
-            </div>
-            <span className="text-sm sm:text-base font-black text-slate-900">
-              ₦{rentAmount.toLocaleString()}/{rentFrequencyShorthand}
-            </span>
-          </div>
+            );
+          })()}
 
           {/* 2. Billing Fees — mandatory (locked) only if within reminder window or overdue, otherwise toggleable */}
           {billingRules.map(rule => {

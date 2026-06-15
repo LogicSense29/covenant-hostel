@@ -10,6 +10,7 @@ import {
   sendRentExpiredNotification,
 } from "@/lib/email";
 import { createNotification, getLandlordUserIds } from "@/lib/notifications";
+import { sendWhatsAppMessage } from "@/lib/whatsapp";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,12 @@ export async function GET(req) {
     // Extended thresholds for YEARLY tenants — 30 days and 14 days ahead
     const yearlyThresholds = [30, 14];
     let adminSummaryList = [];
+
+    // Check master WhatsApp toggle from DB
+    const whatsappSetting = await prisma.systemSetting.findUnique({
+      where: { key: "WHATSAPP_REMINDERS_ENABLED" },
+    });
+    const whatsappEnabled = whatsappSetting?.value === "true";
 
     // ── 1. Standard rent expiry reminders ──
     for (const days of thresholds) {
@@ -53,6 +60,15 @@ export async function GET(req) {
             roomNumber: tenant.room?.roomNumber || "N/A",
             tenantName: tenant.user.name,
             expiryDate: tenant.rentExpiryDate,
+          });
+        }
+
+        // WhatsApp: rent expiry reminder
+        if (whatsappEnabled && tenant.phone) {
+          const expiryFormatted = new Date(tenant.rentExpiryDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+          await sendWhatsAppMessage({
+            to: tenant.phone,
+            body: `🏠 *Covenant Hostel Reminder*\n\nDear ${tenant.user?.name || "Tenant"}, your tenancy for Room ${tenant.room?.roomNumber || "N/A"} expires in *${days} day${days > 1 ? "s" : ""}* on ${expiryFormatted}.\n\nPlease log in to your portal to renew: ${process.env.NEXTAUTH_URL || ""}/tenant/payments`,
           });
         }
 
@@ -120,6 +136,13 @@ export async function GET(req) {
             daysLeft: days,
           });
         }
+        // WhatsApp: yearly expiry reminder
+        if (whatsappEnabled && tenant.phone) {
+          await sendWhatsAppMessage({
+            to: tenant.phone,
+            body: `🏠 *Covenant Hostel – Annual Reminder*\n\nDear ${tenant.user?.name || "Tenant"}, your annual tenancy expires in *${days} days*. Please start your renewal process soon.\n\n${process.env.NEXTAUTH_URL || ""}/tenant/payments`,
+          });
+        }
         await createNotification({
           userId: tenant.userId,
           title: "Annual Rent Expiry Reminder",
@@ -155,6 +178,13 @@ export async function GET(req) {
           name: tenant.user.name,
           roomNumber: tenant.room?.roomNumber || "N/A",
           expiryDate: tenant.rentExpiryDate,
+        });
+      }
+      // WhatsApp: tenancy expired
+      if (whatsappEnabled && tenant.phone) {
+        await sendWhatsAppMessage({
+          to: tenant.phone,
+          body: `⚠️ *Covenant Hostel – Tenancy Expired*\n\nDear ${tenant.user?.name || "Tenant"}, your tenancy has now *expired*. Please renew immediately to avoid losing your room.\n\n${process.env.NEXTAUTH_URL || ""}/tenant/payments`,
         });
       }
 
@@ -202,6 +232,14 @@ export async function GET(req) {
             amount: payment.amount,
             installmentNumber: payment.installmentNumber,
             totalInstallments: payment.totalInstallments,
+          });
+        }
+        // WhatsApp: partial payment due
+        if (whatsappEnabled && tenant.phone) {
+          const dueDateStr = new Date(payment.dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+          await sendWhatsAppMessage({
+            to: tenant.phone,
+            body: `💰 *Covenant Hostel – Installment Due*\n\nDear ${tenant.user?.name || "Tenant"}, installment *${payment.installmentNumber}/${payment.totalInstallments}* of ₦${payment.amount.toLocaleString()} is due in *${days} day${days > 1 ? "s" : ""}* (${dueDateStr}).\n\n${process.env.NEXTAUTH_URL || ""}/tenant/payments`,
           });
         }
 
@@ -346,6 +384,14 @@ export async function GET(req) {
               chargeTitle,
               amount: charge.amount,
               dueDate: charge.dueDate,
+            });
+          }
+
+          // WhatsApp: recurring charge due
+          if (whatsappEnabled && tenant.phone) {
+            await sendWhatsAppMessage({
+              to: tenant.phone,
+              body: `📋 *Covenant Hostel – Bill Reminder*\n\nDear ${tenant.user?.name || "Tenant"}, your *${chargeTitle}* bill of ₦${charge.amount.toLocaleString()} is due in *${days} day${days > 1 ? "s" : ""}* on ${formattedDue}.\n\n${process.env.NEXTAUTH_URL || ""}/tenant/payments`,
             });
           }
 
