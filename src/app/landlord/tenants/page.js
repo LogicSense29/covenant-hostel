@@ -12,6 +12,7 @@ export default async function TenantsPage() {
     redirect("/login");
   }
   const tenants = await prisma.tenantProfile.findMany({
+    take: 21,
     include: {
       user: true,
       room: {
@@ -38,6 +39,13 @@ export default async function TenantsPage() {
     }
   });
 
+  let nextCursor = null;
+  let initialData = tenants;
+  if (tenants.length > 20) {
+    const nextItem = initialData.pop();
+    nextCursor = nextItem.id;
+  }
+
   const availableRooms = await prisma.room.findMany({
     where: { 
       NOT: { status: "UNDER_MAINTENANCE" }
@@ -50,6 +58,6 @@ export default async function TenantsPage() {
   });
 
   return (
-    <TenantDirectoryClient tenants={tenants} availableRooms={availableRooms} />
+    <TenantDirectoryClient initialTenants={initialData} initialNextCursor={nextCursor} availableRooms={availableRooms} />
   );
 }

@@ -107,7 +107,6 @@ export default function InteractivePaymentTable({ payments, allPayments = null, 
             <tr className="bg-slate-50/30 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
               <th className="px-6 py-4">Reference</th>
               <th className="px-6 py-4">Amount</th>
-              <th className="px-6 py-4">Type</th>
               <th className="px-6 py-4">Status</th>
               <th className="px-6 py-4 text-right">Date {showTime && "/ Time"}</th>
             </tr>
@@ -155,13 +154,6 @@ export default function InteractivePaymentTable({ payments, allPayments = null, 
                   <td className="px-6 py-4">
                     <span className="font-extrabold text-slate-900 text-sm">
                       ₦{pmt.amount.toLocaleString()}
-                    </span>
-                  </td>
-
-                  {/* Type */}
-                  <td className="px-6 py-4">
-                    <span className="text-xs font-semibold text-slate-600">
-                      {getPaymentTypeName(pmt)}
                     </span>
                   </td>
 

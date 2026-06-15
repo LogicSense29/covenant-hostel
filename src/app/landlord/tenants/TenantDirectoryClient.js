@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { 
   Users, 
   Search, 
@@ -12,7 +12,8 @@ import {
   ShieldCheck,
   X,
   Mail,
-  ExternalLink
+  ExternalLink,
+  Loader2
 } from "lucide-react";
 import Link from "next/link";
 import TenantActionsMenu from "./TenantActionsMenu";
@@ -22,13 +23,24 @@ import PartialPaymentToggle from "@/components/PartialPaymentToggle";
 import TenantEmailModal from "./TenantEmailModal";
 import BulkEmailModal from "./BulkEmailModal";
 
-export default function TenantDirectoryClient({ tenants, availableRooms }) {
+export default function TenantDirectoryClient({ initialTenants, initialNextCursor, availableRooms }) {
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  
+  const [tenants, setTenants] = useState(initialTenants || []);
+  const [nextCursor, setNextCursor] = useState(initialNextCursor || null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isFetchingNextPage, setIsFetchingNextPage] = useState(false);
+
   const [selectedTenant, setSelectedTenant] = useState(null);
   const [emailTenant, setEmailTenant] = useState(null);
   const [showBulkEmail, setShowBulkEmail] = useState(false);
 
+  const isInitialMount = useRef(true);
+  const observerRef = useRef();
+
+  // Handle body scroll for drawer
   useEffect(() => {
     if (selectedTenant && window.innerWidth < 768) {
       document.body.style.overflow = "hidden";
@@ -38,31 +50,92 @@ export default function TenantDirectoryClient({ tenants, availableRooms }) {
     return () => { document.body.style.overflow = "unset"; };
   }, [selectedTenant]);
 
-  const now = new Date();
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
-  const filteredTenants = tenants.filter(t => {
-    const matchesSearch =
-      t.user?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      t.phone?.includes(searchTerm) ||
-      t.guarantorName?.toLowerCase().includes(searchTerm.toLowerCase());
-
-    let matchesStatus = !statusFilter || t.user?.status === statusFilter;
-
-    // Expiry filters
-    if (statusFilter === "EXPIRING_7") {
-      const exp = t.rentExpiryDate ? new Date(t.rentExpiryDate) : null;
-      const days = exp ? Math.ceil((exp - now) / (1000 * 60 * 60 * 24)) : null;
-      matchesStatus = days !== null && days > 0 && days <= 7;
-    } else if (statusFilter === "EXPIRING_30") {
-      const exp = t.rentExpiryDate ? new Date(t.rentExpiryDate) : null;
-      const days = exp ? Math.ceil((exp - now) / (1000 * 60 * 60 * 24)) : null;
-      matchesStatus = days !== null && days > 0 && days <= 30;
-    } else if (statusFilter === "EXPIRED_TENANT") {
-      matchesStatus = t.user?.status === "EXPIRED";
+  // Fetch filtered data when search or status changes
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      if (debouncedSearch === "" && statusFilter === "") return;
     }
 
-    return matchesSearch && matchesStatus;
-  });
+    let isMounted = true;
+    const fetchFiltered = async () => {
+      setIsLoading(true);
+      try {
+        const query = new URLSearchParams({
+          search: debouncedSearch,
+          status: statusFilter,
+          limit: "20"
+        });
+        const res = await fetch(`/api/landlord/tenants?${query.toString()}`);
+        if (!res.ok) throw new Error("Failed to fetch tenants");
+        const json = await res.json();
+        
+        if (isMounted) {
+          setTenants(json.data);
+          setNextCursor(json.nextCursor);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+
+    fetchFiltered();
+    
+    return () => { isMounted = false; };
+  }, [debouncedSearch, statusFilter]);
+
+  // Infinite Scroll logic
+  const fetchNextPage = async () => {
+    if (!nextCursor || isFetchingNextPage || isLoading) return;
+    
+    setIsFetchingNextPage(true);
+    try {
+      const query = new URLSearchParams({
+        search: debouncedSearch,
+        status: statusFilter,
+        cursor: nextCursor,
+        limit: "20"
+      });
+      const res = await fetch(`/api/landlord/tenants?${query.toString()}`);
+      if (!res.ok) throw new Error("Failed to fetch more tenants");
+      const json = await res.json();
+      
+      setTenants(prev => [...prev, ...json.data]);
+      setNextCursor(json.nextCursor);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsFetchingNextPage(false);
+    }
+  };
+
+  const handleObserver = useCallback((entries) => {
+    const target = entries[0];
+    if (target.isIntersecting && nextCursor && !isFetchingNextPage && !isLoading) {
+      fetchNextPage();
+    }
+  }, [nextCursor, isFetchingNextPage, isLoading, debouncedSearch, statusFilter]);
+
+  useEffect(() => {
+    const element = observerRef.current;
+    if (!element) return;
+    const option = { threshold: 0.1 };
+    const observer = new IntersectionObserver(handleObserver, option);
+    observer.observe(element);
+    return () => observer.unobserve(element);
+  }, [handleObserver]);
+
+  const now = new Date();
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 relative">
@@ -107,7 +180,12 @@ export default function TenantDirectoryClient({ tenants, availableRooms }) {
         </button>
       </div>
 
-      {filteredTenants.length === 0 ? (
+      {isLoading ? (
+        <div className="py-20 flex flex-col items-center justify-center">
+          <Loader2 size={32} className="text-blue-500 animate-spin mb-4" />
+          <p className="text-slate-500 text-sm font-medium">Loading tenants...</p>
+        </div>
+      ) : tenants.length === 0 ? (
         <div className="py-20 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 text-center">
           <div className="bg-white w-16 h-16 rounded-2xl shadow-sm flex items-center justify-center mx-auto mb-4 border border-slate-100">
             <Users size={32} className="text-slate-300" />
@@ -129,7 +207,7 @@ export default function TenantDirectoryClient({ tenants, availableRooms }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredTenants.map((profile) => {
+                {tenants.map((profile) => {
                   const status = profile.user?.status || "ACTIVE";
                   const isSelfEmployed = profile.workType === "Self employed/Worker" && !profile.isStudent;
 
@@ -280,6 +358,15 @@ export default function TenantDirectoryClient({ tenants, availableRooms }) {
                 })}
               </tbody>
             </table>
+            
+            {/* Invisible element for Intersection Observer */}
+            <div ref={observerRef} className="h-4 w-full" />
+            
+            {isFetchingNextPage && (
+              <div className="py-6 flex justify-center border-t border-slate-100 bg-slate-50/50">
+                <Loader2 size={24} className="text-blue-500 animate-spin" />
+              </div>
+            )}
           </div>
         </div>
       )}

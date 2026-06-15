@@ -10,6 +10,8 @@ import {
 import ApprovalActions from "../ApprovalActions";
 import AssignRoomActions from "../AssignRoomActions";
 import PartialPaymentToggle from "@/components/PartialPaymentToggle";
+import StayHistorySection from "@/components/StayHistorySection";
+import InteractivePaymentTable from "@/components/InteractivePaymentTable";
 
 export const dynamic = "force-dynamic";
 
@@ -167,35 +169,7 @@ export default async function TenantProfilePage({ params }) {
           </div>
 
           {/* Stay History */}
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-              <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wide">Stay History</h2>
-            </div>
-            <div className="p-6">
-              {!profile.stayHistory?.length ? (
-                <p className="text-xs text-slate-400 text-center py-4">No stay history recorded.</p>
-              ) : (
-                <div className="space-y-3 pl-2 border-l-2 border-slate-100 ml-2">
-                  {profile.stayHistory.map((stay) => (
-                    <div key={stay.id} className="relative pl-4">
-                      <div className="absolute -left-[17px] top-1.5 w-2 h-2 rounded-full bg-blue-500 ring-4 ring-white" />
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs font-bold text-slate-800">
-                          Room {stay.room?.roomNumber}{stay.room?.block?.name && ` · ${stay.room.block.name}`}
-                        </p>
-                        <span className={`text-[8px] px-1.5 py-0.5 rounded font-black uppercase ${
-                          stay.status === "ACTIVE" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"
-                        }`}>{stay.status}</span>
-                      </div>
-                      <p className="text-[10px] text-slate-400">
-                        {new Date(stay.startDate).toLocaleDateString()} — {stay.endDate ? new Date(stay.endDate).toLocaleDateString() : "Present"}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+          <StayHistorySection stayHistory={profile.stayHistory} />
 
           {/* Payment History */}
           <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
@@ -206,28 +180,20 @@ export default async function TenantProfilePage({ params }) {
               {!profile.payments?.length ? (
                 <p className="text-xs text-slate-400 text-center py-4">No payments recorded.</p>
               ) : (
-                <div className="space-y-2">
-                  {profile.payments.map((pmt) => (
-                    <div key={pmt.id} className="flex items-center justify-between bg-slate-50 rounded-2xl border border-slate-100 px-4 py-3">
-                      <div>
-                        <p className="text-sm font-bold text-slate-900">₦{pmt.amount.toLocaleString()}</p>
-                        <p className="text-[10px] text-slate-400">{new Date(pmt.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} · {pmt.paymentType?.toLowerCase()}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase border ${
-                          pmt.status === "VERIFIED" || pmt.status === "SUCCESS" ? "bg-green-50 text-green-600 border-green-100"
-                          : pmt.status === "PENDING" ? "bg-amber-50 text-amber-600 border-amber-100"
-                          : "bg-red-50 text-red-600 border-red-100"
-                        }`}>{pmt.status === "SUCCESS" ? "Confirmed" : pmt.status}</span>
-                        {pmt.receiptUrl && (
-                          <a href={pmt.receiptUrl} target="_blank" rel="noopener noreferrer"
-                            className="text-[10px] font-bold text-blue-600 hover:underline flex items-center gap-1">
-                            <FileText size={10} /> Receipt
-                          </a>
-                        )}
-                      </div>
+                <div className="space-y-4">
+                  <InteractivePaymentTable 
+                    payments={profile.payments.slice(0, 3)} 
+                    allPayments={profile.payments}
+                    billingRules={[]} 
+                    showTime={false} 
+                  />
+                  {profile.payments.length > 0 && (
+                    <div className="pt-3 border-t border-slate-100 mt-2 text-center">
+                      <Link href={`/landlord/tenants/${profile.id}/payment-history`} className="text-xs font-bold text-blue-600 hover:underline flex items-center justify-center gap-1">
+                        View all Payment History
+                      </Link>
                     </div>
-                  ))}
+                  )}
                 </div>
               )}
             </div>
