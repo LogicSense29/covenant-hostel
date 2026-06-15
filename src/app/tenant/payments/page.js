@@ -131,20 +131,24 @@ export default async function TenantPaymentsPage() {
   // This includes BASE_RENT if it's monthly/yearly, and any other recurring charges.
   const recurringRules = allRules.filter(r => RECURRING.includes(r.frequency));
 
-  // Only ONCE fees from non-base-rent rules count toward totalDue.
-  // Exclude any ONCE fee whose billing rule title/description matches a verified or pending payment —
-  // a ONCE fee is paid for life and should not appear again after being settled.
-  const paidOnceFeeNames = new Set(
-    paymentHistory
-      .filter(p => (p.status === "SUCCESS" || p.status === "VERIFIED" || p.status === "PENDING") && p.breakdown)
-      .flatMap(p => (p.breakdown || []).map(item => item.name))
-  );
+  // Calculate total amount paid towards each ONCE fee across all historical payments
+  // This handles partial installments correctly where a fee is paid in chunks
+  const paidOnceFeeTotals = {};
+  paymentHistory
+    .filter(p => (p.status === "SUCCESS" || p.status === "VERIFIED" || p.status === "PENDING") && p.breakdown)
+    .forEach(p => {
+      (p.breakdown || []).forEach(item => {
+        const name = item.name.replace(/\s*\(Installment \d+\/\d+\)/i, '').trim();
+        paidOnceFeeTotals[name] = (paidOnceFeeTotals[name] || 0) + (item.amount || 0);
+      });
+    });
 
   const oneTimeFees = billingRules.filter(r => {
     if (RECURRING.includes(r.frequency)) return false;
     const name = r.title || r.description || "";
-    // Hide if already paid (exact name match in any historical payment breakdown)
-    return !paidOnceFeeNames.has(name);
+    // Hide if fully paid (cumulative amount paid >= fee amount)
+    const paidAmount = paidOnceFeeTotals[name] || 0;
+    return paidAmount < r.amount;
   });
 
   const totalFees = oneTimeFees.reduce((s, r) => s + r.amount, 0);
