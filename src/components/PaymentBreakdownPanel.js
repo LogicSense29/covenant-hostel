@@ -223,9 +223,11 @@ export default function PaymentBreakdownPanel({
             const daysUntilDue = matchingCharge
               ? Math.ceil((new Date(matchingCharge.dueDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
               : null;
-            // If no charge record found (e.g. pure ONCE fee), treat as mandatory
+            // If no charge record found (e.g. pure ONCE fee):
+            // - mandatory if landlord set isOptional=false (default)
+            // - optional (unlocked) if landlord set isOptional=true
             const isMandatory = daysUntilDue === null
-              ? rule.frequency === "ONCE"
+              ? !rule.isOptional && rule.frequency === "ONCE"
               : (matchingCharge?.status === "OVERDUE" || daysUntilDue <= lockWindowDays);
 
             const key = `rule_${rule.id}`;

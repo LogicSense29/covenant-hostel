@@ -52,6 +52,7 @@ model TenantProfile {
   rulesSigned       Boolean             @default(false)
   rulesSignedAt     DateTime?
   rulesSignedName   String?
+  primaryTenantId     String?
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
   guarantorIdUrl      String?
@@ -62,6 +63,8 @@ model TenantProfile {
   recurringCharges    RecurringCharge[]
   room                Room?               @relation("RoomToTenants", fields: [roomId], references: [id])
   user                User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  primaryTenant       TenantProfile?      @relation("RoomSharings", fields: [primaryTenantId], references: [id])
+  roomSharers         TenantProfile[]     @relation("RoomSharings")
 }
 
 model ServiceProviderProfile {
@@ -206,6 +209,7 @@ model BillingRule {
   type        String   @default("ADDITIONAL_CHARGE")
   frequency   RuleFrequency @default(ONCE)
   isGlobal    Boolean  @default(false)
+  isOptional  Boolean  @default(false)
   roomId      String?
   blockId     String?
   createdAt   DateTime @default(now())
@@ -272,6 +276,15 @@ model SetupToken {
   userId    String   @unique
   expires   DateTime
   createdAt DateTime @default(now())
+}
+
+model RegistrationDraft {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  data      Json     // stores the full form state
+  step      Float    @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Notification {

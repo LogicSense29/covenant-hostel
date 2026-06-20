@@ -33,6 +33,12 @@ export async function PUT(req, { params }) {
         data: { roomId: null, rentStartDate: null, rentExpiryDate: null }
       });
 
+      // Auto-transfer billing: if any sharers have this tenant as their primary, clear the link
+      await tx.tenantProfile.updateMany({
+        where: { primaryTenantId: id },
+        data: { primaryTenantId: null },
+      });
+
       // Check if room still has occupants
       const remainingOccupants = await tx.tenantProfile.count({
         where: { roomId }
@@ -48,14 +54,8 @@ export async function PUT(req, { params }) {
 
       // Close StayHistory
       await tx.stayHistory.updateMany({
-        where: { 
-          tenantId: id,
-          status: "ACTIVE"
-        },
-        data: {
-          endDate: new Date(),
-          status: "COMPLETED"
-        }
+        where: { tenantId: id, status: "ACTIVE" },
+        data: { endDate: new Date(), status: "COMPLETED" }
       });
     });
 

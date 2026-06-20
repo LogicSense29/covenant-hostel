@@ -18,6 +18,7 @@ export default function BillingRulesManager({ defaultRules, rooms, blocks = [] }
     amount: "",
     type: "Additional Charge",
     frequency: "ONCE",
+    isOptional: false,
     applyScope: "GLOBAL",
     roomId: "",
     blockId: ""
@@ -32,6 +33,7 @@ export default function BillingRulesManager({ defaultRules, rooms, blocks = [] }
       amount: rule.amount.toString(),
       type: rule.type || "Additional Charge",
       frequency: rule.frequency || "ONCE",
+      isOptional: rule.isOptional || false,
       applyScope: rule.isGlobal ? "GLOBAL" : rule.blockId ? "BLOCK" : "ROOM",
       roomId: rule.roomId || "",
       blockId: rule.blockId || ""
@@ -49,6 +51,7 @@ export default function BillingRulesManager({ defaultRules, rooms, blocks = [] }
       amount: "",
       type: "Additional Charge",
       frequency: "ONCE",
+      isOptional: false,
       applyScope: "GLOBAL",
       roomId: "",
       blockId: ""
@@ -202,6 +205,13 @@ export default function BillingRulesManager({ defaultRules, rooms, blocks = [] }
                               : `${rule.room?.block?.name || "Block"} - Room ${rule.room?.roomNumber || "Unknown"}`
                           }
                         </span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider border ${
+                          rule.isOptional
+                            ? "bg-slate-50 text-slate-500 border-slate-200"
+                            : "bg-indigo-50 text-indigo-600 border-indigo-100"
+                        }`}>
+                          {rule.isOptional ? "Optional" : "Mandatory"}
+                        </span>
                       </div>
                     </div>
                     
@@ -306,6 +316,21 @@ export default function BillingRulesManager({ defaultRules, rooms, blocks = [] }
                 <option value="YEARLY">Yearly</option>
                 <option value="PER_SEMESTER">Per Semester</option>
               </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Payment Requirement</label>
+              <select
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none focus:ring-4 focus:ring-blue-500/10 transition-all cursor-pointer"
+                value={formData.isOptional ? "OPTIONAL" : "MANDATORY"}
+                onChange={(e) => setFormData({...formData, isOptional: e.target.value === "OPTIONAL"})}
+              >
+                <option value="MANDATORY">Mandatory</option>
+                <option value="OPTIONAL">Optional</option>
+              </select>
+              <p className="text-[10px] text-slate-400 mt-1.5">
+                Optional fees become mandatory once the tenant enters the renewal window.
+              </p>
             </div>
 
             <div>

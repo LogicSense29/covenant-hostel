@@ -31,7 +31,8 @@ export async function POST(req) {
       workAddress,
       companyName,
       workIdUrl,
-      roomId
+      roomId,
+      primaryTenantId,
     } = body;
 
     // Basic validation
@@ -108,6 +109,8 @@ export async function POST(req) {
             workIdUrl: !isStudent && workType === "Employee" ? workIdUrl : null,
             // Store the requested room — landlord will confirm on approval
             roomId: roomId || null,
+            // If registering as a room sharer, link to the primary tenant
+            primaryTenantId: primaryTenantId || null,
           }
         });
       }

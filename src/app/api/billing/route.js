@@ -36,7 +36,7 @@ export async function POST(req) {
   }
 
   try {
-    const { title, amount, type, description, frequency, isGlobal, roomId, blockId } = await req.json();
+    const { title, amount, type, description, frequency, isGlobal, isOptional, roomId, blockId } = await req.json();
     const ruleAmount = parseFloat(amount);
     const ruleType = type || "ADDITIONAL_CHARGE"; // Now a string, no longer strictly an enum
 
@@ -64,6 +64,7 @@ export async function POST(req) {
         type: ruleType,
         frequency: frequency || "ONCE",
         isGlobal: !!isGlobal,
+        isOptional: !!isOptional,
         roomId: isGlobal || !roomId || roomId === "" ? null : roomId,
         blockId: isGlobal || !blockId || blockId === "" ? null : blockId
       }

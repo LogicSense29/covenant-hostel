@@ -81,7 +81,7 @@ export async function POST(req) {
     }
 
     const body = await req.json();
-    const { userId } = body;
+    const { userId, startDate } = body;
 
     if (!userId) {
       return new NextResponse("User ID is required", { status: 400 });
@@ -112,7 +112,12 @@ export async function POST(req) {
 
     const frequency = rentRule?.frequency || "YEARLY";
 
-    const now = new Date();
+    // Use provided startDate if valid, otherwise default to now
+    let now = new Date();
+    if (startDate) {
+      const parsed = new Date(startDate);
+      if (!isNaN(parsed.getTime())) now = parsed;
+    }
     const expiryDate = new Date(now);
     
     switch (frequency) {

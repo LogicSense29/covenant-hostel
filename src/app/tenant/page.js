@@ -16,6 +16,8 @@ import {
   CreditCard
 } from "lucide-react";
 import Link from "next/link";
+import ShareRoomButton from "@/components/ShareRoomButton";
+import StayHistoryModalButton from "@/components/StayHistoryModalButton";
 
 export const dynamic = "force-dynamic";
 
@@ -26,12 +28,19 @@ export default async function TenantDashboard() {
     where: { userId: session.user.id },
     include: {
       room: {
-        include: { block: true },
+        include: {
+          block: true,
+          tenants: { select: { id: true } }, // need count for share eligibility
+        },
       },
       user: true,
       payments: {
         orderBy: { createdAt: "desc" },
         take: 10,
+      },
+      stayHistory: {
+        include: { room: { include: { block: true } } },
+        orderBy: { startDate: "desc" },
       },
     }
   });
@@ -352,14 +361,14 @@ export default async function TenantDashboard() {
             )}
           </p>
         </div>
-        <div className="bg-white px-5 py-3 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-center gap-4">
-           <div className="text-right">
-             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Rent Status</p>
-             <p className={`text-sm font-bold ${rentStatusColor}`}>{rentStatusLabel}</p>
-           </div>
-           {/* <div className={`p-2 rounded-xl ${rentStatusBg}`}>
-             {rentStatusIcon}
-           </div> */}
+        <div className="flex items-center gap-3">
+          <StayHistoryModalButton stayHistory={profile.stayHistory} />
+          <div className="bg-white px-5 py-3 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-center gap-4">
+             <div className="text-right">
+               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Rent Status</p>
+               <p className={`text-sm font-bold ${rentStatusColor}`}>{rentStatusLabel}</p>
+             </div>
+          </div>
         </div>
       </div>
 
@@ -401,8 +410,11 @@ export default async function TenantDashboard() {
                   {profile.rentExpiryDate ? new Date(profile.rentExpiryDate).toLocaleDateString() : 'TBD'}
                 </p>
               </div>
-              <div className="flex items-center justify-end">
-                <Link href="/tenant/payments" className="p-4 bg-slate-50 text-blue-600 rounded-2xl hover:bg-blue-600 hover:text-white transition-all shadow-sm">
+              <div className="flex items-center justify-end gap-2">
+                {room && !profile.primaryTenantId && room.tenants.length < room.capacity && (
+                  <ShareRoomButton roomId={room.id} profileId={profile.id} />
+                )}
+                <Link href="/tenant/payments" className="p-3 bg-slate-50 text-blue-600 rounded-2xl hover:bg-blue-600 hover:text-white transition-all shadow-sm">
                   <ArrowRight size={24} />
                 </Link>
               </div>
@@ -482,6 +494,8 @@ export default async function TenantDashboard() {
                 <Phone size={64} />
              </div>
            </div>
+
+
         </div>
       </div>
     </div>

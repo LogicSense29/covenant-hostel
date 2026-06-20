@@ -12,7 +12,7 @@ export async function PUT(req, { params }) {
   }
 
   try {
-    const { amount, type, description, frequency, isGlobal, roomId, blockId } = await req.json();
+    const { amount, type, description, frequency, isGlobal, isOptional, roomId, blockId } = await req.json();
     const ruleAmount = parseFloat(amount);
     const ruleType = type || "ADDITIONAL_CHARGE";
 
@@ -40,6 +40,7 @@ export async function PUT(req, { params }) {
         type: ruleType,
         frequency: frequency || "ONCE",
         isGlobal: !!isGlobal,
+        isOptional: !!isOptional,
         roomId: isGlobal || !roomId || roomId === "" ? null : roomId,
         blockId: isGlobal || !blockId || blockId === "" ? null : blockId
       }

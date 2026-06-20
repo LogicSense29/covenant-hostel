@@ -25,9 +25,12 @@ export default function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const roomId = searchParams.get("roomId");
+  const resumeEmail = searchParams.get("resume");
+  const sharedBy = searchParams.get("sharedBy"); // primaryTenantId when joining as a room sharer
 
   const [step, setStep] = useState(1);
   const [roomInfo, setRoomInfo] = useState(null);
+  const [draftRestored, setDraftRestored] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -81,6 +84,37 @@ export default function RegisterForm() {
       .then(data => { if (data) setRoomInfo(data); })
       .catch(() => {});
   }, [roomId]);
+
+  // Restore draft when ?resume=email is in the URL
+  useEffect(() => {
+    if (!resumeEmail || draftRestored) return;
+    fetch(`/api/registration-draft?email=${encodeURIComponent(resumeEmail)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(draft => {
+        if (draft?.data) {
+          setFormData(prev => ({ ...prev, ...draft.data }));
+          if (draft.step) setStep(draft.step);
+          setDraftRestored(true);
+          toast.success("Your progress has been restored. Continue where you left off.");
+        }
+      })
+      .catch(() => {});
+  }, [resumeEmail, draftRestored]);
+
+  // Auto-save draft whenever formData changes (debounced, only after email is entered)
+  // Passwords are deliberately excluded from the saved draft.
+  useEffect(() => {
+    if (!formData.email || !formData.email.includes("@")) return;
+    const timer = setTimeout(() => {
+      const { password, confirmPassword, ...safeData } = formData;
+      fetch("/api/registration-draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: formData.email, data: safeData, step }),
+      }).catch(() => {});
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [formData, step]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -238,13 +272,19 @@ export default function RegisterForm() {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, roomId: roomId || selectedRoomId || null }),
+        body: JSON.stringify({
+          ...formData,
+          roomId: roomId || selectedRoomId || null,
+          primaryTenantId: sharedBy || null,
+        }),
       });
 
       const data = await res.json();
 
       if (res.ok) {
         if (formData.role === "TENANT") {
+          // Clean up the draft — registration complete
+          fetch(`/api/registration-draft?email=${encodeURIComponent(formData.email)}`, { method: "DELETE" }).catch(() => {});
           setRegistered(true);
           toast.success("Application submitted!");
         } else {
@@ -276,14 +316,36 @@ export default function RegisterForm() {
               <CheckCircle2 size={32} />
            </div>
            <h2 className="text-2xl font-bold text-slate-900 mb-3">Application Received!</h2>
-           <p className="text-slate-500 mb-8 leading-relaxed">
+           <p className="text-slate-500 mb-6 leading-relaxed">
              Thank you for registering. Your details and guarantor information have been submitted for review. 
              <br /><br />
              Once approved, you will receive an email with a <strong>link to set your password</strong> and activate your account.
            </p>
+
+           {/* Share room link — only shown when NOT registering as a sharer and a room was selected */}
+           {!sharedBy && (roomId || selectedRoomId) && (
+             <div className="mb-6 p-4 bg-blue-50 border border-blue-100 rounded-2xl text-left space-y-3">
+               <p className="text-xs font-bold text-blue-700 uppercase tracking-widest">Sharing this room?</p>
+               <p className="text-xs text-blue-600 leading-relaxed">
+                 If someone else will be sharing your room, copy and send them this link to complete their own registration.
+               </p>
+               <button
+                 type="button"
+                 onClick={() => {
+                   const base = typeof window !== "undefined" ? window.location.origin : "";
+                   const link = `${base}/register?roomId=${roomId || selectedRoomId}`;
+                   navigator.clipboard.writeText(link).then(() => toast.success("Share link copied!"));
+                 }}
+                 className="w-full py-2.5 bg-blue-600 text-white text-xs font-bold rounded-xl hover:bg-blue-700 transition-colors"
+               >
+                 Copy Room Share Link
+               </button>
+             </div>
+           )}
+
            <button 
              onClick={() => router.push("/")}
-             className="w-full h-12 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition-all"
+             className="w-full h-12 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800 transition-all"
            >
              Return Home
            </button>
@@ -305,6 +367,13 @@ export default function RegisterForm() {
            <p className="text-sm text-slate-500 mt-1 font-medium">Join Covenant Hostel Management System</p>
         </div>
 
+        {/* Draft restored banner */}
+        {draftRestored && (
+          <div className="mb-4 flex items-center gap-3 bg-green-50 border border-green-100 rounded-2xl px-4 py-3">
+            <span className="text-xs font-bold text-green-700">✓ Your previous progress has been restored. Continue where you left off.</span>
+          </div>
+        )}
+
         {/* Room reservation banner */}
         {roomInfo && (
           <div className="mb-6 flex items-center gap-3 bg-blue-50 border border-blue-100 rounded-2xl px-4 py-3">
@@ -315,6 +384,21 @@ export default function RegisterForm() {
               <p className="text-xs font-black text-[#0b69ff] uppercase tracking-widest">Reserving</p>
               <p className="text-sm font-bold text-[#102a43] truncate">
                 Room {roomInfo.roomNumber}{roomInfo.block?.name ? ` · ${roomInfo.block.name}` : ""}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Room sharer banner — shown when ?sharedBy= is in the URL */}
+        {sharedBy && (
+          <div className="mb-6 flex items-center gap-3 bg-purple-50 border border-purple-200 rounded-2xl px-4 py-3">
+            <div className="p-2 bg-purple-600 rounded-xl shrink-0">
+              <ShieldCheck size={16} className="text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-black text-purple-700 uppercase tracking-widest">Room Sharing</p>
+              <p className="text-sm font-semibold text-purple-900">
+                You are registering as a room sharer. Your billing will be managed by the primary tenant.
               </p>
             </div>
           </div>

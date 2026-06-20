@@ -171,6 +171,12 @@ export async function GET(req) {
         data: { status: "EXPIRED" },
       });
 
+      // Auto-transfer billing: clear primaryTenantId for any sharers linked to this tenant
+      await prisma.tenantProfile.updateMany({
+        where: { primaryTenantId: tenant.id },
+        data: { primaryTenantId: null },
+      });
+
       // Notify tenant
       if (tenant.user?.email) {
         await sendRentExpiredNotification({

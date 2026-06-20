@@ -24,6 +24,7 @@ export default async function TenantPaymentsPage() {
     include: {
       room: true,
       user: { select: { status: true } },
+      primaryTenant: { include: { user: { select: { name: true } } } },
     },
   });
 
@@ -62,8 +63,28 @@ export default async function TenantPaymentsPage() {
     );
   }
 
+  // If this tenant is a room sharer, billing is managed by the primary tenant
+  if (profile.primaryTenantId) {
+    const primaryName = profile.primaryTenant?.user?.name || "your primary tenant";
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 bg-white rounded-3xl border border-slate-200 shadow-xl border-t-4 border-t-blue-500">
+        <div className="bg-blue-50 p-4 rounded-2xl mb-6">
+          <CreditCard size={48} className="text-blue-600" />
+        </div>
+        <h1 className="text-3xl font-extrabold text-slate-900 text-center">Billing Managed Externally</h1>
+        <p className="text-slate-500 mt-4 text-center max-w-md leading-relaxed">
+          Your room billing is currently managed by <strong className="text-slate-700">{primaryName}</strong>.
+          You will receive access to billing once they depart or the landlord transfers responsibility to you.
+        </p>
+        <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-100 w-full max-w-sm text-center">
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Your Status</p>
+          <p className="text-sm font-bold text-blue-600 uppercase tracking-tight">Room Sharer</p>
+        </div>
+      </div>
+    );
+  }
+
   const [allRules, paymentHistory, recurringCharges] = await Promise.all([
-    // Only fetch billing rules explicitly connected to this room via the many-to-many relation.
     // Global and block-scoped rules are auto-ticked in the room form on creation, so if the
     // landlord unticked them, they will not be in this relation — and should not appear here.
     prisma.billingRule.findMany({
