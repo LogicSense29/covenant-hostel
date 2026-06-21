@@ -124,7 +124,9 @@ export async function DELETE(req, { params }) {
     const room = await prisma.room.findUnique({
       where: { id },
       include: { 
-        tenants: true,
+        tenants: {
+          where: { user: { status: { notIn: ["REJECTED", "EXPIRED"] } } }
+        },
         stayHistory: true,
         inspections: true,
         billingRules: true

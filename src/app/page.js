@@ -9,7 +9,10 @@ export default async function Home() {
     where: { NOT: { status: "UNDER_MAINTENANCE" } },
     include: {
       block: true,
-      tenants: { select: { id: true } },
+      tenants: { 
+        where: { user: { status: { notIn: ["REJECTED", "EXPIRED"] } } },
+        select: { id: true } 
+      },
       billingRules: true,
     },
     orderBy: { createdAt: "desc" }

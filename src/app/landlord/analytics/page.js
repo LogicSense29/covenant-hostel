@@ -20,7 +20,12 @@ export default async function AnalyticsPage() {
 
   // ── Rooms & Occupancy ──
   const rooms = await prisma.room.findMany({
-    include: { tenants: true, block: true },
+    include: { 
+      tenants: { 
+        where: { user: { status: { notIn: ["REJECTED", "EXPIRED"] } } }
+      }, 
+      block: true 
+    },
   });
 
   const totalRooms = rooms.length;

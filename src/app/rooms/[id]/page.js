@@ -26,7 +26,7 @@ export default async function RoomDetailPage({ params }) {
       block: true,
       tenants: {
         where: {
-          user: { status: { in: ["ACTIVE", "PAYMENT_MADE"] } }
+          user: { status: { notIn: ["REJECTED", "EXPIRED"] } }
         },
         select: { id: true }
       },
