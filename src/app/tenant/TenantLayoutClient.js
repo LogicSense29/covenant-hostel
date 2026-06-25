@@ -123,14 +123,6 @@ export default function TenantLayoutClient({ children, dbUser }) {
         
         {/* Desktop Greeting */}
         <div className="flex-1 animate-in fade-in slide-in-from-left-8 duration-1000 mt-0">
-           <h1 className="text-2xl font-display font-medium text-slate-800 ">
-              Good morning, <span className="text-indigo-600 font-medium">{session?.user?.name?.split(' ')[0] || "Tenant"}</span>👋
-           </h1>
-            <p className="text-slate-500 text-base mb-1">Lets have a productive day.</p>
-        </div>
-
-        {/* Right Actions */}
-        <div className="flex items-center gap-4 ml-8 mt-0">
            {/* Desktop Search Box */}
            <div className="hidden md:flex items-center gap-2 bg-slate-200/50 hover:bg-slate-200/80 focus-within:bg-white focus-within:shadow-sm focus-within:ring-1 focus-within:ring-slate-200 transition-all rounded-full pl-5 pr-4 h-10 w-64 cursor-text">
               <input 
@@ -142,6 +134,10 @@ export default function TenantLayoutClient({ children, dbUser }) {
                  <Search size={18} strokeWidth={2.5} />
               </div>
            </div>
+        </div>
+
+        {/* Right Actions */}
+        <div className="flex items-center gap-4 ml-8 mt-0">
 
            {/* Mobile Search Icon */}
            <div className="md:hidden w-12 h-12 flex items-center justify-center bg-white/60 hover:bg-white/90 transition-all rounded-full cursor-pointer text-slate-600 hover:text-indigo-600">
