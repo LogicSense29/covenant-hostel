@@ -72,20 +72,22 @@ export default function TenantSettingsClient({ profile, userEmail }) {
   };
 
   return (
-    <div className="space-y-8 max-w-2xl">
-      <div className="border-b border-slate-200 pb-6">
-        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Settings</h1>
+    <div className="space-y-8 max-w-7xl">
+      <div className="pb-0">
+        <h1 className="text-3xl font-display font-semibold text-slate-900 tracking-tight">Settings</h1>
         <p className="text-slate-500 mt-1 text-sm">Manage your account details and security.</p>
       </div>
 
+<div className="flex flex-col gap-4 md:flex-row w-full">
+
       {/* Profile section */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex-1">
         <div className="p-6 border-b border-slate-100 flex items-center gap-3">
           <div className="p-2 bg-blue-50 text-[#0b69ff] rounded-xl">
             <User size={18} />
           </div>
           <div>
-            <h2 className="font-bold text-slate-900">Personal Information</h2>
+            <h2 className="font-display font-semibold text-slate-900">Personal Information</h2>
             <p className="text-xs text-slate-400 mt-0.5">Update your name and contact number</p>
           </div>
         </div>
@@ -141,13 +143,13 @@ export default function TenantSettingsClient({ profile, userEmail }) {
       </div>
 
       {/* Password section */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex-1">
         <div className="p-6 border-b border-slate-100 flex items-center gap-3">
           <div className="p-2 bg-blue-50 text-[#0b69ff] rounded-xl">
             <Lock size={18} />
           </div>
           <div>
-            <h2 className="font-bold text-slate-900">Change Password</h2>
+            <h2 className="font-display font-semibold text-slate-900">Change Password</h2>
             <p className="text-xs text-slate-400 mt-0.5">Keep your account secure with a strong password</p>
           </div>
         </div>
@@ -223,6 +225,8 @@ export default function TenantSettingsClient({ profile, userEmail }) {
           </div>
         </form>
       </div>
+
+</div>
     </div>
   );
 }

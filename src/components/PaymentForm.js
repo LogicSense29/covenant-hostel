@@ -36,7 +36,7 @@ export default function PaymentForm({
   const [bankDetails, setBankDetails] = useState(null);
 
   useEffect(() => {
-    fetch("/api/settings")
+    fetch("/api/public/bank-details")
       .then(res => res.json())
       .then(data => {
         if (data.BANK_NAME || data.ACCOUNT_NUMBER || data.ACCOUNT_NAME) {

@@ -48,7 +48,7 @@ export default function BookInspectionForm() {
 
   useEffect(() => {
     const fetchSettings = () => {
-      fetch("/api/settings")
+      fetch("/api/public/bank-details")
         .then((res) => res.json())
         .then((data) => {
           const isEnabled = data.INSPECTION_FEE_ENABLED === "true" || data.INSPECTION_FEE_ENABLED === undefined;

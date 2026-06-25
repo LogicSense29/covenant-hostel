@@ -89,15 +89,11 @@ export default async function TenantInspectionsPage() {
     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
 
       {/* Header */}
-      <div className="border-b border-slate-200 pb-8 flex flex-col md:flex-row md:items-end justify-between gap-6">
+      <div className="border-b border-slate-200 pb-4 flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-1">
-          <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-600 rounded-full w-fit mb-2">
-            <ClipboardCheck size={14} />
-            <span className="text-[10px] font-bold uppercase tracking-widest">Compliance & Reports</span>
-          </div>
-          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">Your Inspections</h1>
+          <h1 className="text-3xl font-display font-semibold text-slate-900 tracking-tight">Your Inspections</h1>
           <p className="text-slate-500 max-w-xl">
-            Track your move-in and move-out inspection status and view landlord remarks.
+            Track your move-in and move-out inspection status.
           </p>
         </div>
 
@@ -108,8 +104,8 @@ export default async function TenantInspectionsPage() {
               <MapPin size={16} className="text-blue-600" />
             </div>
             <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Your Room</p>
-              <p className="text-sm font-bold text-slate-900">
+              {/* <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Your Room</p> */}
+              <p className="text-sm font-display font-bold text-slate-900">
                 Room {room.roomNumber}
                 {room.block?.name && <span className="text-slate-400 font-normal"> · {room.block.name}</span>}
               </p>
@@ -124,7 +120,7 @@ export default async function TenantInspectionsPage() {
           <div className="bg-slate-50 w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 border border-slate-100">
             <Clock size={36} className="text-slate-300" />
           </div>
-          <h3 className="text-xl font-black text-slate-900">No Inspections Yet</h3>
+          <h3 className="text-xl font-display font-bold text-slate-900">No Inspections Yet</h3>
           <p className="text-slate-500 mt-2 max-w-xs mx-auto text-sm">
             Your landlord hasn't scheduled any inspections for your room yet.
           </p>

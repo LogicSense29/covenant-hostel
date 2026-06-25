@@ -160,7 +160,7 @@ export default async function TenantDashboard() {
           {/* <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
             {greeting}, <span className="text-[#203090]">{firstName}</span> 👋
           </h1> */}
-            <h1 className="text-2xl font-display font-medium text-slate-800 ">
+            <h1 className="text-2xl lg:text-3xl font-display font-semibold text-slate-800 ">
               Good morning, <span className="text-indigo-600 font-medium">{session?.user?.name?.split(' ')[0] || "Tenant"}</span>👋
            </h1>
             <p className="text-slate-500 text-base mb-1">Lets have a productive day.</p>
@@ -208,7 +208,7 @@ export default async function TenantDashboard() {
                 <Image src="/convenant-hostel-logo.png" alt="CH" width={28} height={28} className="rounded-lg opacity-90" />
                 <span className="text-blue-300 text-[10px] font-bold uppercase tracking-widest">Covenant Hostel</span>
               </div> */}
-              <h2 className="text-4xl font-bold tracking-tight mb-2">
+              <h2 className="font-display text-3xl font-semibold tracking-tight mb-2">
                 {room ? `Room ${room.roomNumber}` : "Not Allocated"}
               </h2>
               <div className="flex flex-wrap items-center gap-2">
@@ -294,7 +294,7 @@ export default async function TenantDashboard() {
         </div>
 
         {/* ── RIGHT: Sidebar ── */}
-        <div className="flex flex-col justify-between">
+        <div className="justify-between space-y-2">
 
           {/* Tenant Identity Card */}
           <div className="relative bg-white rounded-3xl overflow-hidden p-5 border border-slate-100 shadow-sm">
@@ -352,7 +352,7 @@ export default async function TenantDashboard() {
               </div>
               {/* Share room */}
               {canShare && (
-                <div className="mt-4 pt-4 border-t border-slate-50">
+                <div className="mt-0 pt-4 border-t border-slate-50">
                   <ShareRoomButton roomId={room.id} profileId={profile.id} fullWidth />
                 </div>
               )}
