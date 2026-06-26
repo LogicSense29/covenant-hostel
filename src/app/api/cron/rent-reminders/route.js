@@ -43,7 +43,10 @@ export async function GET(req) {
       nextDay.setDate(targetDate.getDate() + 1);
 
       const expiringTenants = await prisma.tenantProfile.findMany({
-        where: { rentExpiryDate: { gte: targetDate, lt: nextDay } },
+        where: { 
+          rentExpiryDate: { gte: targetDate, lt: nextDay },
+          primaryTenantId: null // Room sharers don't pay rent directly
+        },
         include: { user: true, room: true },
       });
 
@@ -109,7 +112,10 @@ export async function GET(req) {
       nextDay.setDate(targetDate.getDate() + 1);
 
       const yearlyExpiringTenants = await prisma.tenantProfile.findMany({
-        where: { rentExpiryDate: { gte: targetDate, lt: nextDay } },
+        where: { 
+          rentExpiryDate: { gte: targetDate, lt: nextDay },
+          primaryTenantId: null 
+        },
         include: {
           user: true,
           room: {
@@ -278,6 +284,7 @@ export async function GET(req) {
       where: {
         room: { isNot: null },
         user: { status: "ACTIVE" },
+        primaryTenantId: null // Room sharers do not get billed; the primary tenant handles it
       },
       include: { user: true, room: { include: { block: true } } },
     });

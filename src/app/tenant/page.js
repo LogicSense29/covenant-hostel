@@ -39,6 +39,7 @@ export default async function TenantDashboard() {
         },
       },
       user: true,
+      primaryTenant: { include: { user: true } },
       payments: { orderBy: { createdAt: "desc" }, take: 10 },
       stayHistory: {
         include: { room: { include: { block: true } } },
@@ -114,13 +115,14 @@ export default async function TenantDashboard() {
   else if (hasPendingReceipt && !hasVerifiedPayment) { payLabel = "Pending"; payDot = "bg-amber-400"; payPill = "bg-amber-50 text-amber-700 border-amber-200"; }
 
   const canShare = room && !profile.primaryTenantId && room.tenants.length < room.capacity;
+  const isRoomSharer = !!profile.primaryTenantId;
   const hasGuarantor = profile?.guarantorName && profile.guarantorName.trim() !== "" && profile.guarantorName.trim().toLowerCase() !== "null";
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500 pb-16">
 
-      {/* ── Alert Banners ── */}
-      {showPaymentAlert && (
+      {/* ── Alert Banners (suppressed for room sharers) ── */}
+      {showPaymentAlert && !isRoomSharer && (
         <div className="space-y-2.5">
           {isExpiringSoon && (
             <div className={`rounded-2xl px-5 py-3.5 flex items-center justify-between gap-4 border ${isExpiringCrit ? "bg-red-50 border-red-200" : "bg-amber-50 border-amber-200"}`}>
@@ -150,6 +152,15 @@ export default async function TenantDashboard() {
               )}
             </div>
           )}
+        </div>
+      )}
+      {/* ── Room Sharer Info Banner — shows when active tenant is a sharer ── */}
+      {isRoomSharer && (
+        <div className="rounded-2xl px-5 py-3.5 flex items-center gap-3 bg-blue-50 border border-blue-100">
+          <ShieldCheck size={16} className="text-blue-500 shrink-0" />
+          <p className="text-sm font-semibold text-blue-800">
+            You are a room sharer. Billing is managed by your primary tenant.
+          </p>
         </div>
       )}
 
@@ -400,6 +411,11 @@ export default async function TenantDashboard() {
 
 // ── Pre-active status screen (shared for all non-ACTIVE states) ──
 function PreActiveScreen({ type, room, profile }) {
+  const isRoomSharer = profile?.primaryTenantId != null;
+  const primaryTenant = profile?.primaryTenant;
+  const primaryTenantStatus = primaryTenant?.user?.status;
+  const primaryName = primaryTenant?.user?.name || "your primary tenant";
+
   const cfg = {
     pending: {
       top: "border-t-amber-400",
@@ -415,11 +431,13 @@ function PreActiveScreen({ type, room, profile }) {
       top: "border-t-[#203090]",
       gradFrom: "from-blue-50/60",
       icon: <CreditCard size={32} className="text-[#203090]" />,
-      title: "Action Required",
-      body: "Your application is approved. Proceed to payment to finalise your tenancy.",
+      title: isRoomSharer ? "Awaiting Primary Tenant Payment" : "Action Required",
+      body: isRoomSharer 
+        ? `Your application is approved. Please contact ${primaryName} to finalise the room payment so your tenancy can be activated.`
+        : "Your application is approved. Proceed to payment to finalise your tenancy.",
       pill: "bg-blue-50 text-[#203090] border-blue-200",
       pillLabel: "Awaiting Payment",
-      cta: { href: "/tenant/payments", label: "Proceed to Payment", cls: "bg-[#203090] hover:bg-[#1a2673] shadow-[#203090]/20" },
+      cta: isRoomSharer ? null : { href: "/tenant/payments", label: "Proceed to Payment", cls: "bg-[#203090] hover:bg-[#1a2673] shadow-[#203090]/20" },
     },
     payment_review: {
       top: "border-t-amber-400",
@@ -435,8 +453,10 @@ function PreActiveScreen({ type, room, profile }) {
       top: "border-t-[#203090]",
       gradFrom: "from-blue-50/60",
       icon: <CheckCircle2 size={32} className="text-[#203090]" />,
-      title: "Payment Approved",
-      body: "Your payment has been verified. Management will activate your portal shortly.",
+      title: isRoomSharer ? "Awaiting Activation" : "Payment Approved",
+      body: isRoomSharer
+        ? `Your primary tenant (${primaryName}) has completed the payment. Management will activate your portal shortly.`
+        : "Your payment has been verified. Management will activate your portal shortly.",
       pill: "bg-blue-50 text-[#203090] border-blue-200",
       pillLabel: "Awaiting Activation",
       cta: null,

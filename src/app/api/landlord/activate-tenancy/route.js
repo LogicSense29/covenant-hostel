@@ -176,8 +176,59 @@ export async function POST(req) {
       })
     ]);
 
-    // Send emails to tenant and admin (non-blocking)
+    // ── Auto-activate room sharers linked to this primary tenant ──
     const roomNumber = user.tenantProfile?.room?.roomNumber || user.tenantProfile?.roomId || "N/A";
+    const sharers = await prisma.tenantProfile.findMany({
+      where: { primaryTenantId: user.tenantProfile.id },
+      include: { user: true },
+    });
+
+    for (const sharer of sharers) {
+      // Only activate sharers who are in a pre-active waiting state
+      if (!["AWAITING_PAYMENT", "PAYMENT_MADE"].includes(sharer.user?.status)) continue;
+
+      await prisma.$transaction([
+        prisma.user.update({
+          where: { id: sharer.userId },
+          data: { status: "ACTIVE" },
+        }),
+        prisma.tenantProfile.update({
+          where: { id: sharer.id },
+          data: {
+            rentStartDate: now,
+            rentExpiryDate: expiryDate,
+          },
+        }),
+        prisma.stayHistory.create({
+          data: {
+            tenantId: sharer.id,
+            roomId: sharer.roomId,
+            startDate: now,
+            status: "ACTIVE",
+          },
+        }),
+      ]);
+
+      // Notify sharer (non-blocking)
+      await Promise.allSettled([
+        sendTenantActivationEmail({
+          email: sharer.user.email,
+          name: sharer.user.name,
+          roomNumber,
+          rentStartDate: now,
+          rentExpiryDate: expiryDate,
+        }),
+        createNotification({
+          userId: sharer.userId,
+          title: "Tenancy Activated",
+          message: `Your tenancy for Room ${roomNumber} is now active. Welcome to Covenant Hostel!`,
+          type: "TENANCY",
+          link: "/tenant",
+        }),
+      ]);
+    }
+
+    // Send emails to primary tenant and admin (non-blocking)
     await Promise.allSettled([
       sendTenantActivationEmail({
         email: user.email,
