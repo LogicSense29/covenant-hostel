@@ -140,16 +140,16 @@ export default function ApprovalActions({ userId, status, payments = [] }) {
       <div className="flex flex-col gap-1 items-center w-full">
         <button 
           onClick={handleActivate} 
-          disabled={loading}
-          title="Set tenancy start date and activate"
-          className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 active:scale-95 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none w-full"
+          disabled={loading || hasUnverifiedPayment}
+          title={hasUnverifiedPayment ? "Please approve payment first" : "Set tenancy start date and activate"}
+          className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 active:scale-95 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none w-full disabled:cursor-not-allowed"
         >
           {loading ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
-          Verify & Activate
+          Activate Tenancy
         </button>
         {hasUnverifiedPayment && (
           <span className="text-[10px] text-amber-600 font-bold tracking-tight text-center block mt-1">
-            ⚠️ Has unverified receipt — will be approved on activation
+            ⚠️ Please approve pending payment receipt first
           </span>
         )}
       </div>

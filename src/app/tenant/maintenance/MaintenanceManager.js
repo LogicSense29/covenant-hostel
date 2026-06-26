@@ -135,7 +135,7 @@ export default function MaintenanceManager({ initialTickets, currentUser, tenant
     <div className="space-y-10 animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Maintenance Support</h1>
+          <h1 className="text-3xl font-display font-semibold text-slate-900 tracking-tight">Maintenance Support</h1>
           <p className="text-slate-500 mt-1">Report facility issues and track repair status.</p>
         </div>
         {!showForm && (
@@ -232,10 +232,10 @@ export default function MaintenanceManager({ initialTickets, currentUser, tenant
         
         {tickets.length === 0 ? (
           <div className="py-20 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 text-center">
-            <div className="bg-white w-16 h-16 rounded-2xl shadow-sm flex items-center justify-center mx-auto mb-4 border border-slate-100">
-              <CheckCircle2 size={32} className="text-green-200" />
+            <div className="bg-slate-300/10 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-slate-100">
+              <CheckCircle2 size={32} className="text-slate-300/40" />
             </div>
-            <h3 className="text-lg font-bold text-slate-900">All Systems Normal</h3>
+            <h3 className="text-lg font-display font-semibold text-slate-900">All Systems Normal</h3>
             <p className="text-slate-500 mt-1 max-w-xs mx-auto text-sm">You haven't reported any maintenance issues yet.</p>
           </div>
         ) : (

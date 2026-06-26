@@ -188,11 +188,12 @@ export default function TenantActionsMenu({
 
   if (status === "PAYMENT_MADE") {
     menuItems.push({
-      label: "Verify & Activate",
+      label: "Activate Tenancy",
       icon: <CheckCircle size={14} />,
       onClick: handleActivate,
       color: "text-blue-700",
-      hint: hasUnverifiedPayment ? "Has unverified receipt" : null,
+      hint: hasUnverifiedPayment ? "Needs payment approval first" : null,
+      disabled: hasUnverifiedPayment,
     });
   }
 

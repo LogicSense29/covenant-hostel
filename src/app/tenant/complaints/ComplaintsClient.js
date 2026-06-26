@@ -23,12 +23,12 @@ export default function ComplaintsClient({ complaints, currentUser }) {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-10 animate-in fade-in duration-700">
+    <div className="max-w-7xl mx-auto space-y-10 animate-in fade-in duration-700">
 
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">Complaint Center</h1>
+          <h1 className="text-3xl font-display font-semibold text-slate-900 tracking-tight">Complaint Center</h1>
           <p className="text-slate-500 mt-2 font-medium">Report non-facility issues, noise complaints, or general disputes.</p>
         </div>
         <button
@@ -44,7 +44,7 @@ export default function ComplaintsClient({ complaints, currentUser }) {
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">Your Complaints</h2>
+            <h2 className="text-lg font-display font-bold text-slate-900">Your Complaints</h2>
             <p className="text-xs text-slate-500 mt-0.5">Track the status of your reported grievances.</p>
           </div>
           <span className="text-[10px] font-bold text-red-600 bg-red-50 px-3 py-1.5 rounded-full border border-red-100 uppercase tracking-widest">
@@ -58,7 +58,7 @@ export default function ComplaintsClient({ complaints, currentUser }) {
               <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
                 <ShieldAlert size={28} className="text-slate-200" />
               </div>
-              <p className="text-sm font-bold text-slate-400">No complaints recorded</p>
+              <p className="text-sm font-display font-bold text-slate-400">No complaints recorded</p>
               <p className="text-xs text-slate-400 mt-1">Click &quot;New Complaint&quot; to report an issue.</p>
             </div>
           ) : (

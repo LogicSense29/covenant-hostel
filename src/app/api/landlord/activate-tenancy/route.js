@@ -100,6 +100,18 @@ export async function POST(req) {
       return new NextResponse("Tenancy can only be activated after payment is made", { status: 400 });
     }
 
+    // Check if there are any pending (unverified) payments
+    const pendingPayment = await prisma.payment.findFirst({
+      where: {
+        tenantId: user.tenantProfile?.id,
+        status: "PENDING"
+      }
+    });
+
+    if (pendingPayment) {
+      return new NextResponse("Cannot activate tenancy. Please approve pending payment receipts first.", { status: 400 });
+    }
+
     // Determine rent frequency from billing rules — only rules explicitly connected to this room
     const matchingRules = user.tenantProfile?.roomId ? await prisma.billingRule.findMany({
       where: {
