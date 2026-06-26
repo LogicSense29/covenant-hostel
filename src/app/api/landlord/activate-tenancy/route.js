@@ -199,14 +199,15 @@ export async function POST(req) {
             rentExpiryDate: expiryDate,
           },
         }),
-        prisma.stayHistory.create({
+        // Only create StayHistory if the sharer already has a confirmed room
+        ...(sharer.roomId ? [prisma.stayHistory.create({
           data: {
             tenantId: sharer.id,
             roomId: sharer.roomId,
             startDate: now,
             status: "ACTIVE",
           },
-        }),
+        })] : []),
       ]);
 
       // Notify sharer (non-blocking)

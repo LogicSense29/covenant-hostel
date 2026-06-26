@@ -73,7 +73,7 @@ export async function POST(req) {
 
     const userStatus = userRole === "TENANT" ? "PENDING" : "ACTIVE";
 
-    const newUser = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: {
           name,
@@ -84,8 +84,9 @@ export async function POST(req) {
         },
       });
 
+      let tenantProfileId = null;
       if (userRole === "TENANT") {
-        await tx.tenantProfile.create({
+        const profile = await tx.tenantProfile.create({
           data: {
             userId: user.id,
             phone,
@@ -113,10 +114,13 @@ export async function POST(req) {
             primaryTenantId: primaryTenantId || null,
           }
         });
+        tenantProfileId = profile.id;
       }
 
-      return user;
+      return { user, tenantProfileId };
     });
+
+    const { user: newUser, tenantProfileId } = result;
 
     // Revalidate the landlord directory so the new application shows up immediately
     try {
@@ -139,6 +143,7 @@ export async function POST(req) {
     return NextResponse.json({
       success: true,
       message: userStatus === "PENDING" ? "Application received. Awaiting approval." : "Account created successfully.",
+      profileId: tenantProfileId, // returned so the share link can include &sharedBy=profileId
       user: {
         id: newUser.id,
         name: newUser.name,

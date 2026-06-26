@@ -63,6 +63,7 @@ export default function RegisterForm() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [registered, setRegistered] = useState(false);
+  const [registeredProfileId, setRegisteredProfileId] = useState(null); // profile ID returned after registration
   const [rulesAgreed, setRulesAgreed] = useState(false);
   const [blocksData, setBlocksData] = useState([]);
   const [selectedBlockId, setSelectedBlockId] = useState("");
@@ -285,6 +286,8 @@ export default function RegisterForm() {
         if (formData.role === "TENANT") {
           // Clean up the draft — registration complete
           fetch(`/api/registration-draft?email=${encodeURIComponent(formData.email)}`, { method: "DELETE" }).catch(() => {});
+          // Store the profile ID so the success screen can build a correct share link
+          if (data.profileId) setRegisteredProfileId(data.profileId);
           setRegistered(true);
           toast.success("Application submitted!");
         } else {
@@ -323,7 +326,7 @@ export default function RegisterForm() {
            </p>
 
            {/* Share room link — only shown when NOT registering as a sharer and a room was selected */}
-           {!sharedBy && (roomId || selectedRoomId) && (
+           {!sharedBy && (roomId || selectedRoomId) && registeredProfileId && (
              <div className="mb-6 p-4 bg-blue-50 border border-blue-100 rounded-2xl text-left space-y-3">
                <p className="text-xs font-bold text-blue-700 uppercase tracking-widest">Sharing this room?</p>
                <p className="text-xs text-blue-600 leading-relaxed">
@@ -333,7 +336,8 @@ export default function RegisterForm() {
                  type="button"
                  onClick={() => {
                    const base = typeof window !== "undefined" ? window.location.origin : "";
-                   const link = `${base}/register?roomId=${roomId || selectedRoomId}`;
+                   // Include &sharedBy=profileId so the new registrant is correctly linked to this primary tenant
+                   const link = `${base}/register?roomId=${roomId || selectedRoomId}&sharedBy=${registeredProfileId}`;
                    navigator.clipboard.writeText(link).then(() => toast.success("Share link copied!"));
                  }}
                  className="w-full py-2.5 bg-blue-600 text-white text-xs font-bold rounded-xl hover:bg-blue-700 transition-colors"
