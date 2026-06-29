@@ -63,26 +63,9 @@ export default async function TenantPaymentsPage() {
     );
   }
 
-  // If this tenant is a room sharer, billing is managed by the primary tenant
-  if (profile.primaryTenantId) {
-    const primaryName = profile.primaryTenant?.user?.name || "your primary tenant";
-    return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 bg-white rounded-3xl border border-slate-200 shadow-xl border-t-4 border-t-blue-500">
-        <div className="bg-blue-50 p-4 rounded-2xl mb-6">
-          <CreditCard size={48} className="text-blue-600" />
-        </div>
-        <h1 className="text-3xl font-extrabold text-slate-900 text-center">Billing Managed Externally</h1>
-        <p className="text-slate-500 mt-4 text-center max-w-md leading-relaxed">
-          Your room billing is currently managed by <strong className="text-slate-700">{primaryName}</strong>.
-          You will receive access to billing once they depart or the landlord transfers responsibility to you.
-        </p>
-        <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-100 w-full max-w-sm text-center">
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Your Status</p>
-          <p className="text-sm font-bold text-blue-600 uppercase tracking-tight">Room Sharer</p>
-        </div>
-      </div>
-    );
-  }
+  const isSharer = !!profile.primaryTenantId;
+  const primaryName = isSharer ? (profile.primaryTenant?.user?.name || "your primary tenant") : null;
+  const targetTenantId = profile.primaryTenantId || profile.id;
 
   const [allRules, paymentHistory, recurringCharges] = await Promise.all([
     // Global and block-scoped rules are auto-ticked in the room form on creation, so if the
@@ -95,7 +78,7 @@ export default async function TenantPaymentsPage() {
     }),
     // Limit to 3 most recent payments at DB level — history page has the full list
     prisma.payment.findMany({
-      where: { tenantId: profile.id },
+      where: { tenantId: targetTenantId },
       orderBy: { createdAt: "desc" },
       take: 50,
       include: {
@@ -107,7 +90,7 @@ export default async function TenantPaymentsPage() {
       }
     }),
     prisma.recurringCharge.findMany({
-      where: { tenantId: profile.id },
+      where: { tenantId: targetTenantId },
       include: { billingRule: true },
       orderBy: { dueDate: "asc" },
     }),
@@ -225,7 +208,7 @@ export default async function TenantPaymentsPage() {
   const RecentPaymentsCard = (
     <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
       <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/20">
-        <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+        <h2 className="text-lg font-display font-semibold text-slate-900 flex items-center gap-2">
           <History size={20} className="text-blue-600" />
           Recent Payments
         </h2>
@@ -285,6 +268,8 @@ export default async function TenantPaymentsPage() {
             charge={charge}
             tenantEmail={session.user.email}
             tenantId={profile.id}
+            isSharer={isSharer}
+            primaryName={primaryName}
           />
         ))}
       </div>
@@ -306,7 +291,7 @@ export default async function TenantPaymentsPage() {
       <div className="p-6 border-b border-slate-100 flex items-center gap-3 bg-slate-50/20">
         <Receipt size={20} className="text-blue-600" />
         <div>
-          <h2 className="text-lg font-bold text-slate-900">Recurring Charges</h2>
+          <h2 className="text-lg font-display font-semibold text-slate-900">Recurring Charges</h2>
           <p className="text-xs text-slate-400 mt-0.5">All charges are up to date</p>
         </div>
       </div>
@@ -339,11 +324,7 @@ export default async function TenantPaymentsPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-slate-200 pb-8">
         <div className="space-y-1">
-          <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-600 rounded-full w-fit mb-2">
-            <TrendingUp size={14} />
-            <span className="text-[10px] font-bold uppercase tracking-widest">Financial Summary</span>
-          </div>
-          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">Rent & Payments</h1>
+          <h1 className="text-3xl font-display font-semibold text-slate-900 tracking-tight">Rent & Payments</h1>
           <p className="text-slate-500 max-w-xl">
             View your billing breakdown, payment history, and submit rent payments.
           </p>
@@ -421,7 +402,7 @@ export default async function TenantPaymentsPage() {
                   <Clock size={18} className="text-blue-600" />
                 </div>
                 <div>
-                  <h2 className="text-base font-bold text-slate-900">Upcoming Payments</h2>
+                  <h2 className="text-base font-display font-semibold text-slate-900">Upcoming Payments</h2>
                   <p className="text-xs text-slate-400 mt-0.5">Scheduled — no action needed yet</p>
                 </div>
               </div>
@@ -462,6 +443,8 @@ export default async function TenantPaymentsPage() {
             paymentHistory={paymentHistory}
             rentFrequencyShorthand={rentFrequencyShorthand}
             allRecurringCharges={recurringCharges}
+            isSharer={isSharer}
+            primaryName={primaryName}
           />
 
           {/* Recent Payments */}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import {
   MoreVertical,
   Mail,
@@ -15,7 +15,8 @@ import {
   Calendar as CalendarIcon,
   ChevronRight,
   Info,
-  X
+  X,
+  Search
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useRouter } from "next/navigation";
@@ -37,11 +38,30 @@ export default function TenantActionsMenu({
   const [activateStartDate, setActivateStartDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState("");
-  const [rentExpiryDate, setRentExpiryDate] = useState(() => {
-    const d = new Date();
-    d.setFullYear(d.getFullYear() + 1);
-    return d.toISOString().split("T")[0];
-  });
+  const [rentExpiryDate, setRentExpiryDate] = useState("");
+  const [roomSearch, setRoomSearch] = useState("");
+
+  // Is this a room *change* (tenant already has a room) vs a fresh assignment?
+  const isRoomChange = Boolean(profile.roomId);
+
+  // Compute expiry date from the selected room's BASE_RENT billing rule frequency
+  const computeExpiryFromFrequency = (room) => {
+    const baseRule = room?.billingRules?.find(
+      (r) => r.type === "BASE_RENT" || r.type === "Base Rent"
+    );
+    const frequency = baseRule?.frequency || "YEARLY";
+    const now = new Date();
+    switch (frequency) {
+      case "DAILY":        now.setDate(now.getDate() + 1);         break;
+      case "MONTHLY":      now.setMonth(now.getMonth() + 1);        break;
+      case "QUARTERLY":    now.setMonth(now.getMonth() + 3);        break;
+      case "PER_SEMESTER": now.setMonth(now.getMonth() + 6);        break;
+      case "YEARLY":       now.setFullYear(now.getFullYear() + 1);  break;
+      case "ONCE":
+      default:             now.setFullYear(now.getFullYear() + 1);  break;
+    }
+    return now.toISOString().split("T")[0];
+  };
 
   const status = profile.user?.status || "ACTIVE";
   const hasUnverifiedPayment = (profile.payments || []).some(p => p.status === "PENDING");
@@ -151,7 +171,7 @@ export default function TenantActionsMenu({
       if (res.ok) {
         toast.success("Room assigned successfully!");
         setShowAssignModal(false);
-        router.refresh();
+        window.location.reload();
       } else { toast.error(await res.text() || "Failed to assign room."); }
     } catch { toast.error("Error assigning room."); }
     finally { setLoading(false); }
@@ -199,10 +219,32 @@ export default function TenantActionsMenu({
 
   if (status !== "REJECTED") {
     if (profile.roomId) {
-      menuItems.push({ label: "Change Room", icon: <RefreshCw size={14} />, onClick: () => { setOpen(false); setShowAssignModal(true); }, color: "text-blue-700" });
+      menuItems.push({
+        label: "Change Room",
+        icon: <RefreshCw size={14} />,
+        onClick: () => {
+          setOpen(false);
+          // Seed expiry from existing value — tenant already paid, preserve their cycle
+          const existing = profile.rentExpiryDate
+            ? new Date(profile.rentExpiryDate).toISOString().split("T")[0]
+            : "";
+          setRentExpiryDate(existing);
+          setShowAssignModal(true);
+        },
+        color: "text-blue-700",
+      });
       menuItems.push({ label: "Unassign Room", icon: <UserMinus size={14} />, onClick: handleUnassign, color: "text-red-600" });
     } else {
-      menuItems.push({ label: "Assign Room", icon: <UserPlus size={14} />, onClick: () => { setOpen(false); setShowAssignModal(true); }, color: "text-slate-700" });
+      menuItems.push({
+        label: "Assign Room",
+        icon: <UserPlus size={14} />,
+        onClick: () => {
+          setOpen(false);
+          setRentExpiryDate(""); // will be computed when room is selected
+          setShowAssignModal(true);
+        },
+        color: "text-slate-700",
+      });
     }
   }
 
@@ -330,8 +372,8 @@ export default function TenantActionsMenu({
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
             <div className="bg-slate-50 px-6 py-5 border-b border-slate-100 flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-bold text-slate-900">Room Allocation</h3>
+              <div className="self-start">
+                <h3 className="text-lg font-bold text-slate-900 text-left">Room Allocation</h3>
                 <p className="text-xs text-slate-500 font-medium">Assign or change tenant's residence</p>
               </div>
               <button onClick={() => setShowAssignModal(false)}
@@ -339,40 +381,77 @@ export default function TenantActionsMenu({
                 <X size={20} />
               </button>
             </div>
-            <div className="p-6 space-y-6">
+            <div className="p-6 space-y-5">
               <div className="space-y-2">
+                {/* Search */}
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search by room number or block…"
+                    value={roomSearch}
+                    onChange={(e) => setRoomSearch(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white focus:border-blue-300 transition-all"
+                  />
+                </div>
                 <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest px-1">Choose Available Room</label>
-                <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto pr-1">
-                  {availableRooms.map((room) => {
-                    const isFull = room.tenants?.length >= room.capacity;
-                    const isSelected = selectedRoom === room.id;
-                    return (
-                      <button key={room.id} disabled={isFull} onClick={() => setSelectedRoom(room.id)}
-                        className={`flex items-center justify-between p-3 rounded-2xl border transition-all text-left group ${
-                          isSelected ? "bg-blue-50 border-blue-200 ring-2 ring-blue-500/10"
-                          : isFull ? "bg-slate-50 border-slate-100 opacity-50 cursor-not-allowed"
-                          : "bg-white border-slate-100 hover:border-blue-200 hover:bg-slate-50"
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-xl border ${isSelected ? "bg-blue-600 text-white border-blue-500" : "bg-white text-slate-400 border-slate-200"}`}>
-                            <Home size={16} />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-1.5">
-                              <p className={`text-sm font-bold ${isSelected ? "text-blue-900" : "text-slate-700"}`}>Room {room.roomNumber}</p>
-                              {room.block && (
-                                <span className="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 uppercase">{room.block.name}</span>
-                              )}
+                <div className="grid grid-cols-1 gap-2 max-h-44 overflow-y-auto pr-1">
+                  {availableRooms
+                    .filter((room) => {
+                      const q = roomSearch.toLowerCase().trim();
+                      if (!q) return true;
+                      const roomNum  = String(room.roomNumber).toLowerCase();
+                      const block    = (room.block?.name || "").toLowerCase();
+                      // Individual field matches
+                      if (roomNum.includes(q) || block.includes(q)) return true;
+                      // Combined format: "room 1 block a" OR "block a room 1"
+                      const combo1 = `room ${roomNum} ${block}`.trim();
+                      const combo2 = `${block} room ${roomNum}`.trim();
+                      return combo1.includes(q) || combo2.includes(q);
+                    })
+                    .map((room) => {
+                      const isFull     = room.tenants?.length >= room.capacity;
+                      const hasBilling = room.billingRules?.length > 0;
+                      const isLocked   = isFull || !hasBilling;
+                      const isSelected = selectedRoom === room.id;
+                      return (
+                        <button key={room.id} disabled={isLocked}
+                          title={!hasBilling ? "No billing rule set up for this room. Add one in Room Management first." : isFull ? "This room is at full capacity." : undefined}
+                          onClick={() => {
+                            if (isLocked) return;
+                            setSelectedRoom(room.id);
+                            // Only auto-set expiry for fresh assignments.
+                            // Room changes keep the tenant's existing payment cycle.
+                            if (!isRoomChange) {
+                              setRentExpiryDate(computeExpiryFromFrequency(room));
+                            }
+                          }}
+                          className={`flex items-center justify-between p-3 rounded-2xl border transition-all text-left group ${
+                            isSelected ? "bg-blue-50 border-blue-200 ring-2 ring-blue-500/10"
+                            : isLocked ? "bg-slate-50 border-slate-100 opacity-50 cursor-not-allowed"
+                            : "bg-white border-slate-100 hover:border-blue-200 hover:bg-slate-50"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            {/* <div className={`p-2 rounded-xl border ${isSelected ? "bg-blue-600 text-white border-blue-500" : "bg-white text-slate-400 border-slate-200"}`}>
+                              <Home size={16} />
+                            </div> */}
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <p className={`text-sm font-bold ${isSelected ? "text-blue-900" : "text-slate-700"}`}>Room {room.roomNumber}</p>
+                                {room.block && (
+                                  <span className="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 uppercase">{room.block.name}</span>
+                                )}
+                              </div>
+                              <p className="text-[10px] font-medium text-slate-400">{room.tenants?.length || 0}/{room.capacity} beds</p>
                             </div>
-                            <p className="text-[10px] font-medium text-slate-400">{room.tenants?.length || 0}/{room.capacity} beds</p>
                           </div>
-                        </div>
-                        {isSelected && <ChevronRight size={14} className="text-blue-600" />}
-                        {isFull && <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">FULL</span>}
-                      </button>
-                    );
-                  })}
+                          {isSelected  && <ChevronRight size={14} className="text-blue-600" />}
+                          {isFull      && <span className="text-[9px] font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full border border-red-100">FULL</span>}
+                          {!hasBilling && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">NO BILLING</span>}
+                        </button>
+                      );
+                    })}
                 </div>
               </div>
               <div className="space-y-2">
@@ -382,21 +461,46 @@ export default function TenantActionsMenu({
                   <input type="date" value={rentExpiryDate} onChange={(e) => setRentExpiryDate(e.target.value)}
                     className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white focus:border-blue-200 transition-all" />
                 </div>
-                <div className="flex items-start gap-2 p-3 bg-blue-50/50 rounded-xl border border-blue-50">
-                  <Info size={13} className="text-blue-500 shrink-0 mt-0.5" />
-                  <p className="text-[10px] font-medium text-blue-600 leading-relaxed">Default is 1 year from today. This triggers automated rent reminders.</p>
+                <div className={`flex items-start gap-2 p-3 rounded-xl border ${
+                  isRoomChange ? "bg-amber-50/60 border-amber-100" : "bg-blue-50/50 border-blue-50"
+                }`}>
+                  <Info size={13} className={`shrink-0 mt-0.5 ${isRoomChange ? "text-amber-500" : "text-blue-500"}`} />
+                  <p className={`text-[10px] font-medium leading-relaxed ${isRoomChange ? "text-amber-700" : "text-blue-600"}`}>
+                    {isRoomChange
+                      ? "Existing rent period preserved — the tenant already paid for this cycle. Only change this if you intend to start a new billing cycle."
+                      : selectedRoom
+                        ? "Auto-set from the room's billing frequency. Adjust if needed."
+                        : "Select a room — expiry will be set from its billing frequency."}
+                  </p>
                 </div>
               </div>
             </div>
             <div className="p-6 bg-slate-50/50 border-t border-slate-100 flex gap-3">
-              <button onClick={() => setShowAssignModal(false)}
+              <button onClick={() => { setShowAssignModal(false); setRoomSearch(""); }}
                 className="flex-1 px-4 py-3 bg-white text-slate-600 text-sm font-bold rounded-2xl border border-slate-200 hover:bg-slate-50 transition-all">
                 Cancel
               </button>
-              <button onClick={handleAssign} disabled={loading || !selectedRoom}
-                className="flex-[2] px-4 py-3 bg-blue-600 text-white text-sm font-bold rounded-2xl hover:bg-blue-700 shadow-xl shadow-blue-500/20 disabled:bg-blue-300 disabled:shadow-none transition-all flex items-center justify-center gap-2">
-                {loading ? "Allocating..." : "Finalize Allocation"}
-              </button>
+              {(() => {
+                const selRoom = availableRooms.find(r => r.id === selectedRoom);
+                const isFull = selRoom ? selRoom.tenants?.length >= selRoom.capacity : false;
+                const isDisabled = loading || !selectedRoom || isFull;
+                return (
+                  <button
+                    onClick={handleAssign}
+                    disabled={isDisabled}
+                    title={isFull ? "Selected room is at full capacity" : undefined}
+                    className={`flex-[2] px-4 py-3 text-sm font-bold rounded-2xl transition-all flex items-center justify-center gap-2 ${
+                      isFull
+                        ? "bg-red-100 text-red-400 cursor-not-allowed shadow-none"
+                        : isDisabled
+                        ? "bg-blue-300 text-white shadow-none cursor-not-allowed"
+                        : "bg-blue-600 text-white hover:bg-blue-700 shadow-xl shadow-blue-500/20"
+                    }`}
+                  >
+                    {loading ? <><Loader2 size={16} className="animate-spin" /> Allocating...</> : isFull ? "Room is Full" : "Finalize Allocation"}
+                  </button>
+                );
+              })()}
             </div>
           </div>
         </div>

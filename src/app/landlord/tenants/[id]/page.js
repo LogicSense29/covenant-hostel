@@ -40,7 +40,7 @@ export default async function TenantProfilePage({ params }) {
 
   const availableRooms = await prisma.room.findMany({
     where: { NOT: { status: "UNDER_MAINTENANCE" } },
-    include: { tenants: true, block: true },
+    include: { tenants: true, block: true, billingRules: true },
     orderBy: { roomNumber: "asc" },
   });
 

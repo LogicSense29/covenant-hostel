@@ -39,7 +39,12 @@ export default async function TenantDashboard() {
         },
       },
       user: true,
-      primaryTenant: { include: { user: true } },
+      primaryTenant: { 
+        include: { 
+          user: true,
+          payments: { orderBy: { createdAt: "desc" }, take: 10 }
+        } 
+      },
       payments: { orderBy: { createdAt: "desc" }, take: 10 },
       stayHistory: {
         include: { room: { include: { block: true } } },
@@ -93,12 +98,15 @@ export default async function TenantDashboard() {
   }
 
   // ── ACTIVE dashboard ──
-  const hasPendingReceipt = payments.some(p => p.status === "PENDING" && p.receiptUrl);
-  const hasVerifiedPayment = payments.some(p => p.status === "VERIFIED" || p.status === "SUCCESS");
-  const hasNoPayment = payments.length === 0;
+  const isRoomSharer = !!profile.primaryTenantId;
+  const targetPayments = isRoomSharer && profile.primaryTenant ? profile.primaryTenant.payments : profile.payments;
+
+  const hasVerifiedPayment = targetPayments.some(p => p.status === "VERIFIED" || p.status === "SUCCESS");
+  const hasPendingReceipt  = targetPayments.some(p => p.status === "PENDING");
+  const hasNoPayment       = !hasVerifiedPayment && !hasPendingReceipt;
 
   const daysUntilExpiry = profile.rentExpiryDate
-    ? Math.ceil((new Date(profile.rentExpiryDate) - new Date()) / (1000 * 60 * 60 * 24))
+    ? Math.ceil((new Date(profile.rentExpiryDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
     : null;
   const isExpiringSoon  = daysUntilExpiry !== null && daysUntilExpiry <= 7  && daysUntilExpiry > 0;
   const isExpiringCrit  = daysUntilExpiry !== null && daysUntilExpiry <= 3  && daysUntilExpiry > 0;
@@ -115,7 +123,6 @@ export default async function TenantDashboard() {
   else if (hasPendingReceipt && !hasVerifiedPayment) { payLabel = "Pending"; payDot = "bg-amber-400"; payPill = "bg-amber-50 text-amber-700 border-amber-200"; }
 
   const canShare = room && !profile.primaryTenantId && room.tenants.length < room.capacity;
-  const isRoomSharer = !!profile.primaryTenantId;
   const hasGuarantor = profile?.guarantorName && profile.guarantorName.trim() !== "" && profile.guarantorName.trim().toLowerCase() !== "null";
 
   return (

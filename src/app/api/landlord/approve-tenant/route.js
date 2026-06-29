@@ -1,4 +1,4 @@
-  import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -23,7 +23,15 @@ export async function POST(req) {
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      include: { tenantProfile: true }
+      include: { 
+        tenantProfile: {
+          include: { 
+            primaryTenant: {
+              include: { user: true }
+            }
+          }
+        } 
+      }
     });
 
     if (!user) {
@@ -38,24 +46,51 @@ export async function POST(req) {
     const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
     const expires = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 hours
 
-    await prisma.$transaction([
-      prisma.user.update({
+    const now = new Date();
+    
+    // Check if they are a sharer and their primary is already ACTIVE
+    const isSharerWithActivePrimary = user.tenantProfile?.primaryTenant?.user?.status === "ACTIVE";
+    const newStatus = isSharerWithActivePrimary ? "ACTIVE" : "AWAITING_PAYMENT";
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Update user status
+      await tx.user.update({
         where: { id: userId },
-        data: { status: "AWAITING_PAYMENT" }
-      }),
-      prisma.setupToken.upsert({
+        data: { status: newStatus }
+      });
+
+      // 2. Setup token for password
+      await tx.setupToken.upsert({
         where: { userId: userId },
-        update: {
-          token,
-          expires
-        },
-        create: {
-          userId,
-          token,
-          expires
+        update: { token, expires },
+        create: { userId, token, expires }
+      });
+
+      // 3. If auto-activating a sharer, also set their dates and stay history
+      if (isSharerWithActivePrimary) {
+        const primaryProfile = user.tenantProfile.primaryTenant;
+        
+        await tx.tenantProfile.update({
+          where: { id: user.tenantProfile.id },
+          data: {
+            roomId: primaryProfile.roomId,
+            rentStartDate: now,
+            rentExpiryDate: primaryProfile.rentExpiryDate,
+          }
+        });
+
+        if (primaryProfile.roomId) {
+          await tx.stayHistory.create({
+            data: {
+              tenantId: user.tenantProfile.id,
+              roomId: primaryProfile.roomId,
+              startDate: now,
+              status: "ACTIVE"
+            }
+          });
         }
-      })
-    ]);
+      }
+    });
 
     // Derive base URL from request headers so it works in both dev and production
     const host = req.headers.get("host");
@@ -69,7 +104,12 @@ export async function POST(req) {
       setupLink
     });
 
-    return NextResponse.json({ success: true, message: "User approved and email sent." });
+    return NextResponse.json({ 
+      success: true, 
+      message: isSharerWithActivePrimary 
+        ? "User approved and automatically activated (Primary is active). Email sent." 
+        : "User approved and email sent." 
+    });
 
   } catch (error) {
     console.error("APPROVE_ERROR", error);

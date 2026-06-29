@@ -32,6 +32,8 @@ export default function PaymentBreakdownPanel({
   paymentHistory,
   rentFrequencyShorthand = "yr",
   allRecurringCharges = [],
+  isSharer = false,
+  primaryName = "",
 }) {
   // We keep track of checked state for each billing item.
   // By default, base rent, caution fees, and overdue charges are mandatory (checked and disabled).
@@ -379,14 +381,21 @@ export default function PaymentBreakdownPanel({
               </p>
             )}
           </div>
-          <button 
-            type="button"
-            disabled={activeTotal === 0}
-            onClick={() => setIsModalOpen(true)}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-2xl shadow-xl shadow-blue-500/20 active:translate-y-px transition-all disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
-          >
-            <CreditCard size={18} /> Make Payment
-          </button>
+          {isSharer ? (
+            <div className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-4 bg-slate-100 text-slate-500 text-sm font-bold rounded-2xl border border-slate-200">
+              <Lock size={18} />
+              Managed by {primaryName}
+            </div>
+          ) : (
+            <button 
+              type="button"
+              disabled={activeTotal === 0}
+              onClick={() => setIsModalOpen(true)}
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-2xl shadow-xl shadow-blue-500/20 active:translate-y-px transition-all disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
+            >
+              <CreditCard size={18} /> Make Payment
+            </button>
+          )}
         </div>
       </div>
 

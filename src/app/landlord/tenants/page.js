@@ -52,7 +52,8 @@ export default async function TenantsPage() {
     },
     include: {
       tenants: true,
-      block: true
+      block: true,
+      billingRules: true,
     },
     orderBy: { roomNumber: "asc" }
   });

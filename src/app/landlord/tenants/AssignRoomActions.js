@@ -6,11 +6,9 @@ import { toast } from "react-hot-toast";
 import { 
   X, 
   Home, 
-  Calendar as CalendarIcon, 
   UserPlus, 
   ChevronRight,
-  RefreshCw,
-  Info
+  RefreshCw
 } from "lucide-react";
 
 export default function AssignRoomActions({ tenantId, currentRoomId, availableRooms }) {
@@ -18,11 +16,6 @@ export default function AssignRoomActions({ tenantId, currentRoomId, availableRo
   const [loading, setLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState("");
-  const [rentExpiryDate, setRentExpiryDate] = useState(() => {
-    const d = new Date();
-    d.setFullYear(d.getFullYear() + 1);
-    return d.toISOString().split('T')[0];
-  });
 
   const handleAssign = async () => {
     if (!selectedRoom) {
@@ -35,7 +28,7 @@ export default function AssignRoomActions({ tenantId, currentRoomId, availableRo
       const res = await fetch(`/api/tenants/${tenantId}/assign`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roomId: selectedRoom, rentExpiryDate })
+        body: JSON.stringify({ roomId: selectedRoom })
       });
       
       if (res.ok) {
@@ -130,18 +123,21 @@ export default function AssignRoomActions({ tenantId, currentRoomId, availableRo
                 <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest px-1">Choose Available Room</label>
                 <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto pr-1">
                   {availableRooms.map((room) => {
-                    const isFull = room.tenants?.length >= room.capacity;
-                    const isSelected = selectedRoom === room.id;
+                    const isFull       = room.tenants?.length >= room.capacity;
+                    const hasBilling   = room.billingRules?.length > 0;
+                    const isLocked     = isFull || !hasBilling;
+                    const isSelected   = selectedRoom === room.id;
                     
                     return (
                       <button
                         key={room.id}
-                        disabled={isFull}
-                        onClick={() => setSelectedRoom(room.id)}
+                        disabled={isLocked}
+                        title={!hasBilling ? "No billing rule set up for this room. Add one in Room Management first." : undefined}
+                        onClick={() => !isLocked && setSelectedRoom(room.id)}
                         className={`flex items-center justify-between p-3 rounded-2xl border transition-all text-left group ${
                           isSelected 
                             ? 'bg-blue-50 border-blue-200 ring-2 ring-blue-500/10' 
-                            : isFull 
+                            : isLocked
                               ? 'bg-slate-50 border-slate-100 opacity-50 cursor-not-allowed' 
                               : 'bg-white border-slate-100 hover:border-blue-200 hover:bg-slate-50'
                         }`}
@@ -165,35 +161,15 @@ export default function AssignRoomActions({ tenantId, currentRoomId, availableRo
                             <p className="text-[10px] font-medium text-slate-400">{room.tenants?.length || 0}/{room.capacity} beds occupied</p>
                           </div>
                         </div>
-                        {isSelected && <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center text-white"><ChevronRight size={14} strokeWidth={3} /></div>}
-                        {isFull && <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">FULL</span>}
+                        {isSelected    && <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center text-white"><ChevronRight size={14} strokeWidth={3} /></div>}
+                        {isFull        && <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">FULL</span>}
+                        {!hasBilling   && <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">NO BILLING</span>}
                       </button>
                     );
                   })}
                 </div>
               </div>
 
-              {/* Expiry Date */}
-              <div className="space-y-2">
-                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest px-1">Rent Expiry Date</label>
-                <div className="relative group">
-                   <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors">
-                      <CalendarIcon size={18} />
-                   </div>
-                   <input 
-                    type="date"
-                    value={rentExpiryDate}
-                    onChange={(e) => setRentExpiryDate(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white focus:border-blue-200 transition-all font-sans"
-                  />
-                </div>
-                <div className="flex items-start gap-2 p-3 bg-blue-50/50 rounded-xl border border-blue-50">
-                  <Info size={14} className="text-blue-500 shrink-0 mt-0.5" />
-                  <p className="text-[10px] font-medium text-blue-600 leading-relaxed">
-                    Default is set to 1 year from today. This date will trigger automated rent reminders for both the tenant and admin.
-                  </p>
-                </div>
-              </div>
             </div>
 
             {/* Footer */}

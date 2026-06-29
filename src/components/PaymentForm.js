@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { CreditCard, CheckCircle2, AlertCircle, Loader2, Upload, Calendar, ChevronDown, ChevronUp } from "lucide-react";
+import { CreditCard, CheckCircle2, AlertCircle, Loader2, Upload, Calendar, ChevronDown, ChevronUp, Lock } from "lucide-react";
 import { usePaystackPayment } from "react-paystack";
 import { useSession } from "next-auth/react";
 import { toast } from "react-hot-toast";
@@ -22,6 +22,8 @@ export default function PaymentForm({
   breakdown = [],
   isRecurringOnly = false,
   charge = null,
+  isSharer = false,
+  primaryName = "",
 }) {
   const router = useRouter();
   const { data: session } = useSession();
@@ -382,7 +384,12 @@ export default function PaymentForm({
         )}
 
         {/* Submit button */}
-        {mode === "paystack" ? (
+        {isSharer ? (
+          <div className="w-full py-4 bg-slate-100 text-slate-500 rounded-2xl text-sm font-bold border border-slate-200 flex items-center justify-center gap-2">
+            <Lock size={18} />
+            Managed by {primaryName}
+          </div>
+        ) : mode === "paystack" ? (
           <button
             onClick={handlePaystackClick}
             disabled={loading || !signature.trim()}
