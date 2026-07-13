@@ -22,27 +22,28 @@ export default async function LandlordTenantPaymentHistoryPage({ params, searchP
 
   const profile = await prisma.tenantProfile.findUnique({
     where: { id },
-    include: { room: true, user: true },
+    include: { 
+      room: { include: { billingRules: true } }, 
+      user: true 
+    },
   });
 
   if (!profile) notFound();
 
   // Fetch all payment transactions for this tenant
-  const [allPayments, billingRules] = await Promise.all([
-    prisma.payment.findMany({
-      where: { tenantId: profile.id },
-      orderBy: { createdAt: "desc" },
-      include: {
-        recurringCharge: {
-          include: { billingRule: true }
-        }
+  const allPayments = await prisma.payment.findMany({
+    where: { tenantId: profile.id },
+    orderBy: { createdAt: "desc" },
+    include: {
+      recurringCharge: {
+        include: { billingRule: true }
       }
-    }),
-    // Fetch billing rules for this room so the modal can show frequency labels
-    profile.roomId ? prisma.billingRule.findMany({
-      where: { rooms: { some: { id: profile.roomId } } }
-    }) : Promise.resolve([]),
-  ]);
+    }
+  });
+
+  // Use only the billing rules actually ticked/assigned to this tenant's room
+  // to avoid wrong matches when multiple Base Rent rules exist.
+  const billingRules = profile.room?.billingRules || [];
 
   // Calculate aggregates
   const verifiedPayments = allPayments.filter(p => p.status === "VERIFIED" || p.status === "SUCCESS");

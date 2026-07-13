@@ -168,6 +168,7 @@ export default function TenantDirectoryClient({ initialTenants, initialNextCurso
           <option value="REJECTED">Rejected</option>
           <option disabled>──────────</option>
           <option value="EXPIRING_7">⚠ Expiring in 7 days</option>
+          <option value="EXPIRING_14">📅 Expiring in 14 days</option>
           <option value="EXPIRING_30">📅 Expiring in 30 days</option>
           <option value="EXPIRED_TENANT">🔴 Expired</option>
         </select>

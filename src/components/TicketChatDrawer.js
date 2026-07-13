@@ -93,7 +93,17 @@ export default function TicketChatDrawer({ isOpen, onClose, ticket, currentUser 
       const res = await fetch(`/api/maintenance/tickets/${ticket.id}/messages`);
       if (res.ok) {
         const data = await res.json();
-        setMessages(data);
+        
+        // Handle new { messages, ticket } format or fallback to array
+        const fetchedMessages = Array.isArray(data) ? data : (data.messages || []);
+        setMessages(fetchedMessages);
+        
+        // If the API returned the live ticket status (with rating info), sync it to local state
+        if (data.ticket && data.ticket.tenantRating > 0 && !ratingSubmitted) {
+          setRatingSubmitted(true);
+          setSubmittedRating(data.ticket.tenantRating);
+          setSubmittedFeedback(data.ticket.tenantFeedback || "");
+        }
       } else {
         console.error("Messages fetch failed:", res.status, await res.text().catch(() => ""));
       }
@@ -109,6 +119,12 @@ export default function TicketChatDrawer({ isOpen, onClose, ticket, currentUser 
       document.body.style.overflow = "hidden";
       setMessages([]);
       setFetching(true);
+
+      // Reset rating states for the newly opened ticket
+      setRatingSubmitted(!!(ticket.tenantRating && ticket.tenantRating > 0));
+      setSubmittedRating(ticket.tenantRating || 0);
+      setSubmittedFeedback(ticket.tenantFeedback || "");
+
       fetchMessages(true);
       
       // Start polling

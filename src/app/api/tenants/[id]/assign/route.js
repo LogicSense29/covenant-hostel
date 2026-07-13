@@ -22,7 +22,8 @@ function calcExpiry(frequency, fromDate = new Date()) {
   return expiry;
 }
 
-// Statuses that mean "vetted but not yet activated" — assigning a room promotes them to ACTIVE.
+// Statuses that mean "vetted" — assigning a room may promote them to ACTIVE user status.
+// NOTE: StayHistory creation is handled separately in activate-tenancy after payment is confirmed.
 const PROMOTABLE_STATUSES = ["AWAITING_PAYMENT", "PAYMENT_MADE", "APPROVED"];
 
 export async function PUT(req, { params }) {
@@ -99,14 +100,6 @@ export async function PUT(req, { params }) {
         where: { id },
         data: { roomId, rentStartDate, rentExpiryDate: expiry },
       });
-
-      // Create a new StayHistory entry for ACTIVE tenants (or those being promoted)
-      const willBeActive = currentStatus === "ACTIVE" || PROMOTABLE_STATUSES.includes(currentStatus);
-      if (willBeActive) {
-        await tx.stayHistory.create({
-          data: { tenantId: id, roomId, startDate: now, status: "ACTIVE" },
-        });
-      }
 
       // Mark the room as OCCUPIED
       await tx.room.update({

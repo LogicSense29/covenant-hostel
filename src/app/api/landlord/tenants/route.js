@@ -38,6 +38,12 @@ export async function GET(request) {
         gt: now,
         lte: sevenDaysFromNow,
       };
+    } else if (status === "EXPIRING_14") {
+      const fourteenDaysFromNow = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+      whereClause.rentExpiryDate = {
+        gt: now,
+        lte: fourteenDaysFromNow,
+      };
     } else if (status === "EXPIRING_30") {
       const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
       whereClause.rentExpiryDate = {

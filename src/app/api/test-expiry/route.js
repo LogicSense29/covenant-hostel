@@ -38,7 +38,7 @@ export async function GET(req) {
     // Moves the expiry date to N days from now, then immediately triggers the cron
     // so the full reminder flow fires in one click.
     const daysParam = parseInt(searchParams.get("days") || "7", 10);
-    const days = [7, 3, 1].includes(daysParam) ? daysParam : 7;
+    const days = [30, 14, 7, 3, 1].includes(daysParam) ? daysParam : 7;
 
     const targetDate = new Date();
     targetDate.setDate(targetDate.getDate() + days);
@@ -94,7 +94,7 @@ export async function GET(req) {
   if (action === "remind") {
     // Simulate an upcoming expiry reminder — sets expiry to N days from now and sends reminder
     const daysParam = parseInt(searchParams.get("days") || "7", 10);
-    const days = [7, 3, 1].includes(daysParam) ? daysParam : 7;
+    const days = [30, 14, 7, 3, 1].includes(daysParam) ? daysParam : 7;
 
     const targetDate = new Date();
     targetDate.setDate(targetDate.getDate() + days);
@@ -342,6 +342,8 @@ export async function GET(req) {
           <h3>Set Expiry + Auto-run Cron</h3>
           <p style="font-size:0.85rem;color:#64748b;margin:0 0 10px">Sets expiry to N days from now then automatically runs the cron — reminder emails and in-app notifications fire if the tenant falls in the window.</p>
           <div class="btn-row">
+            <a href="/api/test-expiry?action=set-expiry&days=30&email=${encodeURIComponent(email)}" class="btn btn-blue">Set to 30 Days</a>
+            <a href="/api/test-expiry?action=set-expiry&days=14&email=${encodeURIComponent(email)}" class="btn btn-blue">Set to 14 Days</a>
             <a href="/api/test-expiry?action=set-expiry&days=7&email=${encodeURIComponent(email)}" class="btn btn-blue">Set to 7 Days</a>
             <a href="/api/test-expiry?action=set-expiry&days=3&email=${encodeURIComponent(email)}" class="btn btn-amber">Set to 3 Days</a>
             <a href="/api/test-expiry?action=set-expiry&days=1&email=${encodeURIComponent(email)}" class="btn btn-red">Set to 1 Day</a>
@@ -350,6 +352,8 @@ export async function GET(req) {
           <h3>Manual Reminder Fire</h3>
           <p style="font-size:0.85rem;color:#64748b;margin:0 0 10px">Sets expiry AND directly fires the reminder email + in-app notification without going through the cron.</p>
           <div class="btn-row">
+            <a href="/api/test-expiry?action=remind&days=30&email=${encodeURIComponent(email)}" class="btn btn-blue">30-Day Warning</a>
+            <a href="/api/test-expiry?action=remind&days=14&email=${encodeURIComponent(email)}" class="btn btn-blue">14-Day Warning</a>
             <a href="/api/test-expiry?action=remind&days=7&email=${encodeURIComponent(email)}" class="btn btn-blue">7-Day Warning</a>
             <a href="/api/test-expiry?action=remind&days=3&email=${encodeURIComponent(email)}" class="btn btn-amber">3-Day Warning</a>
             <a href="/api/test-expiry?action=remind&days=1&email=${encodeURIComponent(email)}" class="btn btn-red">1-Day Warning</a>

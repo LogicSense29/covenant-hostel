@@ -16,12 +16,17 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: "Missing ticket ID" }, { status: 400 });
     }
 
+    const ticket = await prisma.maintenanceTicket.findUnique({
+      where: { id: ticketId },
+      select: { status: true, tenantRating: true, tenantFeedback: true }
+    });
+
     const messages = await prisma.ticketMessage.findMany({
       where: { ticketId },
       orderBy: { createdAt: "asc" }
     });
 
-    return NextResponse.json(messages);
+    return NextResponse.json({ messages, ticket });
   } catch (error) {
     console.error("Error fetching messages:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

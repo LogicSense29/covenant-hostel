@@ -31,6 +31,7 @@ export default function RegisterForm() {
   const [step, setStep] = useState(1);
   const [roomInfo, setRoomInfo] = useState(null);
   const [draftRestored, setDraftRestored] = useState(false);
+  const [copiedShareLink, setCopiedShareLink] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -338,11 +339,23 @@ export default function RegisterForm() {
                    const base = typeof window !== "undefined" ? window.location.origin : "";
                    // Include &sharedBy=profileId so the new registrant is correctly linked to this primary tenant
                    const link = `${base}/register?roomId=${roomId || selectedRoomId}&sharedBy=${registeredProfileId}`;
-                   navigator.clipboard.writeText(link).then(() => toast.success("Share link copied!"));
+                   navigator.clipboard.writeText(link).then(() => {
+                     toast.success("Share link copied!");
+                     setCopiedShareLink(true);
+                     setTimeout(() => setCopiedShareLink(false), 2000);
+                   });
                  }}
-                 className="w-full py-2.5 bg-blue-600 text-white text-xs font-bold rounded-xl hover:bg-blue-700 transition-colors"
+                 className={`w-full py-2.5 text-white text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-2 ${
+                   copiedShareLink ? "bg-green-600 hover:bg-green-700" : "bg-blue-600 hover:bg-blue-700"
+                 }`}
                >
-                 Copy Room Share Link
+                 {copiedShareLink ? (
+                   <>
+                     <CheckCircle2 size={16} /> Copied!
+                   </>
+                 ) : (
+                   "Copy Room Share Link"
+                 )}
                </button>
              </div>
            )}

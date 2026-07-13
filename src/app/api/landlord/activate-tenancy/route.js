@@ -155,10 +155,12 @@ export async function POST(req) {
 
 
     await prisma.$transaction([
+      // 1. Activate the user
       prisma.user.update({
         where: { id: userId },
         data: { status: "ACTIVE" }
       }),
+      // 2. Update rent dates
       prisma.tenantProfile.update({
         where: { userId: userId },
         data: { 
@@ -166,6 +168,12 @@ export async function POST(req) {
           rentExpiryDate: expiryDate
         }
       }),
+      // 3. Close any existing ACTIVE stay (handles renewals — same room, new period)
+      prisma.stayHistory.updateMany({
+        where: { tenantId: user.tenantProfile.id, status: "ACTIVE" },
+        data: { endDate: now, status: "COMPLETED" },
+      }),
+      // 4. Open a fresh stay for the new period
       prisma.stayHistory.create({
         data: {
           tenantId: user.tenantProfile.id,
@@ -198,6 +206,11 @@ export async function POST(req) {
             rentStartDate: now,
             rentExpiryDate: expiryDate,
           },
+        }),
+        // Close any existing ACTIVE stay for the sharer (renewal case)
+        prisma.stayHistory.updateMany({
+          where: { tenantId: sharer.id, status: "ACTIVE" },
+          data: { endDate: now, status: "COMPLETED" },
         }),
         // Only create StayHistory if the sharer already has a confirmed room
         ...(sharer.roomId ? [prisma.stayHistory.create({

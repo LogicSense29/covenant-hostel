@@ -79,7 +79,10 @@ export async function POST(req) {
 
     const profile = await prisma.tenantProfile.findUnique({
       where: { userId: session.user.id },
-      include: { room: { include: { block: true } } },
+      include: { 
+        room: { include: { block: true } },
+        roomSharers: { include: { user: true } }
+      },
     });
 
     if (!profile) return NextResponse.json({ error: "Tenant profile not found" }, { status: 404 });
@@ -127,7 +130,7 @@ export async function POST(req) {
         link: "/tenant/payments",
       });
 
-      // Send receipt email
+      // Send receipt email to primary tenant
       await sendPaymentReceiptEmail({
         email: session.user.email,
         name: session.user.name,
@@ -140,6 +143,26 @@ export async function POST(req) {
         breakdown: rcPayment.breakdown || null,
         paymentType: "RECURRING",
       });
+
+      // Send receipt email to sharers
+      if (profile.roomSharers && profile.roomSharers.length > 0) {
+        for (const sharer of profile.roomSharers) {
+          if (sharer.user?.email) {
+            await sendPaymentReceiptEmail({
+              email: sharer.user.email,
+              name: sharer.user.name || "Room Sharer",
+              amount,
+              reference,
+              paymentDate: new Date(),
+              roomNumber: profile.room?.roomNumber || null,
+              blockName: profile.room?.block?.name || null,
+              roomAddress: profile.room?.block?.address || null,
+              breakdown: rcPayment.breakdown || null,
+              paymentType: "RECURRING",
+            });
+          }
+        }
+      }
 
       // Notify landlords
       const landlordIds = await getLandlordUserIds();
@@ -239,7 +262,7 @@ export async function POST(req) {
       link: "/tenant/payments",
     });
 
-    // Send single consolidated receipt email
+    // Send single consolidated receipt email to primary tenant
     await sendPaymentReceiptEmail({
       email: session.user.email,
       name: session.user.name,
@@ -252,6 +275,26 @@ export async function POST(req) {
       breakdown: breakdown || null,
       paymentType: consolidatedPayment.paymentType,
     });
+
+    // Send single consolidated receipt email to sharers
+    if (profile.roomSharers && profile.roomSharers.length > 0) {
+      for (const sharer of profile.roomSharers) {
+        if (sharer.user?.email) {
+          await sendPaymentReceiptEmail({
+            email: sharer.user.email,
+            name: sharer.user.name || "Room Sharer",
+            amount: actualPaidAmount,
+            reference,
+            paymentDate: new Date(),
+            roomNumber: profile.room?.roomNumber || null,
+            blockName: profile.room?.block?.name || null,
+            roomAddress: profile.room?.block?.address || null,
+            breakdown: breakdown || null,
+            paymentType: consolidatedPayment.paymentType,
+          });
+        }
+      }
+    }
 
     // Notify landlords
     const landlordIds = await getLandlordUserIds();

@@ -27,12 +27,20 @@ export default async function TenantProfilePage({ params }) {
     where: { id },
     include: {
       user: true,
-      room: { include: { block: true } },
+      room: { include: { block: true, billingRules: true } },
       stayHistory: {
         include: { room: { include: { block: true } } },
         orderBy: { startDate: "desc" },
+        take: 50,
       },
-      payments: { orderBy: { createdAt: "desc" } },
+      payments: { 
+        orderBy: { createdAt: "desc" },
+        include: {
+          recurringCharge: {
+            include: { billingRule: true }
+          }
+        }
+      },
     },
   });
 
@@ -43,6 +51,9 @@ export default async function TenantProfilePage({ params }) {
     include: { tenants: true, block: true, billingRules: true },
     orderBy: { roomNumber: "asc" },
   });
+
+  // Use only the billing rules directly ticked on the tenant's room.
+  const billingRules = profile.room?.billingRules || [];
 
   const status = profile.user?.status || "ACTIVE";
   const isSelfEmployed = profile.workType === "Self employed/Worker" && !profile.isStudent;
@@ -184,7 +195,7 @@ export default async function TenantProfilePage({ params }) {
                   <InteractivePaymentTable 
                     payments={profile.payments.slice(0, 3)} 
                     allPayments={profile.payments}
-                    billingRules={[]} 
+                    billingRules={billingRules} 
                     showTime={false} 
                   />
                   {profile.payments.length > 0 && (

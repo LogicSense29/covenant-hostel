@@ -89,8 +89,8 @@ export default function TenantLayoutClient({ children, dbUser }) {
         <div className="flex flex-col items-center gap-8">
           {/* Logo Area */}
           <Link href="/tenant" className="group mb-2">
-             <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#203090] to-[#1a2673] flex items-center justify-center shadow-md shadow-[#203090]/30 group-hover:shadow-xl group-hover:shadow-[#203090]/40 transition-all duration-300 group-hover:scale-110 border border-[#1a2673]/50">
-               <img src="/convenant-hostel-logo.png" alt="Covenant Hostel" className="w-9 h-9 object-contain brightness-0 invert drop-shadow-md" />
+             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#203090] to-[#1a2673] flex items-center justify-center shadow-md shadow-[#203090]/30 group-hover:shadow-xl group-hover:shadow-[#203090]/40 transition-all duration-300 group-hover:scale-110 border border-[#1a2673]/50">
+               <img src="/convenant-hostel-logo.png" alt="Covenant Hostel" className="w-6 h-6 object-contain brightness-0 invert drop-shadow-md" />
              </div>
           </Link>
 
@@ -148,12 +148,15 @@ export default function TenantLayoutClient({ children, dbUser }) {
               <NotificationBell />
            </div>
            
-           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#203090] to-[#1a2673] flex items-center justify-center text-white font-bold text-md cursor-pointer hover:scale-105 transition-transform overflow-hidden border border-slate-200" title={session?.user?.name || "Profile"}>
-             <img 
-               src={`https://api.dicebear.com/9.x/micah/svg?seed=${session?.user?.name || "Tenant"}&backgroundColor=transparent`} 
-               alt="Profile Avatar" 
-               className="w-full h-full object-cover"
-             />
+           <div className="flex items-center gap-3 cursor-pointer group hover:opacity-80 transition-opacity" title={session?.user?.name || "Profile"}>
+             <span className="text-sm font-medium text-slate-700">{session?.user?.name || "Tenant"}</span>
+             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#203090] to-[#1a2673] flex items-center justify-center text-white font-bold text-md group-hover:scale-105 transition-transform overflow-hidden border border-slate-200">
+               <img 
+                 src={`https://api.dicebear.com/9.x/micah/svg?seed=${session?.user?.name || "Tenant"}&backgroundColor=transparent`} 
+                 alt="Profile Avatar" 
+                 className="w-full h-full object-cover"
+               />
+             </div>
            </div>
            
            <button onClick={() => signOut()} className="w-12 h-12 flex items-center justify-center rounded-full text-slate-600 hover:bg-rose-50 hover:text-rose-500 transition-all bg-white/60 hover:bg-white/90" title="Sign Out">

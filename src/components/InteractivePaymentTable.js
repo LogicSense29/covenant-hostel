@@ -55,10 +55,24 @@ export default function InteractivePaymentTable({ payments, allPayments = null, 
   const getItemFreq = (item) => {
     // 1. Already stored on the item (new payments)
     if (item.frequency) return freqLabel(item.frequency);
+    
+    // Clean name to remove Installment suffix if present
+    const cleanName = (item.name?.split(" (Installment")[0] || item.name)?.trim();
+    
+    // Default rent to its accurate rule frequency
+    if (cleanName === "Base Room Rent" || cleanName?.toLowerCase().includes("rent")) {
+      const rentRule = billingRules.find(r => 
+        (r.type && ["Base Rent", "Base_Rent", "BaseRent", "Rent", "RENT", "BASE_RENT"].includes(r.type)) ||
+        (r.title && r.title.toLowerCase().includes("rent")) ||
+        (r.description && r.description.toLowerCase().includes("rent"))
+      );
+      return rentRule ? freqLabel(rentRule.frequency) : null;
+    }
+
     // 2. Look up by name from passed billing rules (existing payments)
     const match = billingRules.find(r =>
-      (r.title && r.title === item.name) ||
-      (r.description && r.description === item.name)
+      (r.title && r.title.trim() === cleanName) ||
+      (r.description && r.description.trim() === cleanName)
     );
     return match ? freqLabel(match.frequency) : null;
   };
@@ -66,7 +80,26 @@ export default function InteractivePaymentTable({ payments, allPayments = null, 
   // Derive frequency label for a payment (used on the Payment Value row)
   const getPaymentFreq = (pmt) => {
     if (pmt.paymentType === "RECURRING") {
-      return freqLabel(pmt.recurringCharge?.billingRule?.frequency);
+      if (pmt.recurringCharge?.billingRule?.frequency) {
+        return freqLabel(pmt.recurringCharge.billingRule.frequency);
+      }
+      
+      const chargeTitle = getPaymentTypeName(pmt)?.trim();
+      const match = billingRules.find(r =>
+        (r.title && r.title.trim() === chargeTitle) ||
+        (r.description && r.description.trim() === chargeTitle)
+      );
+      if (match) return freqLabel(match.frequency);
+      
+      return null;
+    }
+    if (pmt.paymentType === "FULL" || pmt.paymentType === "PARTIAL") {
+      const rentRule = billingRules.find(r => 
+        (r.type && ["Base Rent", "Base_Rent", "BaseRent", "Rent", "RENT", "BASE_RENT"].includes(r.type)) ||
+        (r.title && r.title.toLowerCase().includes("rent")) ||
+        (r.description && r.description.toLowerCase().includes("rent"))
+      );
+      return rentRule ? freqLabel(rentRule.frequency) : null;
     }
     return null;
   };
@@ -255,9 +288,6 @@ export default function InteractivePaymentTable({ payments, allPayments = null, 
                     <span className="text-slate-500 font-medium">Payment Value</span>
                     <span className="font-extrabold text-slate-900 text-sm">
                       ₦{selectedPayment.pmt.amount.toLocaleString()}
-                      {getPaymentFreq(selectedPayment.pmt) && (
-                        <span className="text-slate-400 font-normal text-xs">/{getPaymentFreq(selectedPayment.pmt)}</span>
-                      )}
                     </span>
                   </div>
                 </div>

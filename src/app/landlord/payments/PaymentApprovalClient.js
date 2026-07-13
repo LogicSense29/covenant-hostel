@@ -1,10 +1,127 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { CreditCard, CheckCircle2, XCircle, FileText, Loader2, Filter } from "lucide-react";
+import {
+  CreditCard, CheckCircle2, XCircle, FileText,
+  Loader2, MoreVertical, ExternalLink, User
+} from "lucide-react";
 import { toast } from "react-hot-toast";
+import Link from "next/link";
 
+// ── Per-row actions dropdown ──────────────────────────────────────────────────
+function PaymentActionsMenu({ pmt, onApprove, onReject, loading }) {
+  const [open, setOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState({ top: 0, right: 0 });
+  const buttonRef = useRef(null);
+  const menuRef = useRef(null);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => {
+      if (
+        menuRef.current && !menuRef.current.contains(e.target) &&
+        buttonRef.current && !buttonRef.current.contains(e.target)
+      ) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const handleToggle = (e) => {
+    e.stopPropagation();
+    if (!open && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setMenuPos({
+        top: rect.bottom + window.scrollY + 4,
+        right: window.innerWidth - rect.right,
+      });
+    }
+    setOpen((o) => !o);
+  };
+
+  const isPending = pmt.status === "PENDING";
+  const hasReceipt = Boolean(pmt.receiptUrl);
+  const isLoading = loading === pmt.id;
+
+  return (
+    <div className="relative flex justify-end">
+      <button
+        ref={buttonRef}
+        onClick={handleToggle}
+        disabled={isLoading}
+        className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-all disabled:opacity-50"
+      >
+        {isLoading
+          ? <Loader2 size={16} className="animate-spin" />
+          : <MoreVertical size={16} />
+        }
+      </button>
+
+      {open && (
+        <div
+          ref={menuRef}
+          style={{ position: "fixed", top: menuPos.top, right: menuPos.right, zIndex: 9999 }}
+          className="w-48 bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+        >
+          {/* View receipt */}
+          {hasReceipt && (
+            <a
+              href={pmt.receiptUrl}
+              target="_blank"
+              rel="noreferrer"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2.5 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              <FileText size={14} className="text-slate-400" />
+              View Receipt
+            </a>
+          )}
+
+          {/* View tenant profile */}
+          {pmt.tenant?.id && (
+            <Link
+              href={`/landlord/tenants/${pmt.tenant.id}`}
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2.5 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              <User size={14} className="text-slate-400" />
+              View Tenant
+            </Link>
+          )}
+
+          {/* Approve — only for pending payments with a receipt */}
+          {isPending && hasReceipt && (
+            <>
+              <div className="border-t border-slate-100 mx-3" />
+              <button
+                onClick={() => { setOpen(false); onApprove(pmt.id); }}
+                className="flex items-center gap-2.5 w-full px-4 py-3 text-sm font-semibold text-green-700 hover:bg-green-50 transition-colors"
+              >
+                <CheckCircle2 size={14} className="text-green-500" />
+                Approve Payment
+              </button>
+            </>
+          )}
+
+          {/* Reject — only for pending payments */}
+          {isPending && (
+            <button
+              onClick={() => { setOpen(false); onReject(pmt.id); }}
+              className="flex items-center gap-2.5 w-full px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-50 transition-colors"
+            >
+              <XCircle size={14} className="text-red-400" />
+              Reject Payment
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 export default function PaymentApprovalClient({ payments }) {
   const router = useRouter();
   const [filter, setFilter] = useState("PENDING");
@@ -169,27 +286,13 @@ export default function PaymentApprovalClient({ payments }) {
                     <td className="px-6 py-4 text-xs text-slate-500">
                       {new Date(pmt.createdAt).toLocaleDateString()}
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      {pmt.status === "PENDING" && pmt.receiptUrl && (
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => handleApprove(pmt.id)}
-                            disabled={loadingId === pmt.id}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-xs font-bold rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
-                          >
-                            {loadingId === pmt.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
-                            Approve
-                          </button>
-                          <button
-                            onClick={() => handleReject(pmt.id)}
-                            disabled={loadingId === pmt.id}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 text-xs font-bold rounded-lg hover:bg-red-100 border border-red-100 transition-colors disabled:opacity-50"
-                          >
-                            <XCircle size={12} />
-                            Reject
-                          </button>
-                        </div>
-                      )}
+                    <td className="px-6 py-4">
+                      <PaymentActionsMenu
+                        pmt={pmt}
+                        onApprove={handleApprove}
+                        onReject={handleReject}
+                        loading={loadingId}
+                      />
                     </td>
                   </tr>
                 ))}
