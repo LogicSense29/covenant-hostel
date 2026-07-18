@@ -475,7 +475,7 @@ export default function TenantDirectoryClient({ initialTenants, initialNextCurso
               </div>
 
               {/* Partial payment toggle — for eligible statuses */}
-              {["ACTIVE", "AWAITING_PAYMENT", "PAYMENT_MADE"].includes(selectedTenant.user?.status) && (
+              {["ACTIVE", "AWAITING_PAYMENT", "PAYMENT_MADE", "EXPIRED"].includes(selectedTenant.user?.status) && (
                 <PartialPaymentToggle
                   tenantProfileId={selectedTenant.id}
                   allowPartialPayment={selectedTenant.allowPartialPayment}

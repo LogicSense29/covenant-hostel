@@ -160,7 +160,7 @@ export default function ApprovalActions({ userId, status, payments = [] }) {
         <span className="text-[10px] font-bold uppercase tracking-wider">Rejected</span>
       </div>
     );
-  } else {
+  } else if (status === "PENDING") {
     content = (
       <div className="flex items-center gap-2">
         <button 
@@ -182,6 +182,10 @@ export default function ApprovalActions({ userId, status, payments = [] }) {
         </button>
       </div>
     );
+  } else {
+    // For EXPIRED or any other unhandled status, don't show the quick action buttons.
+    // They can manage eviction/renewals through the main 3-dots action menu.
+    return null;
   }
 
   return (

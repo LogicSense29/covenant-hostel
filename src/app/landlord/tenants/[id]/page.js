@@ -250,7 +250,7 @@ export default async function TenantProfilePage({ params }) {
           </div>
 
           {/* Partial payment toggle */}
-          {["ACTIVE", "AWAITING_PAYMENT", "PAYMENT_MADE"].includes(status) && (
+          {["ACTIVE", "AWAITING_PAYMENT", "PAYMENT_MADE", "EXPIRED"].includes(status) && (
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-5 space-y-3">
               <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Payment Settings</h2>
               <PartialPaymentToggle
