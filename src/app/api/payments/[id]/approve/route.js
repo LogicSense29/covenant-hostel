@@ -26,6 +26,7 @@ export async function POST(req, { params }) {
           include: {
             user: true,
             room: { include: { block: true } },
+            roomSharers: { include: { user: true } },
           },
         },
       },
@@ -136,6 +137,33 @@ export async function POST(req, { params }) {
       breakdown: payment.breakdown || null,
       paymentType: payment.paymentType,
     });
+
+    // Send receipt email and in-platform notifications to sharers
+    if (payment.tenant.roomSharers && payment.tenant.roomSharers.length > 0) {
+      for (const sharer of payment.tenant.roomSharers) {
+        if (sharer.user?.email) {
+          await sendPaymentReceiptEmail({
+            email: sharer.user.email,
+            name: sharer.user.name || "Room Sharer",
+            amount: payment.amount,
+            reference: payment.reference,
+            paymentDate: updated.approvedAt || new Date(),
+            roomNumber: room?.roomNumber || null,
+            blockName: room?.block?.name || null,
+            roomAddress: room?.block?.address || null,
+            breakdown: payment.breakdown || null,
+            paymentType: payment.paymentType,
+          });
+        }
+        await createNotification({
+          userId: sharer.userId,
+          title: "Payment Approved",
+          message: `A payment of ₦${payment.amount.toLocaleString()} has been approved.`,
+          type: "PAYMENT",
+          link: "/tenant/payments",
+        });
+      }
+    }
 
     return NextResponse.json(updated);
   } catch (err) {

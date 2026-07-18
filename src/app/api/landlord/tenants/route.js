@@ -83,7 +83,12 @@ export async function GET(request) {
       payments: {
         orderBy: { createdAt: "desc" }
       },
-      primaryTenant: { include: { user: true } }
+      primaryTenant: { 
+        include: { 
+          user: true,
+          room: { include: { block: true } }
+        } 
+      }
     }
   };
 

@@ -158,7 +158,7 @@ export default function LandlordLayout({ children }) {
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col lg:pl-72 min-h-screen">
+      <div className="flex-1 flex flex-col lg:pl-72 min-h-screen min-w-0">
         <header className="h-20 bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30 px-4 md:px-8 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button 
@@ -197,7 +197,7 @@ export default function LandlordLayout({ children }) {
           </div>
         </header>
 
-        <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full">
+        <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full min-w-0">
           {children}
         </main>
       </div>

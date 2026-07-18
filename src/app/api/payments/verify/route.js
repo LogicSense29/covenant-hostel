@@ -161,6 +161,13 @@ export async function POST(req) {
               paymentType: "RECURRING",
             });
           }
+          await createNotification({
+            userId: sharer.userId,
+            title: "Bill Paid Successfully",
+            message: `A payment for the utility charge of ₦${amount.toLocaleString()} was successful.`,
+            type: "PAYMENT",
+            link: "/tenant/payments",
+          });
         }
       }
 
@@ -293,6 +300,13 @@ export async function POST(req) {
             paymentType: consolidatedPayment.paymentType,
           });
         }
+        await createNotification({
+          userId: sharer.userId,
+          title: "Payment Received",
+          message: `A payment of ₦${actualPaidAmount.toLocaleString()} has been received successfully.`,
+          type: "PAYMENT",
+          link: "/tenant/payments",
+        });
       }
     }
 

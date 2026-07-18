@@ -418,10 +418,11 @@ export async function sendRentExpiredNotification({ email, name, roomNumber, exp
           <p>Your tenancy for <strong>Room ${roomNumber}</strong> expired on <strong>${new Date(expiryDate).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</strong>.</p>
           <div style="background: #fff1f2; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 4px solid #e11d48;">
             <p style="margin: 0; font-weight: bold; color: #9f1239;">Your portal access has been restricted.</p>
-            <p style="margin: 8px 0 0; color: #b91c1c; font-size: 14px;">Please contact the hostel management office to renew your tenancy and restore full access.</p>
+            <p style="margin: 8px 0 0; color: #b91c1c; font-size: 14px;">Please Login in to Pay or contact the hostel management office to renew your tenancy and restore full access.</p>
           </div>
           <p>If you believe this is an error or have already made a renewal payment, please contact us immediately.</p>
           <p>Best regards,<br/>The Covenant Hostel Management Team</p>
+          <p>08090791947</p>
         </div>
       `,
     });

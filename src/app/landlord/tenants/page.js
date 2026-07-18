@@ -33,7 +33,12 @@ export default async function TenantsPage() {
           createdAt: "desc"
         }
       },
-      primaryTenant: { include: { user: true } }
+      primaryTenant: { 
+        include: { 
+          user: true,
+          room: { include: { block: true } }
+        } 
+      }
     },
     orderBy: {
       createdAt: "desc"

@@ -202,8 +202,8 @@ export default function TenantDirectoryClient({ initialTenants, initialNextCurso
               <thead>
                 <tr className="bg-slate-50/50 border-b border-slate-100">
                   <th className="px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Tenant</th>
-                  <th className="px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Guarantor</th>
-                  <th className="px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest">IDs</th>
+                  <th className="px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest hidden md:table-cell">Guarantor</th>
+                  <th className="px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest hidden md:table-cell">IDs</th>
                   <th className="px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Room</th>
                   <th className="px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-right">Actions</th>
                 </tr>
@@ -212,6 +212,7 @@ export default function TenantDirectoryClient({ initialTenants, initialNextCurso
                 {tenants.map((profile) => {
                   const status = profile.primaryTenantId ? (profile.primaryTenant?.user?.status || "ACTIVE") : (profile.user?.status || "ACTIVE");
                   const effectiveExpiryDate = profile.primaryTenantId ? profile.primaryTenant?.rentExpiryDate : profile.rentExpiryDate;
+                  const effectiveRoom = profile.primaryTenantId ? profile.primaryTenant?.room : profile.room;
                   const isSelfEmployed = profile.workType === "Self employed/Worker" && !profile.isStudent;
 
                   return (
@@ -278,7 +279,7 @@ export default function TenantDirectoryClient({ initialTenants, initialNextCurso
                       </td>
 
                       {/* Guarantor */}
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 hidden md:table-cell">
                         {isSelfEmployed ? (
                           <span className="text-[10px] text-slate-300 italic">N/A</span>
                         ) : (
@@ -294,7 +295,7 @@ export default function TenantDirectoryClient({ initialTenants, initialNextCurso
                       </td>
 
                       {/* ID Verify */}
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 hidden md:table-cell">
                         <div className="flex flex-wrap gap-1.5">
                           {profile.guarantorIdUrl && !isSelfEmployed ? (
                             <a 
@@ -342,12 +343,12 @@ export default function TenantDirectoryClient({ initialTenants, initialNextCurso
 
                       {/* Room Allocation */}
                       <td className="px-4 py-3 whitespace-nowrap">
-                        {profile.room ? (
+                        {effectiveRoom ? (
                           <div className="flex flex-col gap-0.5">
                             <div className="flex items-center gap-1.5 text-[11px] font-bold text-blue-700 bg-blue-50 px-2 py-1 rounded-lg border border-blue-100 w-fit">
                               <MapPin size={11} />
-                              Room {profile.room.roomNumber}
-                              {profile.room.block && <span className="text-[9px] font-bold text-indigo-500">{profile.room.block.name}</span>}
+                              Room {effectiveRoom.roomNumber}
+                              {effectiveRoom.block && <span className="text-[9px] font-bold text-indigo-500">{effectiveRoom.block.name}</span>}
                             </div>
                           </div>
                         ) : (
@@ -385,15 +386,17 @@ export default function TenantDirectoryClient({ initialTenants, initialNextCurso
       )}
 
       {/* SLIM DRAWER */}
-      {selectedTenant && (
-        <>
-          <div
-            className="fixed h-screen inset-0 bg-slate-900/40 backdrop-blur-sm z-40 animate-in fade-in duration-300"
-            onClick={() => setSelectedTenant(null)}
-          />
-          <div className="fixed left-0 right-0 bottom-0 top-16 md:top-0 md:bottom-0 md:left-auto md:right-0 md:w-full md:max-w-sm bg-white z-50 rounded-t-3xl md:rounded-none md:rounded-l-3xl shadow-2xl flex flex-col animate-in slide-in-from-bottom md:slide-in-from-right duration-300">
+      {selectedTenant && (() => {
+          const effectiveSelectedRoom = selectedTenant.primaryTenantId ? selectedTenant.primaryTenant?.room : selectedTenant.room;
+          return (
+            <>
+              <div
+                className="fixed h-screen inset-0 bg-slate-900/40 backdrop-blur-sm z-40 animate-in fade-in duration-300"
+                onClick={() => setSelectedTenant(null)}
+              />
+              <div className="fixed left-0 right-0 bottom-0 top-16 md:top-0 md:bottom-0 md:left-auto md:right-0 md:w-full md:max-w-sm bg-white z-50 rounded-t-3xl md:rounded-none md:rounded-l-3xl shadow-2xl flex flex-col animate-in slide-in-from-bottom md:slide-in-from-right duration-300">
 
-            {/* Header */}
+                {/* Header */}
             <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-white sticky top-0 rounded-t-3xl md:rounded-tl-3xl z-10 shrink-0">
               <div>
                 <h2 className="text-lg font-bold text-slate-900">Quick View</h2>
@@ -446,8 +449,8 @@ export default function TenantDirectoryClient({ initialTenants, initialNextCurso
                 <div className="flex items-center justify-between px-4 py-3">
                   <span className="text-xs text-slate-400 font-semibold">Room</span>
                   <span className="text-xs font-bold text-slate-700">
-                    {selectedTenant.room
-                      ? `Room ${selectedTenant.room.roomNumber}${selectedTenant.room.block?.name ? ` · ${selectedTenant.room.block.name}` : ""}`
+                    {effectiveSelectedRoom
+                      ? `Room ${effectiveSelectedRoom.roomNumber}${effectiveSelectedRoom.block?.name ? ` · ${effectiveSelectedRoom.block.name}` : ""}`
                       : "Not assigned"}
                   </span>
                 </div>
@@ -472,32 +475,31 @@ export default function TenantDirectoryClient({ initialTenants, initialNextCurso
                 >
                   <Mail size={15} /> Send Email
                 </button>
-              </div>
-
-              {/* Partial payment toggle — for eligible statuses */}
+                              {/* Partial payment toggle — for eligible statuses */}
               {["ACTIVE", "AWAITING_PAYMENT", "PAYMENT_MADE", "EXPIRED"].includes(selectedTenant.user?.status) && (
                 <PartialPaymentToggle
                   tenantProfileId={selectedTenant.id}
                   allowPartialPayment={selectedTenant.allowPartialPayment}
                   partialPaymentInstallments={selectedTenant.partialPaymentInstallments}
-                  totalDue={selectedTenant.room?.rentAmount || null}
+                  totalDue={effectiveSelectedRoom?.rentAmount || null}
                 />
               )}
             </div>
+            </div>
 
             {/* Footer — View Full Profile */}
-            <div className="p-5 border-t border-slate-100 shrink-0">
-              <Link
+            <div className="p-5 border-t border-slate-100 bg-slate-50 mt-auto rounded-bl-3xl">
+              <Link 
                 href={`/landlord/tenants/${selectedTenant.id}`}
-                className="w-full flex items-center justify-center gap-2 py-3 bg-slate-900 text-white text-sm font-bold rounded-2xl hover:bg-blue-600 transition-all"
+                className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-all shadow-md shadow-blue-500/20"
               >
-                <ExternalLink size={16} />
-                View Full Profile
+                View Full Profile <ArrowRight size={16} />
               </Link>
             </div>
           </div>
         </>
-      )}
+      );
+    })()}
       {showBulkEmail && (
         <BulkEmailModal
           tenants={tenants}
@@ -511,5 +513,7 @@ export default function TenantDirectoryClient({ initialTenants, initialNextCurso
         />
       )}
     </div>
+    
   );
+
 }
