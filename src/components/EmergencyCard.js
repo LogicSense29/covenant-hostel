@@ -3,8 +3,9 @@
 import { Phone } from "lucide-react";
 import { toast } from "react-hot-toast";
 
-const EMERGENCY_NUMBER = "+2348005678767"; // tel: format — no spaces
+const EMERGENCY_NUMBER = "+2348090791947"; // tel: format — no spaces
 const DISPLAY_NUMBER   = "+234 800-SOS";
+// +2348005678767
 
 export default function EmergencyCard() {
   const handleClick = () => {

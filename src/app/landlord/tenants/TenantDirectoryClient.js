@@ -13,7 +13,8 @@ import {
   X,
   Mail,
   ExternalLink,
-  Loader2
+  Loader2,
+  Link2
 } from "lucide-react";
 import Link from "next/link";
 import TenantActionsMenu from "./TenantActionsMenu";
@@ -209,7 +210,8 @@ export default function TenantDirectoryClient({ initialTenants, initialNextCurso
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {tenants.map((profile) => {
-                  const status = profile.user?.status || "ACTIVE";
+                  const status = profile.primaryTenantId ? (profile.primaryTenant?.user?.status || "ACTIVE") : (profile.user?.status || "ACTIVE");
+                  const effectiveExpiryDate = profile.primaryTenantId ? profile.primaryTenant?.rentExpiryDate : profile.rentExpiryDate;
                   const isSelfEmployed = profile.workType === "Self employed/Worker" && !profile.isStudent;
 
                   return (
@@ -238,6 +240,16 @@ export default function TenantDirectoryClient({ initialTenants, initialNextCurso
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-1 mb-0.5">
                               <p className="text-sm font-bold text-slate-900 group-hover:text-blue-700 transition-colors truncate">{profile.user?.name || "Unnamed"}</p>
+                              
+                              {profile.primaryTenantId && (
+                                <span 
+                                  className="shrink-0 flex items-center gap-1 text-[8px] px-1.5 py-0.5 bg-indigo-50 text-indigo-700 rounded font-bold uppercase tracking-tighter border border-indigo-100"
+                                  title={`Linked to ${profile.primaryTenant?.user?.name || "Primary Tenant"}`}
+                                >
+                                  <Link2 size={9} /> Sharer
+                                </span>
+                              )}
+
                               {profile.isStudent ? (
                                 <span className="shrink-0 flex items-center gap-1 text-[8px] px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded font-bold uppercase tracking-tighter">
                                   <GraduationCap size={9} /> Student
@@ -252,8 +264,8 @@ export default function TenantDirectoryClient({ initialTenants, initialNextCurso
                               {status === 'AWAITING_PAYMENT' && <span className="shrink-0 text-[8px] px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded font-bold uppercase tracking-tighter border border-blue-100">Awaiting Payment</span>}
                               {status === 'PAYMENT_MADE' && <span className="shrink-0 text-[8px] px-1.5 py-0.5 bg-emerald-50 text-emerald-600 rounded font-bold uppercase tracking-tighter border border-emerald-100">Payment Made</span>}
                               {(() => {
-                                if (!profile.rentExpiryDate) return null;
-                                const days = Math.ceil((new Date(profile.rentExpiryDate) - now) / (1000 * 60 * 60 * 24));
+                                if (!effectiveExpiryDate) return null;
+                                const days = Math.ceil((new Date(effectiveExpiryDate) - now) / (1000 * 60 * 60 * 24));
                                 if (days <= 0) return <span className="shrink-0 text-[8px] px-1.5 py-0.5 bg-red-100 text-red-700 rounded font-bold uppercase tracking-tighter">Expired</span>;
                                 if (days <= 7) return <span className="shrink-0 text-[8px] px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded font-bold uppercase tracking-tighter">{days}d left</span>;
                                 if (days <= 30) return <span className="shrink-0 text-[8px] px-1.5 py-0.5 bg-amber-50 text-amber-600 rounded font-bold uppercase tracking-tighter border border-amber-100">{days}d left</span>;
@@ -406,12 +418,20 @@ export default function TenantDirectoryClient({ initialTenants, initialNextCurso
                     <Phone size={12} className="text-slate-400" /> {selectedTenant.phone}
                   </p>
                   <div className="flex gap-1.5 mt-1.5 flex-wrap">
+                    {selectedTenant.primaryTenantId && (
+                      <span 
+                        className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded font-bold border border-indigo-100"
+                        title={`Linked to ${selectedTenant.primaryTenant?.user?.name || "Primary Tenant"}`}
+                      >
+                        <Link2 size={10} /> Sharer
+                      </span>
+                    )}
                     {selectedTenant.isStudent
                       ? <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-blue-100 text-blue-700 rounded font-bold"><GraduationCap size={10} /> Student</span>
                       : <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded font-bold"><Briefcase size={10} /> Professional</span>
                     }
                     <span className="text-[10px] px-2 py-0.5 bg-slate-100 text-slate-600 rounded font-bold border border-slate-200">
-                      {selectedTenant.user?.status?.replace(/_/g, " ")}
+                      {(selectedTenant.primaryTenantId ? selectedTenant.primaryTenant?.user?.status : selectedTenant.user?.status)?.replace(/_/g, " ") || "UNKNOWN"}
                     </span>
                   </div>
                 </div>

@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import {
   ArrowLeft, MapPin, Phone, Mail, GraduationCap,
-  Briefcase, FileText, ShieldCheck, Calendar, Home
+  Briefcase, FileText, ShieldCheck, Calendar, Home, Link2
 } from "lucide-react";
 import ApprovalActions from "../ApprovalActions";
 import AssignRoomActions from "../AssignRoomActions";
@@ -41,6 +41,7 @@ export default async function TenantProfilePage({ params }) {
           }
         }
       },
+      primaryTenant: { include: { user: true } }
     },
   });
 
@@ -55,7 +56,7 @@ export default async function TenantProfilePage({ params }) {
   // Use only the billing rules directly ticked on the tenant's room.
   const billingRules = profile.room?.billingRules || [];
 
-  const status = profile.user?.status || "ACTIVE";
+  const status = profile.primaryTenantId ? (profile.primaryTenant?.user?.status || "ACTIVE") : (profile.user?.status || "ACTIVE");
   const isSelfEmployed = profile.workType === "Self employed/Worker" && !profile.isStudent;
 
   return (
@@ -86,6 +87,14 @@ export default async function TenantProfilePage({ params }) {
                 </span>
               </div>
               <div className="flex gap-2 mt-2 flex-wrap">
+                {profile.primaryTenantId && (
+                  <span 
+                    className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded font-bold border border-indigo-100"
+                    title={`Linked to ${profile.primaryTenant?.user?.name || "Primary Tenant"}`}
+                  >
+                    <Link2 size={10} /> Sharer
+                  </span>
+                )}
                 {profile.isStudent
                   ? <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-blue-100 text-blue-700 rounded font-bold"><GraduationCap size={10} /> Student</span>
                   : <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded font-bold"><Briefcase size={10} /> Professional</span>

@@ -177,15 +177,38 @@ export default function TenantActionsMenu({
     finally { setLoading(false); }
   };
 
-  const handleUnassign = () => {
+  const handleUnassign = (force = false) => {
     setOpen(false);
-    confirmAction("Unassign this tenant from their room?", async () => {
+    confirmAction(
+      force 
+        ? "WARNING: Force ending tenancy will evict the tenant despite outstanding balances. Proceed?" 
+        : "End this tenancy and unassign the room?", 
+      async () => {
       setLoading(true);
       try {
-        const res = await fetch(`/api/tenants/${profile.id}/unassign`, { method: "PUT" });
-        if (res.ok) { toast.success("Room unassigned."); router.refresh(); }
-        else { toast.error("Failed to unassign room."); }
-      } catch { toast.error("Error unassigning room."); }
+        const res = await fetch(`/api/tenants/${profile.id}/unassign`, { 
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ force })
+        });
+        if (res.ok) { 
+          toast.success("Tenancy ended successfully."); 
+          router.refresh(); 
+        } else { 
+          const errorMsg = await res.text();
+          if (errorMsg.includes("Force eviction required")) {
+            toast.error("Outstanding payments detected.", { duration: 4000 });
+            // Wait a tiny bit then show the force confirm
+            setTimeout(() => {
+              confirmAction("Tenant owes money. Force End Tenancy anyway?", () => {
+                handleUnassign(true);
+              });
+            }, 500);
+          } else {
+            toast.error(errorMsg || "Failed to end tenancy."); 
+          }
+        }
+      } catch { toast.error("Error ending tenancy."); }
       finally { setLoading(false); }
     });
   };
@@ -233,7 +256,7 @@ export default function TenantActionsMenu({
         },
         color: "text-blue-700",
       });
-      menuItems.push({ label: "Unassign Room", icon: <UserMinus size={14} />, onClick: handleUnassign, color: "text-red-600" });
+      menuItems.push({ label: "End Tenancy", icon: <UserMinus size={14} />, onClick: () => handleUnassign(false), color: "text-red-600" });
     } else {
       menuItems.push({
         label: "Assign Room",
@@ -302,7 +325,7 @@ export default function TenantActionsMenu({
             </div>
             <form onSubmit={handleReject} className="p-6 space-y-4">
               <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100">
-                <p className="text-xs text-amber-700 font-medium leading-relaxed">
+                <p className="text-center text-xs text-amber-700 font-medium leading-relaxed">
                   Provide a reason — it will be emailed to the applicant.
                 </p>
               </div>
@@ -310,7 +333,7 @@ export default function TenantActionsMenu({
                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Rejection Reason</label>
                 <textarea
                   required rows={4}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium outline-none focus:ring-4 focus:ring-red-500/10 focus:bg-white focus:border-red-500 transition-all resize-none"
+                  className="text-gray-800 w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium outline-none focus:ring-4 focus:ring-red-500/10 focus:bg-white focus:border-red-500 transition-all resize-none"
                   placeholder="e.g. ID document is not clear..."
                   value={rejectNote}
                   onChange={(e) => setRejectNote(e.target.value)}

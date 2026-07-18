@@ -341,10 +341,13 @@ export default function PaymentForm({
               onClick={() => document.getElementById("receipt-input").click()}
             >
               <Upload size={24} className="text-slate-300 mx-auto mb-2" />
-              <p className="text-sm font-semibold text-slate-600">
+              <p className="text-sm font-semibold text-slate-600 truncate max-w-xs mx-auto" title={receiptFile?.name}>
                 {receiptFile ? receiptFile.name : "Click to upload receipt"}
               </p>
-              <p className="text-xs text-slate-400 mt-1">PNG, JPG, PDF up to 10MB</p>
+              {receiptFile && (
+                <p className="text-xs text-slate-400 mt-0.5">{(receiptFile.size / 1024).toFixed(1)} KB</p>
+              )}
+              {!receiptFile && <p className="text-xs text-slate-400 mt-1">PNG, JPG, PDF up to 10MB</p>}
               <input
                 id="receipt-input"
                 type="file"

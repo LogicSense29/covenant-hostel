@@ -32,7 +32,8 @@ export default async function TenantsPage() {
         orderBy: {
           createdAt: "desc"
         }
-      }
+      },
+      primaryTenant: { include: { user: true } }
     },
     orderBy: {
       createdAt: "desc"

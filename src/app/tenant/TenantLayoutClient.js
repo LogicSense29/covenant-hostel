@@ -43,9 +43,9 @@ export default function TenantLayoutClient({ children, dbUser }) {
     }
   }, [session, status, router]);
 
-  // Handle routing restriction if tenancy expired
+  // Handle routing restriction if tenancy is not fully active
   useEffect(() => {
-    if (dbUser?.status === "EXPIRED") {
+    if (dbUser && dbUser.status !== "ACTIVE") {
       if (pathname !== "/tenant" && !pathname.startsWith("/tenant/payments")) {
         router.push("/tenant");
       }
@@ -73,7 +73,7 @@ export default function TenantLayoutClient({ children, dbUser }) {
     { name: "Settings", href: "/tenant/settings", icon: Settings },
   ];
 
-  if (dbUser?.status === "EXPIRED") {
+  if (dbUser && dbUser.status !== "ACTIVE") {
     navigation = navigation.filter(n => n.href === "/tenant" || n.href === "/tenant/payments");
   }
 

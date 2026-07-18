@@ -82,7 +82,8 @@ export async function GET(request) {
       },
       payments: {
         orderBy: { createdAt: "desc" }
-      }
+      },
+      primaryTenant: { include: { user: true } }
     }
   };
 

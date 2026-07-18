@@ -8,6 +8,10 @@ import {
   sendRecurringChargeDueReminder,
   sendAdminRecurringChargeAlert,
   sendRentExpiredNotification,
+  sendPartialPaymentOverdueAlert,
+  sendAdminPartialPaymentOverdueAlert,
+  sendRecurringChargeOverdueAlert,
+  sendAdminRecurringChargeOverdueAlert,
 } from "@/lib/email";
 import { createNotification, getLandlordUserIds } from "@/lib/notifications";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
@@ -177,12 +181,6 @@ export async function GET(req) {
         data: { status: "EXPIRED" },
       });
 
-      // Auto-transfer billing: clear primaryTenantId for any sharers linked to this tenant
-      await prisma.tenantProfile.updateMany({
-        where: { primaryTenantId: tenant.id },
-        data: { primaryTenantId: null },
-      });
-
       // Notify tenant
       if (tenant.user?.email) {
         await sendRentExpiredNotification({
@@ -210,6 +208,45 @@ export async function GET(req) {
           }],
         });
       }
+
+      // ── Notify room sharers linked to this primary tenant ──
+      // Sharers don't pay rent directly but their access is tied to the primary's tenancy.
+      const sharers = await prisma.tenantProfile.findMany({
+        where: { primaryTenantId: tenant.id },
+        include: { user: true },
+      });
+
+      const sharerTasks = sharers.map(async (sharer) => {
+        const tasks = [];
+
+        tasks.push(createNotification({
+          userId: sharer.userId,
+          title: "Room Tenancy Expired",
+          message: `Your room's tenancy (managed by ${tenant.user?.name || "your primary tenant"}) has expired. Some features will be restricted until the tenancy is renewed.`,
+          type: "PAYMENT",
+          link: "/tenant",
+        }));
+
+        if (sharer.user?.email) {
+          tasks.push(sendRentExpiredNotification({
+            email: sharer.user.email,
+            name: sharer.user.name,
+            roomNumber: tenant.room?.roomNumber || "N/A",
+            expiryDate: tenant.rentExpiryDate,
+          }));
+        }
+
+        if (whatsappEnabled && sharer.phone) {
+          tasks.push(sendWhatsAppMessage({
+            to: sharer.phone,
+            body: `⚠️ *Covenant Hostel – Room Tenancy Expired*\n\nDear ${sharer.user?.name || "Tenant"}, the tenancy for Room ${tenant.room?.roomNumber || "N/A"} managed by ${tenant.user?.name || "your primary tenant"} has now *expired*. Some features will be restricted until the tenancy is renewed.\n\n${process.env.NEXTAUTH_URL || ""}/tenant`,
+          }));
+        }
+
+        await Promise.allSettled(tasks);
+      });
+
+      await Promise.allSettled(sharerTasks);
     }
 
     // ── 3. Partial payment installment reminders ──
@@ -269,7 +306,131 @@ export async function GET(req) {
       }
     }
 
+    // ── 3b. Overdue partial payment reminders (sent daily for up to 3 days after due date) ──
+    const threeDaysAgo = new Date(today);
+    threeDaysAgo.setDate(today.getDate() - 3);
+
+    const overdueInstallments = await prisma.payment.findMany({
+      where: {
+        paymentType: "PARTIAL",
+        status: "PENDING",
+        dueDate: { lt: today, gte: threeDaysAgo },
+      },
+      include: {
+        tenant: {
+          include: { user: true, room: true },
+        },
+      },
+    });
+
+    const paymentPromises = overdueInstallments.map(async (payment) => {
+      const { tenant } = payment;
+      const tasks = [];
+
+      if (tenant.user?.email) {
+        tasks.push(sendPartialPaymentOverdueAlert({
+          email: tenant.user.email,
+          name: tenant.user.name,
+          roomNumber: tenant.room?.roomNumber || "N/A",
+          dueDate: payment.dueDate,
+          amount: payment.amount,
+          installmentNumber: payment.installmentNumber,
+          totalInstallments: payment.totalInstallments,
+        }));
+      }
+      
+      if (whatsappEnabled && tenant.phone) {
+        const dueDateStr = new Date(payment.dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+        tasks.push(sendWhatsAppMessage({
+          to: tenant.phone,
+          body: `⚠️ *Covenant Hostel – OVERDUE Installment*\n\nDear ${tenant.user?.name || "Tenant"}, installment *${payment.installmentNumber}/${payment.totalInstallments}* of ₦${payment.amount.toLocaleString()} is now *OVERDUE*. It was due on ${dueDateStr}.\n\nPlease pay immediately: ${process.env.NEXTAUTH_URL || ""}/tenant/payments`,
+        }));
+      }
+
+      tasks.push(createNotification({
+        userId: tenant.userId,
+        title: "Installment Overdue",
+        message: `Your installment of ₦${payment.amount.toLocaleString()} is OVERDUE. Please pay immediately.`,
+        type: "PAYMENT",
+        link: "/tenant/payments",
+      }));
+
+      if (adminEmail) {
+        tasks.push(sendAdminPartialPaymentOverdueAlert({
+          adminEmail,
+          tenantName: tenant.user?.name || "Unknown",
+          roomNumber: tenant.room?.roomNumber || "N/A",
+          amount: payment.amount,
+          installmentNumber: payment.installmentNumber,
+          totalInstallments: payment.totalInstallments,
+          dueDate: payment.dueDate,
+        }));
+      }
+
+      await Promise.allSettled(tasks);
+    });
+
+    await Promise.allSettled(paymentPromises);
+
     // ── 4. Mark overdue recurring charges ──
+    const newlyOverdueCharges = await prisma.recurringCharge.findMany({
+      where: {
+        status: "UNPAID",
+        dueDate: { lt: today },
+      },
+      include: {
+        tenant: { include: { user: true, room: true } },
+        billingRule: true,
+      }
+    });
+
+    const chargePromises = newlyOverdueCharges.map(async (charge) => {
+      const chargeTitle = charge.billingRule.title || charge.billingRule.description;
+      const formattedDue = new Date(charge.dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+      const tasks = [];
+
+      if (charge.tenant.user?.email) {
+        tasks.push(sendRecurringChargeOverdueAlert({
+          email: charge.tenant.user.email,
+          name: charge.tenant.user.name,
+          roomNumber: charge.tenant.room?.roomNumber || "N/A",
+          chargeTitle,
+          amount: charge.amount,
+          dueDate: charge.dueDate,
+        }));
+      }
+
+      if (whatsappEnabled && charge.tenant.phone) {
+        tasks.push(sendWhatsAppMessage({
+          to: charge.tenant.phone,
+          body: `⚠️ *Covenant Hostel – OVERDUE Bill*\n\nDear ${charge.tenant.user?.name || "Tenant"}, your *${chargeTitle}* bill of ₦${charge.amount.toLocaleString()} is now *OVERDUE*. It was due on ${formattedDue}.\n\nPlease pay immediately: ${process.env.NEXTAUTH_URL || ""}/tenant/payments`,
+        }));
+      }
+
+      tasks.push(createNotification({
+        userId: charge.tenant.userId,
+        title: "Bill Overdue",
+        message: `Your ${chargeTitle} bill of ₦${charge.amount.toLocaleString()} is OVERDUE.`,
+        type: "PAYMENT",
+        link: "/tenant/payments",
+      }));
+
+      if (adminEmail) {
+        tasks.push(sendAdminRecurringChargeOverdueAlert({
+          adminEmail,
+          tenantName: charge.tenant.user?.name || "Unknown",
+          roomNumber: charge.tenant.room?.roomNumber || "N/A",
+          chargeTitle,
+          amount: charge.amount,
+          dueDate: charge.dueDate,
+        }));
+      }
+
+      await Promise.allSettled(tasks);
+    });
+
+    await Promise.allSettled(chargePromises);
+
     await prisma.recurringCharge.updateMany({
       where: {
         status: "UNPAID",

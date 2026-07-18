@@ -148,7 +148,7 @@ export default function PaymentBreakdownPanel({
       {/* ── Dynamic Billing Breakdown Checklist ── */}
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in duration-500">
         <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/20">
-          <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+          <h2 className="text-lg font-display font-semibold text-slate-900 flex items-center gap-2">
             <ShieldCheck size={20} className="text-blue-600" />
             Billing Checklist
           </h2>
@@ -173,9 +173,9 @@ export default function PaymentBreakdownPanel({
             return (
               <div 
                 onClick={() => toggleItem("rent", isRentMandatory)}
-                className={`flex items-center justify-between p-4 sm:p-5 bg-slate-50 rounded-2xl border transition-all select-none ${isRentMandatory ? "border-slate-100 hover:border-slate-200 cursor-not-allowed" : "border-slate-200 hover:border-blue-300 cursor-pointer shadow-sm hover:shadow-md"}`}
+                className={`flex flex-wrap items-center justify-between p-4 sm:p-5 bg-slate-50 rounded-2xl border transition-all select-none ${isRentMandatory ? "border-slate-100 hover:border-slate-200 cursor-not-allowed" : "border-slate-200 hover:border-blue-300 cursor-pointer shadow-sm hover:shadow-md"}`}
               >
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
                   <div className="relative flex items-center justify-center">
                     <input 
                       type="checkbox"
@@ -186,24 +186,24 @@ export default function PaymentBreakdownPanel({
                     />
                     {isRentMandatory && <Lock size={10} className="absolute text-slate-400" />}
                   </div>
-                  <div>
-                    <p className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                      Base Room Rent
+                  <div className="">
+                    <p className="text-sm font-display font-semibold text-slate-900 flex items-center gap-2">
+                      Room Rent
                       {isRentMandatory && (
                         <span className="text-[9px] font-bold px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full border border-blue-100">
                           Mandatory
                         </span>
                       )}
                     </p>
-                    <div className="flex items-center gap-2 mt-0.5">
+                    <div className="flex flex-wrap items-center gap-2 mt-0.5">
                       <p className="text-xs text-slate-400">Room {room.roomNumber}</p>
                       {profile.rentExpiryDate && (
-                        <p className="text-xs text-slate-400">· Due: {new Date(profile.rentExpiryDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</p>
+                        <p className="text-xs text-wrap text-slate-400">· Due: {new Date(profile.rentExpiryDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</p>
                       )}
                     </div>
                   </div>
                 </div>
-                <span className="text-sm sm:text-base font-black text-slate-900">
+                <span className="text-sm sm:text-base font-display font-bold text-slate-900">
                   ₦{rentAmount.toLocaleString()}/{rentFrequencyShorthand}
                 </span>
               </div>
@@ -239,7 +239,7 @@ export default function PaymentBreakdownPanel({
             <div 
               key={rule.id}
               onClick={() => toggleItem(key, isMandatory)}
-              className={`flex items-center justify-between p-4 sm:p-5 rounded-2xl border transition-all select-none ${
+              className={`flex flex-wrap items-center justify-between p-4 sm:p-5 rounded-2xl border transition-all select-none ${
                 isMandatory
                   ? "bg-slate-50 border-slate-100 cursor-not-allowed"
                   : isChecked
@@ -259,7 +259,7 @@ export default function PaymentBreakdownPanel({
                   {isMandatory && <Lock size={10} className="absolute text-slate-400" />}
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <p className="text-sm font-display font-semibold text-slate-900 flex items-center gap-2">
                     {rule.title || rule.description}
                     {isMandatory ? (
                       <span className="text-[9px] font-bold px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full border border-indigo-100">
@@ -271,13 +271,13 @@ export default function PaymentBreakdownPanel({
                       </span>
                     )}
                   </p>
-                  <div className="flex items-center gap-2 mt-0.5">
+                  <div className="flex flex-wrap items-center gap-2 mt-0.5">
                     <p className="text-xs text-slate-400">Category: {rule.type ? rule.type.replace(/_/g, " ").toUpperCase() : "ONE-TIME FEE"}</p>
                     {dueDateStr && <p className="text-xs text-slate-400">· Due: {dueDateStr}</p>}
                   </div>
                 </div>
               </div>
-              <span className="text-sm sm:text-base font-black text-slate-900">
+              <span className="text-sm sm:text-base font-display font-bold text-slate-900">
                 ₦{rule.amount.toLocaleString()}/{freqLabel(rule.frequency)}
               </span>
             </div>
@@ -299,7 +299,7 @@ export default function PaymentBreakdownPanel({
               <div 
                 key={charge.id}
                 onClick={() => toggleItem(key, isMandatory)}
-                className={`flex items-center justify-between p-4 sm:p-5 rounded-2xl border transition-all select-none cursor-pointer ${
+                className={`flex flex-wrap items-center justify-between p-4 sm:p-5 rounded-2xl border transition-all select-none cursor-pointer ${
                   isChecked 
                     ? "bg-blue-50/20 border-blue-200" 
                     : "bg-white border-slate-100 hover:border-slate-200"
@@ -321,7 +321,7 @@ export default function PaymentBreakdownPanel({
                     {isMandatory && <Lock size={10} className="absolute text-slate-400" />}
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <p className="text-sm font-display font-semibold text-slate-900 flex items-center gap-2">
                       {charge.billingRule?.title || charge.billingRule?.description || "Utility Charge"}
                       {charge.status === "OVERDUE" ? (
                         <span className="text-[9px] font-bold px-2 py-0.5 bg-red-50 text-red-600 rounded-full border border-red-100">
@@ -333,12 +333,12 @@ export default function PaymentBreakdownPanel({
                         </span>
                       )}
                     </p>
-                    <p className="text-xs text-slate-400 mt-0.5">
+                    <p className="text-xs text-wrap text-slate-400 mt-0.5">
                       Type: {charge.billingRule?.type ? charge.billingRule.type.replace(/_/g, " ").toUpperCase() : "UTILITY"} • Due: {new Date(charge.dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                     </p>
                   </div>
                 </div>
-                <span className="text-sm sm:text-base font-black text-slate-900">
+                <span className="text-sm sm:text-base font-display font-bold text-slate-900">
                   ₦{charge.amount.toLocaleString()}/{freqLabel(charge.billingRule?.frequency)}
                 </span>
               </div>

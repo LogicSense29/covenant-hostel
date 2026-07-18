@@ -642,3 +642,104 @@ export async function sendPaymentRejectedEmail({ email, name, amount, reason }) 
   }
 }
 
+export async function sendPartialPaymentOverdueAlert({ email, name, roomNumber, dueDate, amount, installmentNumber, totalInstallments }) {
+  try {
+    const transporter = createTransporter();
+    await transporter.sendMail({
+      from: `"Covenant Hostel" <${smtpUser}>`,
+      to: email,
+      subject: `OVERDUE: Installment ${installmentNumber}/${totalInstallments} — Room ${roomNumber}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
+          <h2 style="color: #e11d48;">Installment Payment Overdue</h2>
+          <p>Hi ${name},</p>
+          <p>This is a notification that installment <strong>${installmentNumber} of ${totalInstallments}</strong> for your rent on <strong>Room ${roomNumber}</strong> is now <strong>OVERDUE</strong>. It was due on <strong>${new Date(dueDate).toLocaleDateString()}</strong>.</p>
+          <div style="background: #fff1f2; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 4px solid #e11d48;">
+            <p style="margin: 0; font-size: 18px; font-weight: bold; color: #9f1239;">Amount Due: ₦${Number(amount).toLocaleString()}</p>
+          </div>
+          <p>Please log in to your tenant portal immediately to make your payment and avoid any penalties.</p>
+          <p>Best regards,<br/>The Covenant Hostel Management Team</p>
+        </div>
+      `,
+    });
+    return { success: true };
+  } catch (error) {
+    console.error("Error sending partial payment overdue alert:", error);
+    return { success: false, error };
+  }
+}
+
+export async function sendAdminPartialPaymentOverdueAlert({ adminEmail, tenantName, roomNumber, amount, installmentNumber, totalInstallments, dueDate }) {
+  if (!adminEmail) return;
+  try {
+    const transporter = createTransporter();
+    await transporter.sendMail({
+      from: `"Covenant Hostel" <${smtpUser}>`,
+      to: adminEmail,
+      subject: `OVERDUE Installment: ${tenantName} — Room ${roomNumber}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px;">
+          <h3 style="color: #e11d48;">Overdue Installment Payment</h3>
+          <p>Tenant <strong>${tenantName}</strong> (Room ${roomNumber}) has an overdue installment <strong>${installmentNumber}/${totalInstallments}</strong> which was due on <strong>${new Date(dueDate).toLocaleDateString()}</strong>.</p>
+          <p>Amount: <strong>₦${Number(amount).toLocaleString()}</strong></p>
+        </div>
+      `,
+    });
+    return { success: true };
+  } catch (error) {
+    console.error("Error sending admin partial payment overdue alert:", error);
+    return { success: false, error };
+  }
+}
+
+export async function sendRecurringChargeOverdueAlert({ email, name, roomNumber, chargeTitle, amount, dueDate }) {
+  try {
+    const transporter = createTransporter();
+    await transporter.sendMail({
+      from: `"Covenant Hostel" <${smtpUser}>`,
+      to: email,
+      subject: `OVERDUE Charge: ${chargeTitle} — Room ${roomNumber}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
+          <h2 style="color: #e11d48;">Recurring Charge Overdue</h2>
+          <p>Hi ${name},</p>
+          <p>This is a notification that your recurring charge for <strong>Room ${roomNumber}</strong> is now <strong>OVERDUE</strong>. It was due on <strong>${new Date(dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</strong>.</p>
+          <div style="background: #fff1f2; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 4px solid #e11d48;">
+            <p style="margin: 0 0 8px; font-size: 13px; color: #9f1239; text-transform: uppercase; font-weight: bold;">Charge</p>
+            <p style="margin: 0 0 12px; font-size: 16px; font-weight: bold; color: #9f1239;">${chargeTitle}</p>
+            <p style="margin: 0; font-size: 22px; font-weight: 900; color: #e11d48;">₦${Number(amount).toLocaleString()}</p>
+          </div>
+          <p>Please log in to your tenant portal immediately to make your payment and avoid any penalties.</p>
+          <p>Best regards,<br/>The Covenant Hostel Management Team</p>
+        </div>
+      `,
+    });
+    return { success: true };
+  } catch (error) {
+    console.error("Error sending recurring charge overdue alert:", error);
+    return { success: false, error };
+  }
+}
+
+export async function sendAdminRecurringChargeOverdueAlert({ adminEmail, tenantName, roomNumber, chargeTitle, amount, dueDate }) {
+  if (!adminEmail) return;
+  try {
+    const transporter = createTransporter();
+    await transporter.sendMail({
+      from: `"Covenant Hostel" <${smtpUser}>`,
+      to: adminEmail,
+      subject: `OVERDUE Recurring Charge: ${tenantName} — ${chargeTitle}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px;">
+          <h3 style="color: #e11d48;">Overdue Recurring Charge</h3>
+          <p>Tenant <strong>${tenantName}</strong> (Room ${roomNumber}) has an overdue recurring charge <strong>${chargeTitle}</strong> of <strong>₦${Number(amount).toLocaleString()}</strong> which was due on <strong>${new Date(dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</strong>.</p>
+        </div>
+      `,
+    });
+    return { success: true };
+  } catch (error) {
+    console.error("Error sending admin recurring charge overdue alert:", error);
+    return { success: false, error };
+  }
+}
+

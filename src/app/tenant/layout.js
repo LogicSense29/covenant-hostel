@@ -15,10 +15,26 @@ export default async function TenantLayout({ children }) {
     redirect("/dashboard");
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { status: true }
+  // Fetch the user's own status AND check if they are a sharer (linked to a primary tenant)
+  const profile = await prisma.tenantProfile.findUnique({
+    where: { userId: session.user.id },
+    select: {
+      primaryTenantId: true,
+      primaryTenant: {
+        select: {
+          user: { select: { status: true } }
+        }
+      },
+      user: { select: { status: true } },
+    },
   });
 
-  return <TenantLayoutClient dbUser={user}>{children}</TenantLayoutClient>;
+  const ownStatus = profile?.user?.status ?? "ACTIVE";
+  const primaryStatus = profile?.primaryTenant?.user?.status ?? null;
+
+  // If the tenant is a sharer, their effective status is determined by their primary tenant.
+  // This means if the primary's rent expires, the sharer is locked out too — no DB change needed.
+  const effectiveStatus = primaryStatus ?? ownStatus;
+
+  return <TenantLayoutClient dbUser={{ status: effectiveStatus }}>{children}</TenantLayoutClient>;
 }

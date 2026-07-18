@@ -82,31 +82,43 @@ export default async function TenantDashboard() {
   const freqMap = { DAILY:"day", MONTHLY:"mo", QUARTERLY:"qtr", YEARLY:"yr", PER_SEMESTER:"sem", ONCE:"once" };
   const rentFrequencyShorthand = freqMap[rentFrequency] || "yr";
 
+  // ── Determine Effective Status & Profile ──
+  // For sharers, ALL status and expiry calculations are driven by the primary tenant's data.
+  const isRoomSharer = !!profile.primaryTenantId;
+  const effectiveProfile = isRoomSharer && profile.primaryTenant ? profile.primaryTenant : profile;
+  const effectiveUser = isRoomSharer && profile.primaryTenant ? profile.primaryTenant.user : user;
+
   // ── Pre-active status screens ──
-  if (user.status === "PENDING") {
-    return <PreActiveScreen type="pending" room={room} profile={profile} />;
+  if (effectiveUser.status === "PENDING") {
+    return <PreActiveScreen type="pending" room={room} profile={effectiveProfile} primaryTenantName={isRoomSharer ? effectiveProfile.user?.name : null} />;
   }
-  if (user.status === "AWAITING_PAYMENT") {
-    return <PreActiveScreen type="awaiting_payment" room={room} profile={profile} />;
+  if (effectiveUser.status === "AWAITING_PAYMENT") {
+    return <PreActiveScreen type="awaiting_payment" room={room} profile={effectiveProfile} primaryTenantName={isRoomSharer ? effectiveProfile.user?.name : null} />;
   }
-  if (user.status === "PAYMENT_MADE") {
-    const hasVerified = payments.some(p => p.status === "VERIFIED" || p.status === "SUCCESS");
-    return <PreActiveScreen type={hasVerified ? "payment_approved" : "payment_review"} room={room} profile={profile} />;
+  if (effectiveUser.status === "PAYMENT_MADE") {
+    const paymentsToCheck = isRoomSharer ? profile.primaryTenant.payments : payments;
+    const hasVerified = paymentsToCheck.some(p => p.status === "VERIFIED" || p.status === "SUCCESS");
+    return <PreActiveScreen type={hasVerified ? "payment_approved" : "payment_review"} room={room} profile={effectiveProfile} primaryTenantName={isRoomSharer ? effectiveProfile.user?.name : null} />;
   }
-  if (user.status === "EXPIRED") {
-    return <PreActiveScreen type="expired" room={room} profile={profile} />;
+  if (effectiveUser.status === "EXPIRED") {
+    return <PreActiveScreen type="expired" room={room} profile={effectiveProfile} primaryTenantName={isRoomSharer ? effectiveProfile.user?.name : null} />;
+  }
+  if (effectiveUser.status === "REJECTED") {
+    return <PreActiveScreen type="rejected" room={room} profile={effectiveProfile} primaryTenantName={isRoomSharer ? effectiveProfile.user?.name : null} />;
   }
 
   // ── ACTIVE dashboard ──
-  const isRoomSharer = !!profile.primaryTenantId;
   const targetPayments = isRoomSharer && profile.primaryTenant ? profile.primaryTenant.payments : profile.payments;
+
 
   const hasVerifiedPayment = targetPayments.some(p => p.status === "VERIFIED" || p.status === "SUCCESS");
   const hasPendingReceipt  = targetPayments.some(p => p.status === "PENDING");
   const hasNoPayment       = !hasVerifiedPayment && !hasPendingReceipt;
 
-  const daysUntilExpiry = profile.rentExpiryDate
-    ? Math.ceil((new Date(profile.rentExpiryDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+  // Use the effective profile's rentExpiryDate (primary's if sharer)
+  const effectiveExpiryDate = effectiveProfile.rentExpiryDate;
+  const daysUntilExpiry = effectiveExpiryDate
+    ? Math.ceil((new Date(effectiveExpiryDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
     : null;
   const isExpiringSoon  = daysUntilExpiry !== null && daysUntilExpiry <= 7  && daysUntilExpiry > 0;
   const isExpiringCrit  = daysUntilExpiry !== null && daysUntilExpiry <= 3  && daysUntilExpiry > 0;
@@ -128,8 +140,8 @@ export default async function TenantDashboard() {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500 pb-16">
 
-      {/* ── Alert Banners (suppressed for room sharers) ── */}
-      {showPaymentAlert && !isRoomSharer && (
+      {/* ── Alert Banners — shown for all tenants including sharers ── */}
+      {showPaymentAlert && (
         <div className="space-y-2.5">
           {isExpiringSoon && (
             <div className={`rounded-2xl px-5 py-3.5 flex items-center justify-between gap-4 border ${isExpiringCrit ? "bg-red-50 border-red-200" : "bg-amber-50 border-amber-200"}`}>
@@ -139,9 +151,16 @@ export default async function TenantDashboard() {
                   {isExpiringCrit ? `Rent expires in ${daysUntilExpiry} day${daysUntilExpiry===1?"":"s"} — renew now` : `Rent expires in ${daysUntilExpiry} days`}
                 </p>
               </div>
-              <Link href="/tenant/payments" className={`shrink-0 text-xs font-bold px-4 py-1.5 rounded-xl text-white ${isExpiringCrit ? "bg-red-600 hover:bg-red-700" : "bg-amber-500 hover:bg-amber-600"}`}>
-                Renew
-              </Link>
+              {/* Primary tenant: Renew button. Sharer: contact prompt (plain text, no button) */}
+              {isRoomSharer ? (
+                <p className={`shrink-0 text-xs font-semibold ${isExpiringCrit ? "text-red-600" : "text-amber-600"}`}>
+                  Contact {profile.primaryTenant?.user?.name?.split(" ")[0] || "your primary tenant"}
+                </p>
+              ) : (
+                <Link href="/tenant/payments" className={`shrink-0 text-xs font-bold px-4 py-1.5 rounded-xl text-white ${isExpiringCrit ? "bg-red-600 hover:bg-red-700" : "bg-amber-500 hover:bg-amber-600"}`}>
+                  Renew
+                </Link>
+              )}
             </div>
           )}
           {(hasNoPayment || (hasPendingReceipt && !hasVerifiedPayment)) && (
@@ -152,7 +171,7 @@ export default async function TenantDashboard() {
                   {hasNoPayment ? "No payment on record — please make a payment" : "Receipt submitted — awaiting landlord approval"}
                 </p>
               </div>
-              {hasNoPayment && (
+              {hasNoPayment && !isRoomSharer && (
                 <Link href="/tenant/payments" className="shrink-0 text-xs font-bold px-4 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white">
                   Pay Now
                 </Link>
@@ -172,7 +191,7 @@ export default async function TenantDashboard() {
       )}
 
       {/* ── Greeting Row ── */}
-      <div className="flex items-end justify-between gap-4">
+      <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-4">
         <div className="animate-in fade-in slide-in-from-left-8 duration-1000">
           {/* <p className="text-xs font-bold text-[#203090] uppercase tracking-widest mb-1">Tenant Portal</p> */}
           {/* <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
@@ -189,7 +208,7 @@ export default async function TenantDashboard() {
             <span className={`w-1.5 h-1.5 rounded-full ${payDot}`} />
             {payLabel}
           </span>
-          {profile.rentExpiryDate && (
+          {effectiveExpiryDate && (
             <span className={`flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full border ${
               isExpiringCrit ? "bg-red-50 text-red-700 border-red-200" :
               isExpiringSoon ? "bg-amber-50 text-amber-700 border-amber-200" :
@@ -198,7 +217,7 @@ export default async function TenantDashboard() {
               <Calendar size={11} />
               {daysUntilExpiry !== null && daysUntilExpiry > 0
                 ? `${daysUntilExpiry}d left`
-                : new Date(profile.rentExpiryDate).toLocaleDateString("en-GB", { day:"numeric", month:"short" })}
+                : new Date(effectiveExpiryDate).toLocaleDateString("en-GB", { day:"numeric", month:"short" })}
             </span>
           )}
           {profile.stayHistory?.length > 0 && (
@@ -246,23 +265,23 @@ export default async function TenantDashboard() {
             <div className="relative z-10 mt-6 grid grid-cols-3 gap-3">
               <div className="bg-white/10 rounded-2xl p-3.5">
                 <p className="text-[9px] font-bold text-blue-300 uppercase tracking-widest mb-1">Rent</p>
-                <p className="text-base font-bold text-white leading-tight">
+                <p className="text-base font-display font-semibold text-white leading-tight">
                   ₦{baseRentAmount.toLocaleString()}
                   <span className="text-blue-300 text-[10px] font-semibold ml-0.5">/{rentFrequencyShorthand}</span>
                 </p>
               </div>
               <div className="bg-white/10 rounded-2xl p-3.5">
                 <p className="text-[9px] font-bold text-blue-300 uppercase tracking-widest mb-1">Since</p>
-                <p className="text-base font-bold text-white leading-tight">
-                  {(profile.rentStartDate ? new Date(profile.rentStartDate) : new Date(profile.createdAt))
+                <p className="text-base font-display font-semibold text-white leading-tight">
+                  {(effectiveProfile.rentStartDate ? new Date(effectiveProfile.rentStartDate) : new Date(effectiveProfile.createdAt))
                     .toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"2-digit" })}
                 </p>
               </div>
               <div className="bg-white/10 rounded-2xl p-3.5">
                 <p className="text-[9px] font-bold text-blue-300 uppercase tracking-widest mb-1">Expires</p>
-                <p className={`text-base font-bold leading-tight ${isExpiringCrit ? "text-red-300" : isExpiringSoon ? "text-amber-300" : "text-white"}`}>
-                  {profile.rentExpiryDate
-                    ? new Date(profile.rentExpiryDate).toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"2-digit" })
+                <p className={`text-base font-display font-semibold leading-tight ${isExpiringCrit ? "text-red-300" : isExpiringSoon ? "text-amber-300" : "text-white"}`}>
+                  {effectiveProfile.rentExpiryDate
+                    ? new Date(effectiveProfile.rentExpiryDate).toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"2-digit" })
                     : "TBD"}
                 </p>
               </div>
@@ -270,7 +289,7 @@ export default async function TenantDashboard() {
           </div>
 
           {/* Action Cards — 3-col: Maintenance, Complaints, Emergency */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
             {/* Maintenance — deep blue tint */}
             <Link href="/tenant/maintenance" className="group relative bg-[#EEF2FF] rounded-3xl p-5 flex flex-col justify-between overflow-hidden min-h-[140px] hover:-translate-y-1 hover:shadow-xl hover:shadow-[#203090]/15 transition-all duration-300">
@@ -417,11 +436,9 @@ export default async function TenantDashboard() {
 }
 
 // ── Pre-active status screen (shared for all non-ACTIVE states) ──
-function PreActiveScreen({ type, room, profile }) {
-  const isRoomSharer = profile?.primaryTenantId != null;
-  const primaryTenant = profile?.primaryTenant;
-  const primaryTenantStatus = primaryTenant?.user?.status;
-  const primaryName = primaryTenant?.user?.name || "your primary tenant";
+function PreActiveScreen({ type, room, profile, primaryTenantName = null }) {
+  const isRoomSharer = profile?.primaryTenantId != null || primaryTenantName != null;
+  const primaryName = primaryTenantName || profile?.primaryTenant?.user?.name || "your primary tenant";
 
   const cfg = {
     pending: {
@@ -460,10 +477,10 @@ function PreActiveScreen({ type, room, profile }) {
       top: "border-t-[#203090]",
       gradFrom: "from-blue-50/60",
       icon: <CheckCircle2 size={32} className="text-[#203090]" />,
-      title: isRoomSharer ? "Awaiting Activation" : "Payment Approved",
+      title: isRoomSharer ? "Awaiting Activation" : "Almost There!",
       body: isRoomSharer
         ? `Your primary tenant (${primaryName}) has completed the payment. Management will activate your portal shortly.`
-        : "Your payment has been verified. Management will activate your portal shortly.",
+        : "Your payment has been submitted. Management will review and activate your portal shortly.",
       pill: "bg-blue-50 text-[#203090] border-blue-200",
       pillLabel: "Awaiting Activation",
       cta: null,
@@ -473,12 +490,25 @@ function PreActiveScreen({ type, room, profile }) {
       gradFrom: "from-red-50/60",
       icon: <AlertCircle size={32} className="text-red-500" />,
       title: "Tenancy Expired",
-      body: profile?.rentExpiryDate
-        ? `Your tenancy expired on ${new Date(profile.rentExpiryDate).toLocaleDateString("en-GB", { day:"numeric", month:"long", year:"numeric" })}. Renew to regain access.`
-        : "Your tenancy has expired. Contact management to renew.",
+      body: isRoomSharer
+        ? `The room tenancy managed by ${primaryName.split(" ")[0]} has expired. Please contact them to arrange renewal.`
+        : profile?.rentExpiryDate
+          ? `Your tenancy expired on ${new Date(profile.rentExpiryDate).toLocaleDateString("en-GB", { day:"numeric", month:"long", year:"numeric" })}. Renew to regain access.`
+          : "Your tenancy has expired. Contact management to renew.",
       pill: "bg-red-50 text-red-700 border-red-200",
       pillLabel: "Expired",
-      cta: { href: "/tenant/payments", label: "Renew Tenancy", cls: "bg-red-600 hover:bg-red-700 shadow-red-500/20" },
+      cta: isRoomSharer ? null : { href: "/tenant/payments", label: "Renew Tenancy", cls: "bg-red-600 hover:bg-red-700 shadow-red-500/20" },
+      sharerContact: isRoomSharer ? primaryName : null,
+    },
+    rejected: {
+      top: "border-t-red-500",
+      gradFrom: "from-red-50/60",
+      icon: <AlertCircle size={32} className="text-red-500" />,
+      title: "Application Rejected",
+      body: "Your application or payment has been rejected. Please contact management for more details or to resolve the issue.",
+      pill: "bg-red-50 text-red-700 border-red-200",
+      pillLabel: "Rejected",
+      cta: null,
     },
   };
 
@@ -489,15 +519,17 @@ function PreActiveScreen({ type, room, profile }) {
       <div className={`absolute inset-0 bg-gradient-to-br ${c.gradFrom} to-transparent pointer-events-none`} />
       <div className="relative z-10 flex flex-col items-center text-center max-w-md gap-5">
         <Image src="/convenant-hostel-logo.png" alt="Covenant Hostel" width={64} height={64} className="rounded-2xl shadow-sm" />
-        <div className="p-4 bg-white rounded-2xl shadow-sm border border-slate-100">{c.icon}</div>
+        {/* <div className="p-4 bg-white rounded-2xl shadow-sm border border-slate-100">{c.icon}</div> */}
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{c.title}</h1>
+          <h1 className="text-2xl font-display font-semibold text-slate-900 tracking-tight">{c.title}</h1>
           <p className="text-slate-500 mt-2 leading-relaxed text-sm">{c.body}</p>
         </div>
         {room && (
-          <div className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-100 rounded-2xl shadow-sm text-sm">
-            <MapPin size={13} className="text-[#203090] shrink-0" />
+          <div className="flex flex-col md:flex-row items-center gap-2 px-5 py-2.5 bg-white border border-slate-100 rounded-2xl shadow-sm text-sm">
+           <div className="flex items-center gap-2">
+             <MapPin size={13} className="text-[#203090] shrink-0" />
             <span className="font-bold text-slate-700">Room {room.roomNumber}</span>
+           </div>
             {room.block?.name && <span className="text-slate-400">· {room.block.name}</span>}
             {room.block?.address && <span className="text-slate-400 text-xs">· {room.block.address}</span>}
           </div>
@@ -506,6 +538,11 @@ function PreActiveScreen({ type, room, profile }) {
           <Link href={c.cta.href} className={`flex items-center gap-2 px-7 py-3.5 text-white text-sm font-bold rounded-2xl shadow-xl transition-all hover:-translate-y-0.5 ${c.cta.cls}`}>
             {c.cta.label} <ArrowRight size={16} />
           </Link>
+        )}
+        {c.sharerContact && (
+          <p className="text-sm font-semibold text-red-500">
+            Contact {c.sharerContact}
+          </p>
         )}
         <span className={`px-4 py-1.5 rounded-full border text-xs font-bold uppercase tracking-widest ${c.pill}`}>
           {c.pillLabel}

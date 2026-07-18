@@ -101,6 +101,14 @@ export async function PUT(req, { params }) {
         data: { roomId, rentStartDate, rentExpiryDate: expiry },
       });
 
+      // ── Transfer Room Sharers ──
+      // Automatically move all linked room sharers to the new room
+      // and sync their lease dates with the primary tenant
+      await tx.tenantProfile.updateMany({
+        where: { primaryTenantId: id },
+        data: { roomId, rentStartDate, rentExpiryDate: expiry },
+      });
+
       // Mark the room as OCCUPIED
       await tx.room.update({
         where: { id: roomId },

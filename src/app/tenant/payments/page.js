@@ -135,24 +135,31 @@ export default async function TenantPaymentsPage() {
   // This includes BASE_RENT if it's monthly/yearly, and any other recurring charges.
   const recurringRules = allRules.filter(r => RECURRING.includes(r.frequency));
 
-  // Calculate total amount paid towards each ONCE fee across all historical payments
-  // This handles partial installments correctly where a fee is paid in chunks
-  const paidOnceFeeTotals = {};
-  paymentHistory
-    .filter(p => (p.status === "SUCCESS" || p.status === "VERIFIED" || p.status === "PENDING") && p.breakdown)
-    .forEach(p => {
-      (p.breakdown || []).forEach(item => {
-        const name = item.name.replace(/\s*\(Installment \d+\/\d+\)/i, '').trim();
-        paidOnceFeeTotals[name] = (paidOnceFeeTotals[name] || 0) + (item.amount || 0);
-      });
-    });
+  // ── Determine which ONCE fees have already been paid ──────────────────────
+  // Strategy: look for verified/success payments that cover each billing rule
+  // by checking the total verified non-recurring payments vs. cumulative ONCE fees.
+  // We check per billing rule ID by querying the RecurringCharge table (for recurring)
+  // and by summing verified payments for non-recurring.
+  //
+  // Robust approach: a ONCE fee is considered "paid" if the sum of all verified
+  // non-recurring payments for this tenant is >= the cumulative sum of all ONCE fees
+  // up to and including this rule in the list. We sort by amount and walk the list.
+  //
+  // Simplest correct approach: sum all verified non-recurring payments
+  // and subtract ONCE fees one by one until we run out of credit.
+  const verifiedNonRecurringTotal = paymentHistory
+    .filter(p => (p.status === "SUCCESS" || p.status === "VERIFIED") && p.paymentType !== "RECURRING")
+    .reduce((s, p) => s + p.amount, 0);
 
-  const oneTimeFees = billingRules.filter(r => {
-    if (RECURRING.includes(r.frequency)) return false;
-    const name = r.title || r.description || "";
-    // Hide if fully paid (cumulative amount paid >= fee amount)
-    const paidAmount = paidOnceFeeTotals[name] || 0;
-    return paidAmount < r.amount;
+  const allOnceFees = billingRules.filter(r => r.frequency === "ONCE");
+  
+  // Walk through each ONCE fee — if cumulative total <= verified total, it's paid
+  let cumulativeOncePaid = 0;
+  const oneTimeFees = allOnceFees.filter(r => {
+    const wasPaid = (cumulativeOncePaid + r.amount) <= verifiedNonRecurringTotal;
+    if (!wasPaid) return true; // still unpaid — show it
+    cumulativeOncePaid += r.amount;
+    return false; // paid — hide it
   });
 
   const totalFees = oneTimeFees.reduce((s, r) => s + r.amount, 0);
@@ -183,23 +190,34 @@ export default async function TenantPaymentsPage() {
     c.status === "UNPAID" && new Date(c.dueDate) > _endOfToday
   );
 
+  // ── Determine Effective Expiry Status ──
+  // Sharers mirror their primary tenant's expiry status
+  const effectiveProfile = isSharer && profile.primaryTenant ? profile.primaryTenant : profile;
+  const effectiveUser = isSharer && profile.primaryTenant ? profile.primaryTenant.user : user;
+
   // Check if tenancy is about to expire to allow early renewal
   const RENEWAL_WINDOW_DAYS = (rentFrequencyShorthand === "yr" || rentFrequencyShorthand === "sem") ? 30 : 7;
-  const daysUntilExpiry = profile.rentExpiryDate 
-    ? Math.ceil((new Date(profile.rentExpiryDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) 
+  const effectiveExpiryDate = effectiveProfile.rentExpiryDate;
+  const daysUntilExpiry = effectiveExpiryDate 
+    ? Math.ceil((new Date(effectiveExpiryDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) 
     : null;
   const isExpiringSoon = daysUntilExpiry !== null && daysUntilExpiry <= RENEWAL_WINDOW_DAYS;
 
-  // If tenancy is EXPIRED or Expiring Soon, they must pay for a new cycle, so outstanding rent remaining should be the totalDue
-  const needsRenewal = user?.status === "EXPIRED" || isExpiringSoon;
-  const rentRemaining = needsRenewal ? totalDue : Math.max(0, totalDue - verifiedRentTotal);
+  // If EXPIRED or expiring soon → tenant must pay a full new cycle
+  const needsRenewal = effectiveUser?.status === "EXPIRED" || isExpiringSoon;
 
-  // The true comprehensive outstanding balance includes rent remaining plus any unpaid recurring charges
+  // rentRemaining: on renewal = full new cycle cost. Otherwise = what's left unpaid this term.
+  const rentRemaining = needsRenewal
+    ? totalDue
+    : Math.max(0, totalDue - verifiedRentTotal);
+
+  // Total outstanding = rent owed + any unpaid recurring charges
   const remaining = rentRemaining + unpaidRecurringTotal;
 
-  // Rent state and overall state are separate concerns
+  // Rent is paid when not renewing and the full amount has been verified
   const isRentPaid = !needsRenewal && rentRemaining === 0 && verifiedRentTotal > 0;
   const isFullyPaid = isRentPaid && unpaidCharges.length === 0;
+
 
   // For the status card — use the most recent rent payment (not recurring)
   const latestRentPayment = verifiedRentPayments[0] || null;
@@ -342,9 +360,9 @@ export default async function TenantPaymentsPage() {
                     Rent last paid on {new Date(latestRentPayment.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                   </p>
                 )}
-                {profile.rentExpiryDate && (
+                {effectiveExpiryDate && (
                   <p className="text-xs text-green-300">
-                    Tenancy expires {new Date(profile.rentExpiryDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                    Tenancy expires {new Date(effectiveExpiryDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                   </p>
                 )}
               </div>
@@ -433,7 +451,7 @@ export default async function TenantPaymentsPage() {
           <PaymentBreakdownPanel
             room={room}
             baseRentAmount={baseRentAmount}
-            billingRules={billingRules}
+            billingRules={oneTimeFees}
             unpaidCharges={unpaidCharges}
             totalDue={totalDue}
             isPartialMode={isPartialMode}
@@ -446,6 +464,7 @@ export default async function TenantPaymentsPage() {
             isSharer={isSharer}
             primaryName={primaryName}
           />
+
 
           {/* Recent Payments */}
           {RecentPaymentsCard}
