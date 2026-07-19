@@ -38,11 +38,11 @@ export default function LandingClient({ initialRooms }) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
 
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 shrink-0">
-            <div className="w-8 h-8 bg-[#0b69ff] rounded-lg flex items-center justify-center">
-              <Building2 size={16} className="text-white" />
-            </div>
-            <span className="text-lg font-black text-[#102a43] tracking-tight hidden sm:block">Covenant</span>
+          <Link href="/" className="flex items-center gap-2 group shrink-0">
+             {/* <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#203090] to-[#1a2673] flex items-center justify-center shadow-md shadow-[#203090]/30 group-hover:shadow-xl group-hover:shadow-[#203090]/40 transition-all duration-300 group-hover:scale-110 border border-[#1a2673]/50"> */}
+               <img src="/convenant-hostel-logo.png" alt="Covenant Hostel" className="w-12 h-12 object-contain drop-shadow-md" />
+             {/* </div> */}
+            <span className="text-lg font-bold text-[#102a43] tracking-tight hidden sm:block">Covenant Hostel</span>
           </Link>
 
           {/* Center search pill (desktop) */}
@@ -70,7 +70,7 @@ export default function LandingClient({ initialRooms }) {
             {/* <Link href="/login" className="hidden md:block text-sm font-semibold text-gray-700 hover:bg-gray-100 px-4 py-2 rounded-full transition-colors">
               Log in
             </Link> */}
-            <Link href="/login" className="text-sm font-semibold bg-[#0b69ff] text-white px-5 py-2 rounded-full hover:bg-blue-700 transition-colors">
+            <Link href="/login" className="text-sm font-semibold bg-primary text-white px-5 py-2 rounded-full hover:bg-blue-700 transition-colors">
               Login
             </Link>
             <button
@@ -112,7 +112,7 @@ export default function LandingClient({ initialRooms }) {
 
         <div className="relative z-10 flex flex-col items-center justify-center text-center px-4 pt-16 pb-20 space-y-4">
           <p className="text-white/80 text-sm font-semibold uppercase tracking-widest">Housing & Living</p>
-          <h1 className="text-4xl md:text-5xl font-black text-white leading-tighter tracking-none drop-shadow-lg">
+          <h1 className="text-4xl md:text-5xl font-bold text-white leading-tighter tracking-none drop-shadow-lg">
             Find Your Perfect{' '}
             <span>Space</span>
           </h1>
@@ -187,7 +187,7 @@ export default function LandingClient({ initialRooms }) {
               </button>
             )}
           </div>
-          <button className="flex items-center justify-center gap-2 bg-[#0b69ff] hover:bg-blue-700 text-white font-bold text-sm px-8 py-3 rounded-xl transition-colors">
+          <button className="flex items-center justify-center gap-2 bg-primary hover:bg-blue-700 text-white font-bold text-sm px-8 py-3 rounded-xl transition-colors">
             <Search size={16} />
             Search
           </button>
@@ -202,7 +202,7 @@ export default function LandingClient({ initialRooms }) {
               onClick={() => setActiveBlock(block)}
               className={`shrink-0 px-5 py-2 rounded-full text-sm font-semibold border transition-all ${
                 activeBlock === block
-                  ? "bg-gray-900 text-white border-gray-900"
+                  ? "bg-primary text-white border-gray-900"
                   : "bg-white text-gray-700 border-gray-300 hover:border-gray-500"
               }`}
             >
@@ -264,10 +264,10 @@ export default function LandingClient({ initialRooms }) {
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-10 border-b border-gray-800 pb-12">
           <div className="md:col-span-1">
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 bg-[#0b69ff] rounded-lg flex items-center justify-center">
-                <Building2 size={16} className="text-white" />
-              </div>
-              <span className="text-white font-black text-lg">Covenant</span>
+             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#203090] to-[#1a2673] flex items-center justify-center shadow-md shadow-[#203090]/30 group-hover:shadow-xl group-hover:shadow-[#203090]/40 transition-all duration-300 group-hover:scale-110 border border-[#1a2673]/50">
+               <img src="/convenant-hostel-logo.png" alt="Covenant Hostel" className="w-6 h-6 object-contain brightness-0 invert drop-shadow-md" />
+             </div>
+              <span className="text-white font-semibold text-lg">Covenant</span>
             </div>
             <p className="text-sm leading-relaxed">Premium student hostel management. Simplified discovery, transparent pricing.</p>
           </div>
@@ -437,7 +437,7 @@ function AirbnbRoomCard({ room }) {
           <Link
             href={`/register?roomId=${room.id}`}
             onClick={(e) => e.stopPropagation()}
-            className="flex-1 py-2 bg-[#0b69ff] hover:bg-blue-700 text-white text-xs font-bold rounded-lg text-center transition-colors"
+            className="flex-1 py-2 bg-primary hover:bg-blue-700 text-white text-xs font-bold rounded-lg text-center transition-colors"
           >
             Reserve Room
           </Link>
