@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Lock, Loader2, CheckCircle2, AlertCircle, Eye, EyeOff } from "lucide-react";
-import { toast, Toaster } from "react-hot-toast";
+import { toast } from "react-hot-toast";
 import Link from "next/link";
 
 export default function ResetPasswordPage() {
@@ -98,7 +98,7 @@ export default function ResetPasswordPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 font-sans">
-      <Toaster position="top-center" />
+
 
       <div className="w-full max-w-[480px]">
         <div className="text-center mb-8">

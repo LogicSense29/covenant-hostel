@@ -17,10 +17,12 @@ export const dynamic = "force-dynamic";
 
 function getGreeting() {
   // WAT = UTC+1
-  const h = new Date().getUTCHours() + 1;
+  const h = (new Date().getUTCHours() + 1) % 24;
+  
   if (h < 12) return "Good morning";
-  if (h < 17) return "Good afternoon";
-  return "Good evening";
+  if (h < 16) return "Good afternoon"; // 12:00 PM - 3:59 PM
+  if (h < 21) return "Good evening";   // 4:00 PM - 8:59 PM
+  return "Good night";                 // 9:00 PM - 11:59 PM
 }
 
 export default async function TenantDashboard() {
@@ -198,7 +200,7 @@ export default async function TenantDashboard() {
             {greeting}, <span className="text-[#203090]">{firstName}</span> 👋
           </h1> */}
             <h1 className="text-2xl lg:text-3xl font-display font-semibold text-slate-800 ">
-              Good morning, <span className="text-indigo-600 font-medium">{session?.user?.name?.split(' ')[0] || "Tenant"}</span>👋
+              {getGreeting()}, <span className="text-primary font-medium">{session?.user?.name?.split(' ')[0] || "Tenant"}</span>👋
            </h1>
             <p className="text-slate-500 text-base mb-1">Lets have a productive day.</p>
         </div>

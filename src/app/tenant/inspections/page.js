@@ -91,7 +91,7 @@ export default async function TenantInspectionsPage() {
       {/* Header */}
       <div className="border-b border-slate-200 pb-4 flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-1">
-          <h1 className="text-3xl font-display font-semibold text-slate-900 tracking-tight">Your Inspections</h1>
+          <h1 className="text-2xl lg:text-3xl font-display font-semibold text-slate-900 tracking-tight">Your Inspections</h1>
           <p className="text-slate-500 max-w-xl">
             Track your move-in and move-out inspection status.
           </p>

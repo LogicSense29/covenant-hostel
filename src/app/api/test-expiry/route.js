@@ -282,25 +282,64 @@ export async function GET(req) {
     return new NextResponse(`
       <html>
         <head>
-          <title>Tenancy Restored Success</title>
+          <title>Restore Success</title>
           <style>
             body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8fafc; padding: 40px; text-align: center; color: #1e293b; }
             .card { background: white; border: 1px solid #e2e8f0; border-radius: 24px; padding: 40px; max-width: 500px; margin: auto; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
             h1 { color: #16a34a; margin-top: 0; }
-            .status { font-weight: bold; color: #16a34a; background: #f0fdf4; padding: 8px 16px; border-radius: 12px; display: inline-block; margin-bottom: 20px; }
+            .status { font-weight: bold; color: #16a34a; background: #dcfce7; padding: 8px 16px; border-radius: 12px; display: inline-block; margin-bottom: 20px; }
             .btn { display: inline-block; background: #2563eb; color: white; padding: 12px 24px; border-radius: 12px; text-decoration: none; font-weight: bold; margin-top: 20px; }
-            .btn-secondary { background: #e11d48; margin-left: 10px; }
+            .btn-secondary { background: #64748b; margin-left: 10px; }
+            .meta { font-size: 0.85em; color: #64748b; margin-top: 20px; }
           </style>
         </head>
         <body>
           <div class="card">
-            <h1>Tenancy Restored!</h1>
+            <h1>Restored to Active!</h1>
             <div class="status">STATUS: ACTIVE</div>
             <p><strong>Tenant:</strong> ${tenant.user.name} (${tenant.user.email})</p>
-            <p><strong>Rent Expiry Date:</strong> reset dynamically based on rent frequency (${expiryDate.toLocaleDateString("en-GB")})</p>
-            <p>Your tenant profile is now active and the dashboard is unlocked.</p>
+            <p><strong>Rent Expiry Date:</strong> set to ${expiryDate.toLocaleDateString("en-GB")} (Frequency: ${frequency})</p>
+            <p class="meta">If you log in as this tenant, you will now see the standard active dashboard.</p>
             <a href="/tenant" class="btn">Go to Tenant Dashboard</a>
-            <a href="/api/test-expiry" class="btn btn-secondary">Simulate Expiry</a>
+            <a href="/api/test-expiry?email=${encodeURIComponent(email)}" class="btn btn-secondary">Back to Controls</a>
+          </div>
+        </body>
+      </html>
+    `, { headers: { "Content-Type": "text/html" } });
+  }
+
+  if (action === "clear-payments") {
+    // Delete all payments and recurring charges for the tenant
+    await prisma.payment.deleteMany({
+      where: { tenantId: tenant.id },
+    });
+    
+    await prisma.recurringCharge.deleteMany({
+      where: { tenantId: tenant.id },
+    });
+
+    return new NextResponse(`
+      <html>
+        <head>
+          <title>Payments Cleared</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8fafc; padding: 40px; text-align: center; color: #1e293b; }
+            .card { background: white; border: 1px solid #e2e8f0; border-radius: 24px; padding: 40px; max-width: 500px; margin: auto; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+            h1 { color: #8b5cf6; margin-top: 0; }
+            .status { font-weight: bold; color: #8b5cf6; background: #ede9fe; padding: 8px 16px; border-radius: 12px; display: inline-block; margin-bottom: 20px; }
+            .btn { display: inline-block; background: #2563eb; color: white; padding: 12px 24px; border-radius: 12px; text-decoration: none; font-weight: bold; margin-top: 20px; }
+            .btn-secondary { background: #64748b; margin-left: 10px; }
+            .meta { font-size: 0.85em; color: #64748b; margin-top: 20px; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <h1>Payments Cleared!</h1>
+            <div class="status">CLEAN SLATE</div>
+            <p><strong>Tenant:</strong> ${tenant.user.name} (${tenant.user.email})</p>
+            <p class="meta">All payment records and recurring charges have been deleted. If you log in as this tenant, they will be prompted to pay their initial rent and checkout fees.</p>
+            <a href="/tenant/payments" class="btn">Go to Payments Page</a>
+            <a href="/api/test-expiry?email=${encodeURIComponent(email)}" class="btn btn-secondary">Back to Controls</a>
           </div>
         </body>
       </html>
@@ -369,6 +408,12 @@ export async function GET(req) {
           <p style="font-size:0.85rem;color:#64748b;margin:0 0 10px">Resets status to ACTIVE and sets a fresh expiry date based on the ticked rent frequency.</p>
           <div class="btn-row">
             <a href="/api/test-expiry?action=activate&email=${encodeURIComponent(email)}" class="btn btn-green">Restore to Active</a>
+          </div>
+
+          <h3>Clean Slate (Testing)</h3>
+          <p style="font-size:0.85rem;color:#64748b;margin:0 0 10px">Deletes ALL payments and recurring charges for this tenant, forcing them to re-pay their initial checkout bundle.</p>
+          <div class="btn-row">
+            <a href="/api/test-expiry?action=clear-payments&email=${encodeURIComponent(email)}" class="btn" style="background:#8b5cf6">Clear All Payments</a>
           </div>
         </div>
       </body>

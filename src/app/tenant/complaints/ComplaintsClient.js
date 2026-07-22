@@ -28,7 +28,7 @@ export default function ComplaintsClient({ complaints, currentUser }) {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-display font-semibold text-slate-900 tracking-tight">Complaint Center</h1>
+          <h1 className="text-2xl lg:text-3xl font-display font-semibold text-slate-900 tracking-tight">Complaint Center</h1>
           <p className="text-slate-500 mt-2 font-medium">Report non-facility issues, noise complaints, or general disputes.</p>
         </div>
         <button

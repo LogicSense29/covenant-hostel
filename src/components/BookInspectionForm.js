@@ -16,7 +16,7 @@ import {
   CreditCard,
   AlertCircle
 } from "lucide-react";
-import { toast, Toaster } from "react-hot-toast";
+import { toast } from "react-hot-toast";
 
 export default function BookInspectionForm() {
   const router = useRouter();
@@ -220,8 +220,6 @@ export default function BookInspectionForm() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 md:p-8 font-sans">
-      <Toaster position="top-center" />
-      
       {!settingsLoaded ? (
         <div className="flex flex-col items-center justify-center py-12">
           <Loader2 className="animate-spin text-blue-600 mb-4" size={32} />

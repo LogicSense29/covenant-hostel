@@ -19,7 +19,7 @@ import {
   Eye,
   EyeOff
 } from "lucide-react";
-import { toast, Toaster } from "react-hot-toast";
+import { toast } from "react-hot-toast";
 
 export default function RegisterForm() {
   const router = useRouter();
@@ -373,7 +373,7 @@ export default function RegisterForm() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 md:p-8 font-sans">
-      <Toaster position="top-center" />
+
       
       <div className="w-full max-w-[480px]">
         <div className="text-center mb-8">
@@ -791,7 +791,7 @@ export default function RegisterForm() {
                   />
                   <label htmlFor="rulesAgreed" className="text-xs text-slate-600 leading-relaxed cursor-pointer">
                     I agree to the{" "}
-                    <a href="/tenant/rules" target="_blank" className="text-blue-600 font-bold hover:underline">
+                    <a href="/rules" target="_blank" className="text-blue-600 font-bold hover:underline">
                       Tenancy Rules and Regulations
                     </a>
                   </label>

@@ -68,8 +68,8 @@ export default async function TenantPaymentsPage() {
   const targetTenantId = profile.primaryTenantId || profile.id;
 
   const [allRules, paymentHistory, recurringCharges] = await Promise.all([
-    // Global and block-scoped rules are auto-ticked in the room form on creation, so if the
-    // landlord unticked them, they will not be in this relation — and should not appear here.
+    // Each room's billing rules are exactly what the landlord ticked — the many-to-many relation.
+    // Fetching isGlobal directly here causes unticked global rules to reappear erroneously.
     prisma.billingRule.findMany({
       where: {
         rooms: { some: { id: room.id } },
@@ -135,34 +135,27 @@ export default async function TenantPaymentsPage() {
   // This includes BASE_RENT if it's monthly/yearly, and any other recurring charges.
   const recurringRules = allRules.filter(r => RECURRING.includes(r.frequency));
 
-  // ── Determine which ONCE fees have already been paid ──────────────────────
-  // Strategy: look for verified/success payments that cover each billing rule
-  // by checking the total verified non-recurring payments vs. cumulative ONCE fees.
-  // We check per billing rule ID by querying the RecurringCharge table (for recurring)
-  // and by summing verified payments for non-recurring.
-  //
-  // Robust approach: a ONCE fee is considered "paid" if the sum of all verified
-  // non-recurring payments for this tenant is >= the cumulative sum of all ONCE fees
-  // up to and including this rule in the list. We sort by amount and walk the list.
-  //
-  // Simplest correct approach: sum all verified non-recurring payments
-  // and subtract ONCE fees one by one until we run out of credit.
+  // ── Determine which fees have already been paid ─────────────────────────────
+  // We sum all verified non-recurring payments.
+  // Then we walk through all applicable billing rules. If the cumulative total
+  // is <= the verified total, the fee is considered paid.
   const verifiedNonRecurringTotal = paymentHistory
     .filter(p => (p.status === "SUCCESS" || p.status === "VERIFIED") && p.paymentType !== "RECURRING")
     .reduce((s, p) => s + p.amount, 0);
 
-  const allOnceFees = billingRules.filter(r => r.frequency === "ONCE");
+  // We want to include BOTH one-time fees and the first installment of recurring fees in the initial checkout
+  const initialFeesList = billingRules; 
   
-  // Walk through each ONCE fee — if cumulative total <= verified total, it's paid
-  let cumulativeOncePaid = 0;
-  const oneTimeFees = allOnceFees.filter(r => {
-    const wasPaid = (cumulativeOncePaid + r.amount) <= verifiedNonRecurringTotal;
+  // Walk through each fee — if cumulative total <= verified total, it's paid
+  let cumulativePaid = 0;
+  const initialCheckoutFees = initialFeesList.filter(r => {
+    const wasPaid = (cumulativePaid + r.amount) <= verifiedNonRecurringTotal;
     if (!wasPaid) return true; // still unpaid — show it
-    cumulativeOncePaid += r.amount;
+    cumulativePaid += r.amount;
     return false; // paid — hide it
   });
 
-  const totalFees = oneTimeFees.reduce((s, r) => s + r.amount, 0);
+  const totalFees = initialCheckoutFees.reduce((s, r) => s + r.amount, 0);
   const totalDue = baseRentAmount + totalFees;
 
   const isPartialMode = profile.allowPartialPayment && profile.partialPaymentInstallments > 1;
@@ -342,7 +335,7 @@ export default async function TenantPaymentsPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-slate-200 pb-8">
         <div className="space-y-1">
-          <h1 className="text-3xl font-display font-semibold text-slate-900 tracking-tight">Rent & Payments</h1>
+          <h1 className="text-2xl lg:text-3xl font-display font-semibold text-slate-900 tracking-tight">Rent & Payments</h1>
           <p className="text-slate-500 max-w-xl">
             View your billing breakdown, payment history, and submit rent payments.
           </p>
@@ -451,7 +444,7 @@ export default async function TenantPaymentsPage() {
           <PaymentBreakdownPanel
             room={room}
             baseRentAmount={baseRentAmount}
-            billingRules={oneTimeFees}
+            billingRules={initialCheckoutFees}
             unpaidCharges={unpaidCharges}
             totalDue={totalDue}
             isPartialMode={isPartialMode}

@@ -74,7 +74,7 @@ export default function TenantSettingsClient({ profile, userEmail }) {
   return (
     <div className="space-y-8 max-w-7xl">
       <div className="pb-0">
-        <h1 className="text-3xl font-display font-semibold text-slate-900 tracking-tight">Settings</h1>
+        <h1 className="text-2xl lg:text-3xl font-display font-semibold text-slate-900 tracking-tight">Settings</h1>
         <p className="text-slate-500 mt-1 text-sm">Manage your account details and security.</p>
       </div>
 

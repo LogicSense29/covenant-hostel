@@ -65,8 +65,28 @@ export async function POST(req) {
         date: new Date(date),
         notes,
         status: "PENDING"
+      },
+      include: {
+        tenant: {
+          include: {
+            user: true
+          }
+        },
+        room: true
       }
     });
+
+    // Send email notification to tenant
+    if (inspection.tenant?.user?.email) {
+      const { sendTenantInspectionScheduledEmail } = await import("@/lib/email");
+      sendTenantInspectionScheduledEmail({
+        email: inspection.tenant.user.email,
+        name: inspection.tenant.user.name || "Tenant",
+        roomNumber: inspection.room.number,
+        date: inspection.date,
+        notes: inspection.notes,
+      }).catch(err => console.error("Non-fatal: Failed to send tenant inspection email", err));
+    }
 
     return NextResponse.json(inspection, { status: 201 });
   } catch (err) {

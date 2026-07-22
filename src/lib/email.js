@@ -744,3 +744,34 @@ export async function sendAdminRecurringChargeOverdueAlert({ adminEmail, tenantN
   }
 }
 
+export async function sendTenantInspectionScheduledEmail({ email, name, roomNumber, date, notes }) {
+  try {
+    const transporter = createTransporter();
+    await transporter.sendMail({
+      from: `"Covenant Hostel" <${smtpUser}>`,
+      to: email,
+      subject: `Room Inspection Scheduled — Room ${roomNumber}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
+          <h2 style="color: #0b69ff;">Room Inspection Scheduled</h2>
+          <p>Hi ${name},</p>
+          <p>This is a notification that the hostel management has scheduled an inspection for <strong>Room ${roomNumber}</strong>.</p>
+          <div style="background: #f0f7ff; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 4px solid #0b69ff;">
+            <p style="margin: 0 0 8px; font-weight: bold; color: #102a43;">Inspection Date:</p>
+            <p style="margin: 0 0 12px; font-size: 16px; color: #0b69ff;">${new Date(date).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</p>
+            ${notes ? `
+            <p style="margin: 0 0 8px; font-weight: bold; color: #102a43;">Notes:</p>
+            <p style="margin: 0; font-size: 14px; color: #334155;">${notes}</p>
+            ` : ""}
+          </div>
+          <p>Please ensure you are available during the inspection, or contact the hostel management if you have any questions or need to reschedule.</p>
+          <p>Best regards,<br/>The Covenant Hostel Management Team</p>
+        </div>
+      `,
+    });
+    return { success: true };
+  } catch (error) {
+    console.error("Error sending tenant inspection scheduled email:", error);
+    return { success: false, error };
+  }
+}
