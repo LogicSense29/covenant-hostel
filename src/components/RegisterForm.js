@@ -169,6 +169,13 @@ export default function RegisterForm() {
     return phoneRegex.test(phone);
   };
 
+  // Password strength: min 8 chars + at least 1 digit or special character
+  const validatePassword = (pw) => {
+    if (!pw || pw.length < 8) return "Password must be at least 8 characters long.";
+    if (!/[0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pw)) return "Password must include at least one number or special character.";
+    return null; // null means valid
+  };
+
   const handleFileUpload = async (e, targetField = "guarantorIdUrl") => {
     const file = e.target.files[0];
     if (!file) return;
@@ -201,8 +208,13 @@ export default function RegisterForm() {
 
   const nextStep = () => {
     if (step === 1) {
-      if (!formData.name || !formData.email || !formData.phone) {
+      if (!formData.name.trim() || !formData.email || !formData.phone) {
         return toast.error("Please fill all account information");
+      }
+
+      // Name must be at least 2 characters
+      if (formData.name.trim().length < 2) {
+        return toast.error("Please enter your full name (at least 2 characters)");
       }
       
       // Validate email
@@ -214,18 +226,25 @@ export default function RegisterForm() {
       if (!validatePhone(formData.phone)) {
         return toast.error("Please enter a valid 10-digit phone number");
       }
-      
+
+      // Non-tenant roles set a password at registration time
       if (formData.role !== "TENANT") {
-        handleSubmitInternal(); // Submit directly since password is set via email
+        const pwError = validatePassword(formData.password);
+        if (pwError) return toast.error(pwError);
+        if (formData.password !== formData.confirmPassword) {
+          return toast.error("Passwords do not match. Please check and try again.");
+        }
+        handleSubmitInternal();
+        return;
+      }
+      
+      if (!roomId && blocksData.length > 0 && (!selectedBlockId || !selectedRoomId)) {
+        return toast.error("Please select a block and room");
+      }
+      if (formData.isStudent) {
+        setStep(1.5); // Go to Student Details
       } else {
-        if (!roomId && blocksData.length > 0 && (!selectedBlockId || !selectedRoomId)) {
-          return toast.error("Please select a block and room");
-        }
-        if (formData.isStudent) {
-          setStep(1.5); // Go to Student Details
-        } else {
-          setStep(1.6); // Go to Work Details
-        }
+        setStep(1.6); // Go to Work Details
       }
     } else if (step === 1.5) {
         if (!formData.matricNumber || !formData.schoolName || !formData.faculty || !formData.department || !formData.courseOfStudy || !formData.schoolYear || !formData.studentIdUrl || !formData.permanentAddress) {
@@ -377,9 +396,11 @@ export default function RegisterForm() {
       
       <div className="w-full max-w-[480px]">
         <div className="text-center mb-8">
-           <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm mb-4">
-              <ShieldCheck size={24} />
-           </div>
+                                <Link href="/" className="flex flex-col items-center gap-2 group shrink-0">
+                                     <img src="/convenant-hostel-logo.png" alt="Covenant Hostel" className="w-12 h-12 object-contain drop-shadow-md" />
+              
+                                  {/* <span className="text-lg font-bold text-[#102a43] tracking-tight hidden sm:block">Covenant Hostel</span> */}
+                                </Link>
            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Create Account</h1>
            <p className="text-sm text-slate-500 mt-1 font-medium">Join Covenant Hostel Management System</p>
         </div>
@@ -428,7 +449,7 @@ export default function RegisterForm() {
               return (
                 <div 
                   key={s.id} 
-                  className={`flex-1 transition-all duration-500 ${isActive ? "bg-blue-600" : "bg-transparent"}`}
+                  className={`flex-1 transition-all duration-500 ${isActive ? "bg-primary" : "bg-transparent"}`}
                 />
               );
             })}
@@ -436,7 +457,7 @@ export default function RegisterForm() {
 
           <div className="p-6 md:p-8">
             <div className="flex items-center justify-between mb-8">
-              <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">
+              <span className="text-[10px] font-bold text-primary uppercase tracking-widest">
                 Step {steps.findIndex(s => s.id === step) + 1} of {steps.length}
               </span>
               <span className="text-sm font-bold text-slate-900">
@@ -536,7 +557,7 @@ export default function RegisterForm() {
                   <div className="space-y-4 pt-3 border-t border-slate-100">
                     <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
                       <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${formData.isStudent ? 'bg-blue-600 text-white' : 'bg-white text-slate-400 border border-slate-200'}`}>
+                        <div className={`p-2 rounded-lg ${formData.isStudent ? 'bg-primary text-white' : 'bg-white text-slate-400 border border-slate-200'}`}>
                            <ShieldCheck size={18} />
                         </div>
                         <div>
@@ -546,7 +567,7 @@ export default function RegisterForm() {
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input name="isStudent" type="checkbox" className="sr-only peer" checked={formData.isStudent} onChange={handleChange} />
-                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                       </label>
                     </div>
                   </div>
@@ -808,7 +829,7 @@ export default function RegisterForm() {
                 <button 
                   onClick={nextStep} 
                   disabled={loading || uploading}
-                  className="flex-1 h-12 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 shadow-sm transition-all flex items-center justify-center gap-2 group disabled:bg-slate-200 disabled:text-slate-400"
+                  className="flex-1 h-12 bg-primary text-white rounded-xl font-bold text-sm hover:bg-blue-700 shadow-sm transition-all flex items-center justify-center gap-2 group disabled:bg-slate-200 disabled:text-slate-400"
                 >
                   {loading ? (
                     <Loader2 className="animate-spin" size={18} />
@@ -825,7 +846,7 @@ export default function RegisterForm() {
         </div>
 
         <p className="mt-8 text-center text-sm font-bold text-slate-400 uppercase tracking-widest">
-          Already a member? <Link href="/login" className="text-blue-600 hover:text-blue-700 transition-all ml-1 underline underline-offset-4">Log In</Link>
+          Already a member? <Link href="/login" className="text-primary hover:text-blue-700 transition-all ml-1 underline underline-offset-4">Log In</Link>
         </p>
       </div>
     </div>

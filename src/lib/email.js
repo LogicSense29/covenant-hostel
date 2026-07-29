@@ -775,3 +775,62 @@ export async function sendTenantInspectionScheduledEmail({ email, name, roomNumb
     return { success: false, error };
   }
 }
+
+export async function sendProviderAssignedEmail({ email, name, roomNumber, issue, description, priority }) {
+  try {
+    const transporter = createTransporter();
+    await transporter.sendMail({
+      from: `"Covenant Hostel" <${smtpUser}>`,
+      to: email,
+      subject: `New Task Assigned — Room ${roomNumber}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
+          <h2 style="color: #0b69ff;">New Maintenance Task</h2>
+          <p>Hi ${name},</p>
+          <p>You have been assigned a new maintenance ticket by the landlord.</p>
+          <div style="background: #f0f7ff; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 4px solid #0b69ff;">
+            <p><strong>Room:</strong> ${roomNumber}</p>
+            <p><strong>Issue:</strong> ${issue}</p>
+            <p><strong>Priority:</strong> ${priority}</p>
+            <p><strong>Description:</strong> ${description || "No description provided."}</p>
+          </div>
+          <p>Please log in to your dashboard to contact the tenant and resolve the issue.</p>
+          <p>Best regards,<br/>Covenant Hostel Management</p>
+        </div>
+      `,
+    });
+    return { success: true };
+  } catch (error) {
+    console.error("Error sending provider assigned email:", error);
+    return { success: false, error };
+  }
+}
+
+export async function sendTenantProviderAssignedEmail({ email, name, providerName, specialty, roomNumber, issue }) {
+  try {
+    const transporter = createTransporter();
+    await transporter.sendMail({
+      from: `"Covenant Hostel" <${smtpUser}>`,
+      to: email,
+      subject: `Service Provider Assigned to your request`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
+          <h2 style="color: #0b69ff;">Help is on the way!</h2>
+          <p>Hi ${name},</p>
+          <p>A service provider has been assigned to your maintenance request for <strong>Room ${roomNumber}</strong>.</p>
+          <div style="background: #f0f7ff; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 4px solid #0b69ff;">
+            <p><strong>Issue:</strong> ${issue}</p>
+            <p><strong>Provider Name:</strong> ${providerName}</p>
+            <p><strong>Specialty:</strong> ${specialty}</p>
+          </div>
+          <p>The provider will reach out to you shortly or arrive at your room to assess the situation.</p>
+          <p>Best regards,<br/>Covenant Hostel Management</p>
+        </div>
+      `,
+    });
+    return { success: true };
+  } catch (error) {
+    console.error("Error sending tenant provider assigned email:", error);
+    return { success: false, error };
+  }
+}

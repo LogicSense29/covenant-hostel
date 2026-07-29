@@ -21,7 +21,13 @@ export default function ForgotPasswordPage() {
         body: JSON.stringify({ email }),
       });
 
-      // Always show success — don't reveal whether the email exists
+      if (res.status === 429) {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error || "Too many requests. Please wait a few minutes before trying again.");
+        return;
+      }
+
+      // Always show success for any other status — don't reveal whether the email exists
       setSent(true);
     } catch {
       toast.error("Something went wrong. Please try again.");
@@ -59,9 +65,11 @@ export default function ForgotPasswordPage() {
 
       <div className="w-full max-w-[480px]">
         <div className="text-center mb-8">
-          <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm mb-4">
-            <Mail size={24} />
-          </div>
+                    <Link href="/" className="flex flex-col items-center gap-2 group shrink-0">
+                         <img src="/convenant-hostel-logo.png" alt="Covenant Hostel" className="w-12 h-12 object-contain drop-shadow-md" />
+  
+                      {/* <span className="text-lg font-bold text-[#102a43] tracking-tight hidden sm:block">Covenant Hostel</span> */}
+                    </Link>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Forgot Password</h1>
           <p className="text-sm text-slate-500 mt-1 font-medium">
             Enter your email and we'll send you a reset link
@@ -82,7 +90,7 @@ export default function ForgotPasswordPage() {
                 <input
                   required
                   type="email"
-                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all text-sm font-semibold text-slate-900"
+                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-blue-500/5 focus:border-primary outline-none transition-all text-sm font-semibold text-slate-900"
                   placeholder="your@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -93,7 +101,7 @@ export default function ForgotPasswordPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full h-12 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 shadow-sm transition-all flex items-center justify-center gap-2 disabled:bg-slate-200 disabled:text-slate-400"
+              className="w-full h-12 bg-primary text-white rounded-xl font-bold text-sm hover:bg-blue-700 shadow-sm transition-all flex items-center justify-center gap-2 disabled:bg-slate-200 disabled:text-slate-400"
             >
               {loading ? (
                 <><Loader2 className="animate-spin" size={18} /> Sending...</>

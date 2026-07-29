@@ -7,8 +7,12 @@ const authToken = process.env.TWILIO_AUTH_TOKEN;
 const fromNumber = process.env.TWILIO_WHATSAPP_NUMBER; // e.g. 'whatsapp:+14155238886'
 
 let client = null;
-if (accountSid && authToken) {
-  client = twilio(accountSid, authToken);
+try {
+  if (accountSid && authToken && accountSid.startsWith("AC")) {
+    client = twilio(accountSid, authToken);
+  }
+} catch (e) {
+  console.warn("Failed to initialize Twilio client:", e.message);
 }
 
 /**

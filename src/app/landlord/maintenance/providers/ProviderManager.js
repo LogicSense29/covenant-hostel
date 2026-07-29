@@ -43,7 +43,8 @@ export default function ProviderManager({ initialProviders }) {
         toast.success("Provider registered successfully!");
         router.refresh();
       } else {
-        toast.error("Failed to register provider.");
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error || "Failed to register provider.");
       }
     } catch (err) {
       toast.error("Error adding provider");
@@ -53,13 +54,27 @@ export default function ProviderManager({ initialProviders }) {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm("Remove this service provider?")) return;
+    if (!confirm("Are you sure you want to remove this service provider? They will be unassigned from all current tickets.")) return;
+    
+    setLoading(true);
+    const toastId = toast.loading("Removing provider...");
+    
     try {
-      // Need a DELETE API. I'll create it later.
-      toast.success("Provider deletion logic is pending API implementation.");
-      router.refresh();
+      const res = await fetch(`/api/maintenance/providers/${id}`, {
+        method: "DELETE",
+      });
+      
+      if (res.ok) {
+        toast.success("Service provider removed successfully", { id: toastId });
+        router.refresh();
+      } else {
+        const error = await res.json();
+        toast.error(error.error || "Failed to remove provider", { id: toastId });
+      }
     } catch (err) {
-      toast.error("Error deleting provider");
+      toast.error("Error connecting to server", { id: toastId });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -85,7 +100,7 @@ export default function ProviderManager({ initialProviders }) {
           <input 
             type="text" 
             placeholder="Search by name or specialty..." 
-            className="bg-transparent border-none outline-none text-sm w-full"
+            className="text-slate-700 bg-transparent border-none outline-none text-sm w-full"
           />
         </div>
       </div>
@@ -134,7 +149,7 @@ export default function ProviderManager({ initialProviders }) {
                      <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Active Partner</span>
                   </div>
-                  <button className="text-[10px] font-bold text-blue-600 hover:underline uppercase tracking-widest">Assign Ticket</button>
+                  <button onClick={() => router.push('/landlord/maintenance')} className="text-[10px] font-bold text-blue-600 hover:underline uppercase tracking-widest">Assign Ticket</button>
                </div>
             </div>
           ))
@@ -159,7 +174,7 @@ export default function ProviderManager({ initialProviders }) {
                   <input
                     type="text"
                     required
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white focus:border-blue-500 transition-all"
+                    className="w-full text-slate-700 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white focus:border-blue-500 transition-all"
                     value={formData.name}
                     onChange={(e) => setFormData({...formData, name: e.target.value})}
                   />
@@ -169,7 +184,7 @@ export default function ProviderManager({ initialProviders }) {
                   <input
                     type="email"
                     required
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white transition-all"
+                    className="w-full text-slate-700 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white transition-all"
                     value={formData.email}
                     onChange={(e) => setFormData({...formData, email: e.target.value})}
                   />
@@ -179,7 +194,7 @@ export default function ProviderManager({ initialProviders }) {
                   <input
                     type="text"
                     required
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white transition-all"
+                    className="w-full text-slate-700 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white transition-all"
                     value={formData.phone}
                     onChange={(e) => setFormData({...formData, phone: e.target.value})}
                   />
@@ -191,7 +206,7 @@ export default function ProviderManager({ initialProviders }) {
                 <input
                   type="text"
                   required
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white transition-all"
+                  className="w-full text-slate-700 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white transition-all"
                   value={formData.specialty}
                   onChange={(e) => setFormData({...formData, specialty: e.target.value})}
                 />
@@ -201,7 +216,7 @@ export default function ProviderManager({ initialProviders }) {
                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 px-1">Availability</label>
                 <input
                   type="text"
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white transition-all"
+                  className="w-full text-slate-600 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white transition-all"
                   value={formData.availability}
                   onChange={(e) => setFormData({...formData, availability: e.target.value})}
                 />

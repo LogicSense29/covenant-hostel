@@ -2,8 +2,12 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import nodemailer from "nodemailer";
+import { createRateLimiter, getClientIp } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
+
+// 10 attempts per 15 minutes per IP
+const limiter = createRateLimiter({ maxAttempts: 10, windowMs: 15 * 60 * 1_000, keyPrefix: "setup-pw" });
 
 const smtpHost = process.env.SMTP_HOST || "smtp.ethereal.email";
 const smtpPort = Number(process.env.SMTP_PORT || 587);
@@ -18,6 +22,15 @@ function createTransporter() {
 }
 
 export async function POST(req) {
+  const ip = getClientIp(req);
+  const { allowed, retryAfterSeconds } = limiter.check(ip);
+  if (!allowed) {
+    return NextResponse.json(
+      { error: `Too many attempts. Please try again in ${retryAfterSeconds} seconds.` },
+      { status: 429, headers: { "Retry-After": String(retryAfterSeconds) } }
+    );
+  }
+
   try {
     const body = await req.json();
     const { token, password } = body;

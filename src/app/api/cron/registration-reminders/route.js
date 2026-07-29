@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
+import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import nodemailer from "nodemailer";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 const smtpHost = process.env.SMTP_HOST || "smtp.ethereal.email";
 const smtpPort = Number(process.env.SMTP_PORT || 587);
@@ -18,7 +20,9 @@ function createTransporter() {
 }
 
 export async function GET(req) {
-  const authHeader = req.headers.get("authorization");
+  const headersList = await headers();
+  const authHeader = headersList.get("authorization");
+  
   if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return new NextResponse("Unauthorized", { status: 401 });
   }

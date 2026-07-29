@@ -55,6 +55,9 @@ export default function SetupPasswordPage() {
       if (res.ok) {
         setSuccess(true);
         toast.success("Account activated!");
+      } else if (res.status === 429) {
+        const errorData = await res.json().catch(() => ({}));
+        toast.error(errorData.error || "Too many attempts. Please try again later.");
       } else {
         const errorText = await res.text();
         toast.error(errorText || "Activation failed");

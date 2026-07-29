@@ -23,6 +23,7 @@ export default function LandlordMaintenanceManager({ initialTickets, providers, 
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [resolvingId, setResolvingId] = useState(null); // per-ticket resolve loading
+  const [assigningId, setAssigningId] = useState(null); // per-ticket assign loading
   const [filter, setFilter] = useState("ALL");
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -30,16 +31,21 @@ export default function LandlordMaintenanceManager({ initialTickets, providers, 
   const [tickets, setTickets] = useState(initialTickets);
 
   const handleAssign = async (ticketId, providerId) => {
-    if (!providerId) return;
-    setLoading(true);
+    const payloadProviderId = providerId || null;
+    setAssigningId(ticketId);
     try {
       const res = await fetch(`/api/maintenance/tickets/${ticketId}/assign`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ providerId })
+        body: JSON.stringify({ providerId: payloadProviderId })
       });
       if (res.ok) {
-        toast.success("Ticket assigned successfully!");
+        toast.success(payloadProviderId ? "Ticket assigned successfully!" : "Provider unassigned.");
+        setTickets(prev => prev.map(t => t.id === ticketId ? { 
+          ...t, 
+          providerId: payloadProviderId, 
+          status: payloadProviderId ? "IN_PROGRESS" : "OPEN" 
+        } : t));
         router.refresh();
       } else {
         toast.error("Failed to assign ticket.");
@@ -47,7 +53,7 @@ export default function LandlordMaintenanceManager({ initialTickets, providers, 
     } catch (err) {
       toast.error("Error assigning ticket");
     } finally {
-      setLoading(false);
+      setAssigningId(null);
     }
   };
 
@@ -196,12 +202,19 @@ export default function LandlordMaintenanceManager({ initialTickets, providers, 
                         </div>
                       ) : (
                         <div className="space-y-4">
-                           <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 px-1">Assign Service Provider</label>
+                           <div className="flex items-center justify-between mb-1 px-1">
+                             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">Assign Service Provider</label>
+                             {assigningId === ticket.id && (
+                               <span className="flex items-center gap-1 text-[10px] font-bold text-blue-600 animate-pulse uppercase tracking-widest">
+                                 <Loader2 size={12} className="animate-spin" /> Assigning...
+                               </span>
+                             )}
+                           </div>
                            <select 
-                             className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white transition-all cursor-pointer"
+                             className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                              value={ticket.providerId || ""}
                              onChange={(e) => handleAssign(ticket.id, e.target.value)}
-                             disabled={loading}
+                             disabled={loading || assigningId === ticket.id}
                            >
                              <option value="">Unassigned</option>
                              {providers.map(p => (

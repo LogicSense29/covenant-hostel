@@ -32,6 +32,34 @@ export async function POST(req) {
   try {
     const { name, email, phone, specialty, availability, password } = await req.json();
 
+    // Check if user with email already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+      include: { serviceProviderProfile: true }
+    });
+
+    if (existingUser) {
+      if (existingUser.serviceProviderProfile) {
+        return NextResponse.json({ error: "A service provider with this email already exists." }, { status: 400 });
+      }
+
+      // User exists (e.g., as a TENANT) but is not yet a Service Provider.
+      // Attach the ServiceProviderProfile to their existing account.
+      const updatedUser = await prisma.user.update({
+        where: { id: existingUser.id },
+        data: {
+          serviceProviderProfile: {
+            create: {
+              phone,
+              specialty,
+              availability
+            }
+          }
+        }
+      });
+      return NextResponse.json(updatedUser, { status: 201 });
+    }
+
     // Create User first
     const hashedPassword = await bcrypt.hash(password || "Provider123!", 10);
     

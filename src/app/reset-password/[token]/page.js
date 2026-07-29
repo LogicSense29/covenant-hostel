@@ -38,6 +38,9 @@ export default function ResetPasswordPage() {
 
       if (res.ok) {
         setSuccess(true);
+      } else if (res.status === 429) {
+        const errorData = await res.json().catch(() => ({}));
+        toast.error(errorData.error || "Too many attempts. Please try again later.");
       } else {
         const errorText = await res.text();
         toast.error(errorText || "Reset failed. The link may have expired.");

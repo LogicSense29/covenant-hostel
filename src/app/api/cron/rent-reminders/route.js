@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import {
   sendRentExpiryReminder,
@@ -17,9 +18,12 @@ import { createNotification, getLandlordUserIds } from "@/lib/notifications";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 export async function GET(req) {
-  const authHeader = req.headers.get("authorization");
+  const headersList = await headers();
+  const authHeader = headersList.get("authorization");
+  
   if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
