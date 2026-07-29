@@ -53,6 +53,7 @@ model TenantProfile {
   rulesSignedAt     DateTime?
   rulesSignedName   String?
   primaryTenantId     String?
+  formerPrimaryTenantIds String[]     @default([])
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
   guarantorIdUrl      String?

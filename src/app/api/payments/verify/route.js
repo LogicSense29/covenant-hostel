@@ -25,6 +25,9 @@ const verifySchema = z.object({
     name: z.string(),
     amount: z.number()
   })).optional(),
+  // IDs of non-ONCE billing rules paid via the Rent Checkout bundle (not via RecurringCharge records)
+  // Used to stamp PAID RecurringCharge entries to prevent cron double-billing
+  checkoutBillingRuleIds: z.array(z.string()).optional(),
 });
 
 export async function POST(req) {
@@ -51,6 +54,7 @@ export async function POST(req) {
       recurringChargeIds = [],
       isRentSelected = true,
       breakdown,
+      checkoutBillingRuleIds = [],
     } = validation.data;
 
     // Verify with Paystack
@@ -228,7 +232,7 @@ export async function POST(req) {
       })
     ];
 
-    if (isRentSelected && rentAmount > 0) {
+    if (isRentSelected) {
       txOps.push(
         prisma.tenantProfile.update({
           where: { id: profile.id },
@@ -255,6 +259,55 @@ export async function POST(req) {
     }
 
     await prisma.$transaction(txOps);
+
+    // For each non-ONCE billing rule paid via the Rent Checkout bundle,
+    // stamp a PAID RecurringCharge for today's cycle so the cron never
+    // generates a duplicate bill for the same period.
+    if (checkoutBillingRuleIds.length > 0) {
+      const now = new Date();
+      const todayUTC = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0));
+
+      // Fetch the billing rules to get amounts
+      const checkoutRules = await prisma.billingRule.findMany({
+        where: { id: { in: checkoutBillingRuleIds } },
+      });
+
+      for (const rule of checkoutRules) {
+        if (rule.frequency === "ONCE") continue; // Safety guard — ONCE fees are never recurring
+
+        // Check if an open charge already exists for today (shouldn't happen due to page-level guard,
+        // but we handle it gracefully to avoid unique constraint errors)
+        const existing = await prisma.recurringCharge.findFirst({
+          where: {
+            tenantId: profile.id,
+            billingRuleId: rule.id,
+            dueDate: todayUTC,
+          },
+        });
+
+        if (existing) {
+          // Mark it paid if it isn't already
+          if (existing.status !== "PAID") {
+            await prisma.recurringCharge.update({
+              where: { id: existing.id },
+              data: { status: "PAID", paymentId: consolidatedPayment.id },
+            });
+          }
+        } else {
+          // Create a PAID stamp for this cycle
+          await prisma.recurringCharge.create({
+            data: {
+              tenantId: profile.id,
+              billingRuleId: rule.id,
+              amount: rule.amount,
+              dueDate: todayUTC,
+              status: "PAID",
+              paymentId: consolidatedPayment.id,
+            },
+          });
+        }
+      }
+    }
 
     for (const charge of charges) {
       await autoCreateNextCharge(prisma, charge.id);

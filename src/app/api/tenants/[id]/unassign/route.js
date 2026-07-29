@@ -63,7 +63,15 @@ export async function PUT(req, { params }) {
       // ── 1. Unassign the primary tenant ──
       await tx.tenantProfile.update({
         where: { id },
-        data: { roomId: null, rentStartDate: null, rentExpiryDate: null },
+        data: { 
+          roomId: null, 
+          rentStartDate: null, 
+          rentExpiryDate: null,
+          ...(tenant.primaryTenantId ? { 
+            primaryTenantId: null, 
+            formerPrimaryTenantIds: { push: tenant.primaryTenantId } 
+          } : {})
+        },
       });
       
       // Update primary user status if they are ACTIVE or EXPIRED
@@ -89,7 +97,7 @@ export async function PUT(req, { params }) {
         // Promote the oldest active sharer to Primary Tenant
         await tx.tenantProfile.update({
           where: { id: promotedSharer.id },
-          data: { primaryTenantId: null }
+          data: { primaryTenantId: null, formerPrimaryTenantIds: { push: tenant.id } }
         });
 
         // Migrate the financial ledger (Payments and Recurring Charges) to the new primary
@@ -115,7 +123,7 @@ export async function PUT(req, { params }) {
                // Non-active sharers get fully unassigned
                await tx.tenantProfile.update({
                  where: { id: sharer.id },
-                 data: { roomId: null, rentStartDate: null, rentExpiryDate: null, primaryTenantId: null },
+                 data: { roomId: null, rentStartDate: null, rentExpiryDate: null, primaryTenantId: null, formerPrimaryTenantIds: { push: tenant.id } },
                });
                await tx.stayHistory.updateMany({
                  where: { tenantId: sharer.id, status: "ACTIVE" },
@@ -129,7 +137,7 @@ export async function PUT(req, { params }) {
         for (const sharer of tenant.roomSharers) {
           await tx.tenantProfile.update({
             where: { id: sharer.id },
-            data: { roomId: null, rentStartDate: null, rentExpiryDate: null, primaryTenantId: null },
+            data: { roomId: null, rentStartDate: null, rentExpiryDate: null, primaryTenantId: null, formerPrimaryTenantIds: { push: tenant.id } },
           });
           await tx.stayHistory.updateMany({
             where: { tenantId: sharer.id, status: "ACTIVE" },

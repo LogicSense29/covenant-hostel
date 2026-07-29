@@ -22,6 +22,9 @@ export default async function TenantPaymentHistoryPage({ searchParams }) {
     include: { room: true },
   });
 
+  // Sharers don't pay directly — show the primary tenant's payment history instead
+  const targetTenantId = profile?.primaryTenantId || profile?.id;
+
   if (!profile) {
     return (
       <div className="p-12 text-center">
@@ -35,7 +38,14 @@ export default async function TenantPaymentHistoryPage({ searchParams }) {
   // Fetch all payment transactions for this tenant
   const [allPayments, billingRules] = await Promise.all([
     prisma.payment.findMany({
-      where: { tenantId: profile.id },
+      where: { 
+        tenantId: { 
+          in: [
+            targetTenantId,
+            ...(profile?.formerPrimaryTenantIds || [])
+          ]
+        } 
+      },
       orderBy: { createdAt: "desc" },
       include: {
         recurringCharge: {

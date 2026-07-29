@@ -89,10 +89,17 @@ export default function PaymentBreakdownPanel({
 
   const totalToPayNow = rentAndFeesInstallment + utilityTotal;
 
-  // Selected recurring charge IDs
+  // Selected recurring charge IDs (from the Recurring Charges Due section)
   const selectedRecurringChargeIds = unpaidCharges
     .filter(charge => selectedItems[`charge_${charge.id}`])
     .map(charge => charge.id);
+
+  // IDs of non-ONCE billing rules included in this checkout bundle.
+  // Sent to the verify route so it can stamp a PAID RecurringCharge for the
+  // current cycle — preventing the cron from double-billing the same period.
+  const checkoutBillingRuleIds = billingRules
+    .filter(rule => rule.frequency !== "ONCE" && selectedItems[`rule_${rule.id}`])
+    .map(rule => rule.id);
 
   // Compute the detailed breakdown array to be stored in the database
   const nextInstallmentNumber = (paymentHistory?.filter(
@@ -506,6 +513,7 @@ export default function PaymentBreakdownPanel({
                 isRentSelected={!!selectedItems["rent"]}
                 rentFrequencyShorthand={rentFrequencyShorthand}
                 breakdown={breakdown}
+                checkoutBillingRuleIds={checkoutBillingRuleIds}
               />
             </div>
 

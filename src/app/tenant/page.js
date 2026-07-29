@@ -35,7 +35,7 @@ export default async function TenantDashboard() {
         include: {
           block: true,
           tenants: {
-            where: { user: { status: { notIn: ["REJECTED", "EXPIRED"] } } },
+            where: { user: { status: { notIn: ["REJECTED"] } } },
             select: { id: true },
           },
         },
@@ -95,7 +95,9 @@ export default async function TenantDashboard() {
     return <PreActiveScreen type="pending" room={room} profile={effectiveProfile} primaryTenantName={isRoomSharer ? effectiveProfile.user?.name : null} />;
   }
   if (effectiveUser.status === "AWAITING_PAYMENT") {
-    return <PreActiveScreen type="awaiting_payment" room={room} profile={effectiveProfile} primaryTenantName={isRoomSharer ? effectiveProfile.user?.name : null} />;
+    const paymentsToCheck = isRoomSharer ? profile.primaryTenant?.payments || [] : payments;
+    const hasRejected = paymentsToCheck.some(p => p.status === "REJECTED");
+    return <PreActiveScreen type="awaiting_payment" room={room} profile={effectiveProfile} primaryTenantName={isRoomSharer ? effectiveProfile.user?.name : null} hasRejectedPayment={hasRejected} />;
   }
   if (effectiveUser.status === "PAYMENT_MADE") {
     const paymentsToCheck = isRoomSharer ? profile.primaryTenant.payments : payments;
@@ -103,7 +105,9 @@ export default async function TenantDashboard() {
     return <PreActiveScreen type={hasVerified ? "payment_approved" : "payment_review"} room={room} profile={effectiveProfile} primaryTenantName={isRoomSharer ? effectiveProfile.user?.name : null} />;
   }
   if (effectiveUser.status === "EXPIRED") {
-    return <PreActiveScreen type="expired" room={room} profile={effectiveProfile} primaryTenantName={isRoomSharer ? effectiveProfile.user?.name : null} />;
+    const paymentsToCheck = isRoomSharer ? profile.primaryTenant?.payments || [] : payments;
+    const hasRejected = paymentsToCheck.some(p => p.status === "REJECTED");
+    return <PreActiveScreen type="expired" room={room} profile={effectiveProfile} primaryTenantName={isRoomSharer ? effectiveProfile.user?.name : null} hasRejectedPayment={hasRejected} />;
   }
   if (effectiveUser.status === "REJECTED") {
     return <PreActiveScreen type="rejected" room={room} profile={effectiveProfile} primaryTenantName={isRoomSharer ? effectiveProfile.user?.name : null} />;
@@ -112,9 +116,9 @@ export default async function TenantDashboard() {
   // ── ACTIVE dashboard ──
   const targetPayments = isRoomSharer && profile.primaryTenant ? profile.primaryTenant.payments : profile.payments;
 
-
   const hasVerifiedPayment = targetPayments.some(p => p.status === "VERIFIED" || p.status === "SUCCESS");
   const hasPendingReceipt  = targetPayments.some(p => p.status === "PENDING");
+  const hasRejectedReceipt = targetPayments.some(p => p.status === "REJECTED");
   const hasNoPayment       = !hasVerifiedPayment && !hasPendingReceipt;
 
   // Use the effective profile's rentExpiryDate (primary's if sharer)
@@ -124,7 +128,7 @@ export default async function TenantDashboard() {
     : null;
   const isExpiringSoon  = daysUntilExpiry !== null && daysUntilExpiry <= 7  && daysUntilExpiry > 0;
   const isExpiringCrit  = daysUntilExpiry !== null && daysUntilExpiry <= 3  && daysUntilExpiry > 0;
-  const showPaymentAlert = hasNoPayment || (hasPendingReceipt && !hasVerifiedPayment) || isExpiringSoon;
+  const showPaymentAlert = hasNoPayment || (hasPendingReceipt && !hasVerifiedPayment) || isExpiringSoon || hasRejectedReceipt;
 
   const greeting  = getGreeting();
   const firstName = user.name?.split(" ")[0] || "Tenant";
@@ -178,6 +182,23 @@ export default async function TenantDashboard() {
                   Pay Now
                 </Link>
               )}
+            </div>
+          )}
+          {hasRejectedReceipt && (
+            <div className="rounded-2xl px-5 py-3.5 flex items-center justify-between gap-4 border bg-red-50 border-red-200">
+              <div className="flex items-center gap-3">
+                <AlertCircle size={16} className="text-red-500 shrink-0" />
+                <p className="text-sm font-semibold text-red-800">
+                  {isRoomSharer 
+                    ? `A payment receipt uploaded by ${profile.primaryTenant?.user?.name?.split(" ")[0] || "your primary tenant"} was rejected.`
+                    : "One of your previously uploaded payment receipts was rejected."}
+                </p>
+              </div>
+              {/* {!isRoomSharer && (
+                <Link href="/tenant/payments" className="shrink-0 text-xs font-bold px-4 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white">
+                  View Details
+                </Link>
+              )} */}
             </div>
           )}
         </div>
@@ -438,7 +459,7 @@ export default async function TenantDashboard() {
 }
 
 // ── Pre-active status screen (shared for all non-ACTIVE states) ──
-function PreActiveScreen({ type, room, profile, primaryTenantName = null }) {
+function PreActiveScreen({ type, room, profile, primaryTenantName = null, hasRejectedPayment = false }) {
   const isRoomSharer = profile?.primaryTenantId != null || primaryTenantName != null;
   const primaryName = primaryTenantName || profile?.primaryTenant?.user?.name || "your primary tenant";
 
@@ -518,6 +539,27 @@ function PreActiveScreen({ type, room, profile, primaryTenantName = null }) {
 
   return (
     <div className={`min-h-[72vh] flex flex-col items-center justify-center p-8 bg-white rounded-3xl border border-slate-100 shadow-xl border-t-4 ${c.top} relative overflow-hidden`}>
+      {hasRejectedPayment && (
+        <div className="absolute top-0 left-0 w-full bg-red-50 border-b border-red-200 px-6 py-4 flex items-start sm:items-center justify-between gap-4 z-20">
+          <div className="flex items-start sm:items-center gap-3">
+            <AlertCircle size={20} className="text-red-500 shrink-0 mt-0.5 sm:mt-0" />
+            <div className="space-y-0.5">
+              <p className="text-sm font-bold text-red-900">Payment Rejected</p>
+              <p className="text-xs font-medium text-red-700">
+                {isRoomSharer 
+                  ? `A payment receipt uploaded by ${primaryName} was rejected. Please contact them.` 
+                  : "Your previously uploaded payment receipt was rejected. Please review the requirements."}
+              </p>
+            </div>
+          </div>
+          {!isRoomSharer && (
+            <Link href="/tenant/payments" className="shrink-0 text-xs font-bold px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white shadow-sm shadow-red-500/20 whitespace-nowrap">
+              View Details
+            </Link>
+          )}
+        </div>
+      )}
+
       <div className={`absolute inset-0 bg-gradient-to-br ${c.gradFrom} to-transparent pointer-events-none`} />
       <div className="relative z-10 flex flex-col items-center text-center max-w-md gap-5">
         <Image src="/convenant-hostel-logo.png" alt="Covenant Hostel" width={64} height={64} className="rounded-2xl shadow-sm" />

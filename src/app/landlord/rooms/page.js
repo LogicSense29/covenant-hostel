@@ -40,7 +40,7 @@ export default async function RoomsPage({ searchParams }) {
       tenants: {
         where: {
           user: {
-            status: { in: ["ACTIVE", "PAYMENT_MADE", "AWAITING_PAYMENT", "PENDING"] }
+            status: { in: ["ACTIVE", "PAYMENT_MADE", "AWAITING_PAYMENT", "PENDING", "EXPIRED"] }
           }
         },
         include: { user: true }

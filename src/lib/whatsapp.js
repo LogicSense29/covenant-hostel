@@ -20,6 +20,10 @@ if (accountSid && authToken) {
  * @returns {Promise<boolean>} - True if successful, false otherwise
  */
 export async function sendWhatsAppMessage({ to, body }) {
+  // USER REQUESTED TO COMMENT OUT WHATSAPP
+  console.log("WhatsApp message skipped (commented out by request).");
+  return;
+  
   if (!client) {
     console.warn("Twilio WhatsApp is not configured. Missing account SID or Auth Token.");
     return false;

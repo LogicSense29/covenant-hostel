@@ -24,6 +24,7 @@ export default function PaymentForm({
   charge = null,
   isSharer = false,
   primaryName = "",
+  checkoutBillingRuleIds = [],
 }) {
   const router = useRouter();
   const { data: session } = useSession();
@@ -108,6 +109,7 @@ export default function PaymentForm({
           isRentSelected: isRecurringOnly ? false : isRentSelected,
           breakdown: isRecurringOnly ? [] : (breakdown || []),
           recurringChargeId: isRecurringOnly && charge ? charge.id : undefined,
+          checkoutBillingRuleIds: isRecurringOnly ? [] : (checkoutBillingRuleIds || []),
         }),
       });
 

@@ -234,6 +234,74 @@ export async function GET(req) {
     `, { headers: { "Content-Type": "text/html" } });
   }
 
+  if (action === "expire-all") {
+    // 1. Set rent expiry date to yesterday
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    await prisma.tenantProfile.update({
+      where: { id: tenant.id },
+      data: { rentExpiryDate: yesterday },
+    });
+
+    // 2. Process expiration: Flip user status to EXPIRED
+    await prisma.user.update({
+      where: { id: tenant.userId },
+      data: { status: "EXPIRED" },
+    });
+
+    // 3. Make all active recurring charges OVERDUE
+    await prisma.recurringCharge.updateMany({
+      where: { 
+        tenantId: tenant.id,
+        status: { in: ["UNPAID", "PENDING"] }
+      },
+      data: { 
+        dueDate: yesterday,
+        status: "OVERDUE"
+      }
+    });
+
+    // Also trigger the cron to process any other expiry side-effects
+    const baseUrl = req.nextUrl?.origin || process.env.NEXTAUTH_URL || "http://localhost:3000";
+    try {
+      const cronHeaders = {};
+      if (process.env.CRON_SECRET) cronHeaders["Authorization"] = `Bearer ${process.env.CRON_SECRET}`;
+      await fetch(`${baseUrl}/api/cron/rent-reminders`, { headers: cronHeaders });
+    } catch (e) {
+      console.warn("Cron trigger failed:", e.message);
+    }
+
+    return new NextResponse(`
+      <html>
+        <head>
+          <title>Simulate Total Expiry Success</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8fafc; padding: 40px; text-align: center; color: #1e293b; }
+            .card { background: white; border: 1px solid #e2e8f0; border-radius: 24px; padding: 40px; max-width: 500px; margin: auto; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+            h1 { color: #9f1239; margin-top: 0; }
+            .status { font-weight: bold; color: #9f1239; background: #ffe4e6; padding: 8px 16px; border-radius: 12px; display: inline-block; margin-bottom: 20px; }
+            .btn { display: inline-block; background: #2563eb; color: white; padding: 12px 24px; border-radius: 12px; text-decoration: none; font-weight: bold; margin-top: 20px; }
+            .btn-secondary { background: #64748b; margin-left: 10px; }
+            .meta { font-size: 0.85em; color: #64748b; margin-top: 20px; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <h1>Total Expiry Triggered!</h1>
+            <div class="status">STATUS: EXPIRED & CHARGES OVERDUE</div>
+            <p><strong>Tenant:</strong> ${tenant.user.name} (${tenant.user.email})</p>
+            <p><strong>Rent Expiry Date:</strong> set to yesterday (${yesterday.toLocaleDateString("en-GB")})</p>
+            <p><strong>Recurring Charges:</strong> All active charges marked as OVERDUE</p>
+            <p class="meta">If you log in as this tenant, you will now see the Rent Expired block page and all recurring charges will be due.</p>
+            <a href="/tenant/payments" class="btn">Go to Payments Page</a>
+            <a href="/api/test-expiry?action=activate&email=${encodeURIComponent(email)}" class="btn btn-secondary">Restore to Active</a>
+          </div>
+        </body>
+      </html>
+    `, { headers: { "Content-Type": "text/html" } });
+  }
+
   if (action === "activate") {
     // Restore tenant back to active and set expiry date dynamically based on rent frequency
     const matchingRules = tenant.roomId ? await prisma.billingRule.findMany({
@@ -402,6 +470,12 @@ export async function GET(req) {
           <p style="font-size:0.85rem;color:#64748b;margin:0 0 10px">Sets status to EXPIRED and fires the expiry email.</p>
           <div class="btn-row">
             <a href="/api/test-expiry?action=expire&email=${encodeURIComponent(email)}" class="btn btn-red">Simulate Expiry</a>
+          </div>
+
+          <h3>Total Expiry (Rent + All Charges)</h3>
+          <p style="font-size:0.85rem;color:#64748b;margin:0 0 10px">Sets rent to EXPIRED and forces all recurring charges to become OVERDUE immediately.</p>
+          <div class="btn-row">
+            <a href="/api/test-expiry?action=expire-all&email=${encodeURIComponent(email)}" class="btn" style="background:#9f1239;color:white">Simulate Total Expiry</a>
           </div>
 
           <h3>Restore</h3>

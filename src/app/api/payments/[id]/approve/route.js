@@ -188,7 +188,14 @@ export async function DELETE(req, { params }) {
   try {
     const payment = await prisma.payment.findUnique({
       where: { id },
-      include: { tenant: { include: { user: true } } },
+      include: { 
+        tenant: { 
+          include: { 
+            user: true,
+            roomSharers: { include: { user: true } }
+          } 
+        } 
+      },
     });
 
     if (!payment) return new NextResponse("Payment not found", { status: 404 });
@@ -199,18 +206,30 @@ export async function DELETE(req, { params }) {
         data: { status: "REJECTED" },
       });
 
-      const otherPayments = await tx.payment.count({
+      const pendingPayments = await tx.payment.count({
         where: {
           tenantId: payment.tenantId,
           id: { not: id },
-          status: { in: ["PENDING", "VERIFIED", "SUCCESS"] },
+          status: "PENDING",
         },
       });
 
-      if (otherPayments === 0) {
+      if (pendingPayments === 0) {
+        let newStatus = "AWAITING_PAYMENT";
+        const rentExpiry = payment.tenant.rentExpiryDate;
+        
+        if (rentExpiry) {
+          const now = new Date();
+          if (rentExpiry > now) {
+            newStatus = "ACTIVE"; // Rent is active
+          } else {
+            newStatus = "EXPIRED"; // Rent has expired
+          }
+        }
+
         await tx.user.update({
           where: { id: payment.tenant.userId },
-          data: { status: "AWAITING_PAYMENT" },
+          data: { status: newStatus },
         });
       }
     });
@@ -224,13 +243,34 @@ export async function DELETE(req, { params }) {
       link: "/tenant/payments",
     });
 
-    // Send email to both Tenant and Admin
+    // Send email to Tenant
     await sendPaymentRejectedEmail({
       email: payment.tenant.user.email,
       name: payment.tenant.user.name,
       amount: payment.amount,
       reason: reason || "Your payment receipt did not meet our requirements. Please ensure you upload a clear and valid receipt."
     });
+
+    // Send email and in-app notifications to sharers
+    if (payment.tenant.roomSharers && payment.tenant.roomSharers.length > 0) {
+      for (const sharer of payment.tenant.roomSharers) {
+        if (sharer.user?.email) {
+          await sendPaymentRejectedEmail({
+            email: sharer.user.email,
+            name: sharer.user.name || "Room Sharer",
+            amount: payment.amount,
+            reason: reason || "Your primary tenant's payment receipt did not meet our requirements."
+          });
+        }
+        await createNotification({
+          userId: sharer.userId,
+          title: "Payment Rejected",
+          message: `A payment of ₦${payment.amount.toLocaleString()} was rejected.`,
+          type: "PAYMENT",
+          link: "/tenant/payments",
+        });
+      }
+    }
 
     return NextResponse.json({ success: true });
   } catch (err) {

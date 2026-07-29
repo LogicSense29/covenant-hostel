@@ -152,7 +152,7 @@ export default function TenantLayoutClient({ children, dbUser }) {
              <span className="text-sm font-medium text-slate-700">{session?.user?.name || "Tenant"}</span>
              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#203090] to-[#1a2673] flex items-center justify-center text-white font-bold text-md group-hover:scale-105 transition-transform overflow-hidden border border-slate-200">
                <img 
-                 src={`https://api.dicebear.com/9.x/micah/svg?seed=${session?.user?.name || "Tenant"}&backgroundColor=transparent`} 
+                 src={`https://api.dicebear.com/9.x/shapes/svg?seed=${session?.user?.name || "Tenant"}`} 
                  alt="Profile Avatar" 
                  className="w-full h-full object-cover"
                />
@@ -184,7 +184,7 @@ export default function TenantLayoutClient({ children, dbUser }) {
                <span className="text-sm font-medium text-slate-700 hidden sm:block">{session?.user?.name || "Tenant"}</span>
                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#203090] to-[#1a2673] flex items-center justify-center text-white font-bold text-xs overflow-hidden">
                  <img 
-                   src={`https://api.dicebear.com/9.x/micah/svg?seed=${session?.user?.name || "Tenant"}&backgroundColor=transparent`} 
+                   src={`https://api.dicebear.com/9.x/shapes/svg?seed=${session?.user?.name || "Tenant"}`} 
                    alt="Profile Avatar" 
                    className="w-full h-full object-cover"
                  />

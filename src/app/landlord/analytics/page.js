@@ -22,7 +22,7 @@ export default async function AnalyticsPage() {
   const rooms = await prisma.room.findMany({
     include: { 
       tenants: { 
-        where: { user: { status: { notIn: ["REJECTED", "EXPIRED"] } } }
+        where: { user: { status: { notIn: ["REJECTED"] } } }
       }, 
       block: true 
     },

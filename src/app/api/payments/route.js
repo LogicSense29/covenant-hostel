@@ -78,10 +78,12 @@ export async function POST(req) {
         }
 
         if (receiptUrl) {
-          await tx.user.update({
-            where: { id: tenant.userId },
-            data: { status: "PAYMENT_MADE" },
-          });
+          if (tenant.user.status === "AWAITING_PAYMENT" || tenant.user.status === "EXPIRED") {
+            await tx.user.update({
+              where: { id: tenant.userId },
+              data: { status: "PAYMENT_MADE" },
+            });
+          }
         }
 
         return p;
@@ -130,10 +132,12 @@ export async function POST(req) {
       }
 
       if (receiptUrl) {
-        await tx.user.update({
-          where: { id: tenant.userId },
-          data: { status: "PAYMENT_MADE" },
-        });
+        if (tenant.user.status === "AWAITING_PAYMENT" || tenant.user.status === "EXPIRED") {
+          await tx.user.update({
+            where: { id: tenant.userId },
+            data: { status: "PAYMENT_MADE" },
+          });
+        }
       }
 
       return consolidatedPayment;

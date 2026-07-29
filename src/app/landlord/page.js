@@ -22,7 +22,15 @@ export default async function LandlordDashboard() {
   
   // Dashboard Metrics
   const rooms = await prisma.room.findMany({
-    include: { tenants: true }
+    include: { 
+      tenants: {
+        where: {
+          user: {
+            status: { in: ["ACTIVE", "PAYMENT_MADE", "AWAITING_PAYMENT", "PENDING", "EXPIRED"] }
+          }
+        }
+      } 
+    }
   });
 
   const totalRooms = rooms.length;

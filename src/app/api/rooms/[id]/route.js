@@ -125,7 +125,7 @@ export async function DELETE(req, { params }) {
       where: { id },
       include: { 
         tenants: {
-          where: { user: { status: { notIn: ["REJECTED", "EXPIRED"] } } }
+          where: { user: { status: { notIn: ["REJECTED"] } } }
         },
         stayHistory: true,
         inspections: true,

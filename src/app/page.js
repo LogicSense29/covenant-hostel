@@ -10,7 +10,7 @@ export default async function Home() {
     include: {
       block: true,
       tenants: { 
-        where: { user: { status: { notIn: ["REJECTED", "EXPIRED"] } } },
+        where: { user: { status: { notIn: ["REJECTED"] } } },
         select: { id: true } 
       },
       billingRules: true,

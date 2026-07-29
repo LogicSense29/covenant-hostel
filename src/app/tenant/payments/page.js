@@ -96,6 +96,17 @@ export default async function TenantPaymentsPage() {
     }),
   ]);
 
+  // Build a fast lookup of billing rule IDs that already have an open (due)
+  // RecurringCharge — these are already shown in the "Recurring Charges Due" section
+  // and must NOT also appear in the Rent Checkout bundle to avoid double-billing.
+  const _nowForDup = new Date();
+  const _endOfTodayForDup = new Date(Date.UTC(_nowForDup.getFullYear(), _nowForDup.getMonth(), _nowForDup.getDate(), 23, 59, 59, 999));
+  const billingRuleIdsWithOpenCharge = new Set(
+    recurringCharges
+      .filter(c => (c.status === "UNPAID" || c.status === "OVERDUE") && new Date(c.dueDate) <= _endOfTodayForDup)
+      .map(c => c.billingRuleId)
+  );
+
   // Find the BASE_RENT rule — match all known type variants case-insensitively.
   // This is especially important for EXPIRED tenant renewals where the rule may
   // use different casing or formatting.
@@ -146,13 +157,23 @@ export default async function TenantPaymentsPage() {
   // We want to include BOTH one-time fees and the first installment of recurring fees in the initial checkout
   const initialFeesList = billingRules; 
   
-  // Walk through each fee — if cumulative total <= verified total, it's paid
+  // Walk through each fee:
+  //  - ONCE fees: hide if already covered by verified non-recurring payments (pay-once logic)
+  //  - Non-ONCE fees: show in checkout ONLY if there is NO open RecurringCharge due today
+  //    for that rule (if one exists it's already in the "Recurring Charges Due" section —
+  //    showing it here too would cause double billing)
   let cumulativePaid = 0;
   const initialCheckoutFees = initialFeesList.filter(r => {
-    const wasPaid = (cumulativePaid + r.amount) <= verifiedNonRecurringTotal;
-    if (!wasPaid) return true; // still unpaid — show it
-    cumulativePaid += r.amount;
-    return false; // paid — hide it
+    if (r.frequency === "ONCE") {
+      // One-time fee: hide once fully covered by verified payments
+      const wasPaid = (cumulativePaid + r.amount) <= verifiedNonRecurringTotal;
+      if (!wasPaid) return true;
+      cumulativePaid += r.amount;
+      return false;
+    }
+    // Recurring fee: skip if it already has an open charge in the Recurring section
+    if (billingRuleIdsWithOpenCharge.has(r.id)) return false;
+    return true;
   });
 
   const totalFees = initialCheckoutFees.reduce((s, r) => s + r.amount, 0);

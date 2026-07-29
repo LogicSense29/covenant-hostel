@@ -25,9 +25,12 @@ export default function RoomCard({ room }) {
   const activeTenants = room.tenants.filter(t => t.user?.status === "ACTIVE");
   const pendingApprovalTenants = room.tenants.filter(t => t.user?.status === "PAYMENT_MADE");
   const pendingTenants = room.tenants.filter(t => t.user?.status === "AWAITING_PAYMENT" || t.user?.status === "PENDING");
+  const expiredTenants = room.tenants.filter(t => t.user?.status === "EXPIRED");
   const allTenants = room.tenants;
 
-  const displayStatus = allTenants.length >= room.capacity
+  const displayStatus = expiredTenants.length > 0
+    ? `${expiredTenants.length} Expired`
+    : allTenants.length >= room.capacity
     ? "FULL"
     : activeTenants.length > 0
     ? `${activeTenants.length}/${room.capacity}`
@@ -44,7 +47,9 @@ export default function RoomCard({ room }) {
     UNDER_MAINTENANCE: "bg-slate-50 text-slate-600 border-slate-100",
   };
 
-  const statusColorClass = allTenants.length >= room.capacity
+  const statusColorClass = expiredTenants.length > 0
+    ? "bg-red-50 text-red-700 border-red-100"
+    : allTenants.length >= room.capacity
     ? "bg-amber-50 text-amber-700 border-amber-100"
     : pendingApprovalTenants.length > 0 && activeTenants.length === 0
     ? "bg-purple-50 text-purple-700 border-purple-100"
