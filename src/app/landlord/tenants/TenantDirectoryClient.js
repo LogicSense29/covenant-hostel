@@ -13,6 +13,7 @@ import {
   X,
   Mail,
   ExternalLink,
+  ArrowRight,
   Loader2,
   Link2
 } from "lucide-react";
