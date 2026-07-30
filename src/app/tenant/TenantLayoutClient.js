@@ -12,7 +12,8 @@ import {
   ClipboardCheck,
   Settings,
   ShieldAlert,
-  Search
+  Search,
+  Headset
 } from "lucide-react";
 import NotificationBell from "@/components/NotificationBell";
 
@@ -21,6 +22,7 @@ export default function TenantLayoutClient({ children, dbUser }) {
   const router = useRouter();
   const { data: session, status } = useSession();
   const [isScrolled, setIsScrolled] = useState(false);
+  const [showSupportMenu, setShowSupportMenu] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -77,8 +79,18 @@ export default function TenantLayoutClient({ children, dbUser }) {
     navigation = navigation.filter(n => n.href === "/tenant" || n.href === "/tenant/payments");
   }
 
+  const mobileNavigation = (dbUser && dbUser.status !== "ACTIVE") 
+    ? navigation 
+    : [
+        { name: "Dashboard", href: "/tenant", icon: LayoutDashboard },
+        { name: "Payments", href: "/tenant/payments", icon: CreditCard },
+        { name: "Support", isMenu: true, icon: Headset },
+        { name: "Inspections", href: "/tenant/inspections", icon: ClipboardCheck },
+        { name: "Settings", href: "/tenant/settings", icon: Settings },
+      ];
+
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50 text-slate-800 font-sans selection:bg-indigo-500/20 relative overflow-hidden">
+    <div className="flex flex-col min-h-screen bg-slate-50 text-slate-800 font-sans selection:bg-indigo-500/20 relative ">
       
       {/* Soft Light Background Effects */}
       {/* <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-blue-100/50 rounded-full blur-[120px] pointer-events-none" />
@@ -168,7 +180,7 @@ export default function TenantLayoutClient({ children, dbUser }) {
       {/* Main Content Area */}
       <main className="flex-1 w-full max-w-7xl mx-auto pt-8 lg:pt-28 pb-28 md:pb-12 px-4 md:px-8 lg:pl-32 relative z-10">
         {/* Top Header for Mobile only, Desktop uses Sidebar */}
-        <header className="lg:hidden flex items-center justify-between mb-8 bg-white/80 backdrop-blur-xl border border-white rounded-full px-4 py-2 shadow-sm">
+        <header className="lg:hidden sticky top-4 z-40 flex items-center justify-between mb-8 bg-white/80 backdrop-blur-xl border border-white rounded-full px-4 py-2 shadow-sm">
           <Link href="/tenant" className="flex items-center gap-3 ml-2 group">
              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#203090] to-[#1a2673] flex items-center justify-center shadow-md">
                <img src="/convenant-hostel-logo.png" alt="Covenant Hostel" className="w-6 h-6 object-contain brightness-0 invert" />
@@ -198,17 +210,59 @@ export default function TenantLayoutClient({ children, dbUser }) {
 
       {/* Mobile Bottom Dock (iOS Style) */}
       <div className="lg:hidden fixed bottom-6 left-4 right-4 z-50 flex justify-center">
-        <nav className="bg-white backdrop-blur-2xl border border-white p-2 rounded-full shadow-[0_10px_40px_rgb(0,0,0,0.1)] flex items-center gap-1 sm:gap-2">
-          {navigation.map((item) => {
+        
+        {/* Expandable Support Menu Popup */}
+        {showSupportMenu && (
+          <div className="absolute bottom-[110%] bg-white text-slate-800 rounded-2xl p-2 shadow-[0_10px_40px_rgb(0,0,0,0.1)] border border-slate-100 flex flex-col gap-1 animate-in slide-in-from-bottom-2 fade-in duration-200 min-w-[160px]">
+            <Link 
+              href="/tenant/maintenance"
+              onClick={() => setShowSupportMenu(false)}
+              className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 hover:text-[#203090] transition-colors"
+            >
+              <Wrench size={18} className="text-[#203090]" />
+              <span className="text-sm font-bold">Maintenance</span>
+            </Link>
+            <Link 
+              href="/tenant/complaints"
+              onClick={() => setShowSupportMenu(false)}
+              className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 hover:text-[#203090] transition-colors"
+            >
+              <ShieldAlert size={18} className="text-rose-500" />
+              <span className="text-sm font-bold">Complaints</span>
+            </Link>
+          </div>
+        )}
+
+        <nav className="bg-white backdrop-blur-2xl border border-white p-2 rounded-full shadow-[0_10px_40px_rgb(0,0,0,0.1)] flex items-center gap-1 sm:gap-2 relative">
+          {mobileNavigation.map((item) => {
             const Icon = item.icon;
+            
+            if (item.isMenu) {
+              const isActive = pathname === "/tenant/maintenance" || pathname === "/tenant/complaints";
+              return (
+                <button
+                  key={item.name}
+                  onClick={() => setShowSupportMenu(!showSupportMenu)}
+                  className={`relative p-3 rounded-full flex items-center justify-center transition-all duration-300 ${
+                    isActive || showSupportMenu
+                    ? "bg-slate-900 text-white shadow-md" 
+                    : "text-slate-400 hover:text-slate-800 hover:bg-slate-50"
+                  }`}
+                >
+                  <Icon size={20} strokeWidth={isActive || showSupportMenu ? 2.5 : 2} />
+                </button>
+              );
+            }
+
             const isActive = pathname === item.href;
             return (
               <Link
                 key={item.name}
                 href={item.href}
+                onClick={() => setShowSupportMenu(false)}
                 className={`relative p-3 rounded-full flex items-center justify-center transition-all duration-300 ${
                   isActive 
-                  ? "bg-slate-900 text-white" 
+                  ? "bg-primary text-white shadow-md" 
                   : "text-slate-400 hover:text-slate-800 hover:bg-slate-50"
                 }`}
               >
