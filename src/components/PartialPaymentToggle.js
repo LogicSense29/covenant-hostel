@@ -6,11 +6,11 @@ import { toast } from "react-hot-toast";
 
 export default function PartialPaymentToggle({ tenantProfileId, allowPartialPayment, partialPaymentInstallments, totalDue }) {
   const [enabled, setEnabled] = useState(allowPartialPayment);
-  const [installments, setInstallments] = useState(partialPaymentInstallments || 12);
+  const [installments, setInstallments] = useState(partialPaymentInstallments || 3);
   const [loading, setLoading] = useState(false);
   // Track saved state so the UI reflects the last saved values without a page reload
   const [savedEnabled, setSavedEnabled] = useState(allowPartialPayment);
-  const [savedInstallments, setSavedInstallments] = useState(partialPaymentInstallments || 12);
+  const [savedInstallments, setSavedInstallments] = useState(partialPaymentInstallments || 3);
 
   const installmentAmount = totalDue ? (totalDue / installments) : null;
 
@@ -64,8 +64,8 @@ export default function PartialPaymentToggle({ tenantProfileId, allowPartialPaym
             <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">
               Number of installments
             </label>
-            <div className="grid grid-cols-4 gap-2">
-              {[2, 3, 6, 12].map((n) => (
+            <div className="grid grid-cols-2 gap-2">
+              {[2, 3].map((n) => (
                 <button
                   key={n}
                   type="button"

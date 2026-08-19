@@ -5,8 +5,66 @@ import { prisma } from "@/lib/prisma";
 import { createNotification, getLandlordUserIds } from "@/lib/notifications";
 import { autoCreateNextCharge } from "@/lib/billing";
 
-
 export const dynamic = "force-dynamic";
+
+/** Maps rent frequency to its duration in months. */
+const FREQUENCY_MONTHS = {
+  DAILY: 0,
+  MONTHLY: 1,
+  QUARTERLY: 3,
+  YEARLY: 12,
+  PER_SEMESTER: 6,
+};
+
+/**
+ * Generates UNPAID RecurringCharge records for remaining installments.
+ * Due dates are evenly spaced across the full lease term.
+ * e.g. Yearly rent ÷ 3 installments = every 4 months.
+ */
+async function scheduleRemainingInstallments({ tenantId, installmentAmount, totalInstallments, paidInstallmentNumber, rentFrequency }) {
+  const remaining = totalInstallments - paidInstallmentNumber;
+  if (remaining <= 0) return;
+
+  const installmentRule = await prisma.billingRule.upsert({
+    where: { id: "__system_rent_installment__" },
+    update: {},
+    create: {
+      id: "__system_rent_installment__",
+      title: "Rent Installment",
+      description: "System-generated installment for partial rent payment plan.",
+      amount: 0,
+      type: "RENT_INSTALLMENT",
+      frequency: "MONTHLY",
+      isGlobal: false,
+      isOptional: false,
+    },
+  });
+
+  const leaseMonths = FREQUENCY_MONTHS[rentFrequency] ?? 12;
+  const intervalMonths = Math.round(leaseMonths / totalInstallments);
+
+  const now = new Date();
+  for (let i = 1; i <= remaining; i++) {
+    const dueDate = new Date(now);
+    if (rentFrequency === "DAILY") {
+      dueDate.setDate(dueDate.getDate() + i);
+    } else {
+      dueDate.setMonth(dueDate.getMonth() + intervalMonths * i);
+    }
+    const dueDateUTC = new Date(Date.UTC(
+      dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate(), 0, 0, 0, 0
+    ));
+    await prisma.recurringCharge.create({
+      data: {
+        tenantId,
+        billingRuleId: installmentRule.id,
+        amount: installmentAmount,
+        dueDate: dueDateUTC,
+        status: "UNPAID",
+      },
+    });
+  }
+}
 
 export async function POST(req) {
   const session = await getServerSession(authOptions);
@@ -140,8 +198,38 @@ export async function POST(req) {
         }
       }
 
+      if (isRentSelected) {
+        await tx.tenantProfile.update({
+          where: { id: tenantId },
+          data: {
+            allowPartialPayment: !!isPartial,
+            partialPaymentInstallments: isPartial ? totalInstallments : null,
+          },
+        });
+      }
+
       return consolidatedPayment;
     });
+
+    // ── Schedule remaining installments on first partial payment ──
+    if (isPartial && isRentSelected && installmentNumber === 1 && totalInstallments && totalInstallments > 1) {
+      // Fetch the rent billing rule to determine the lease frequency
+      const rentRule = tenant.roomId ? await prisma.billingRule.findFirst({
+        where: {
+          rooms: { some: { id: tenant.roomId } },
+          type: { in: ["Base Rent", "Base_Rent", "BaseRent", "Rent", "RENT", "BASE_RENT"] },
+        },
+      }) : null;
+      const rentFrequency = rentRule?.frequency || "YEARLY";
+
+      await scheduleRemainingInstallments({
+        tenantId,
+        installmentAmount: amount,
+        totalInstallments,
+        paidInstallmentNumber: 1,
+        rentFrequency,
+      });
+    }
 
     // Notify landlord and tenant when a receipt is uploaded for approval
     if (receiptUrl) {

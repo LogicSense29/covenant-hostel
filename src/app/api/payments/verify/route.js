@@ -7,8 +7,88 @@ import { autoCreateNextCharge } from "@/lib/billing";
 import { createNotification, getLandlordUserIds } from "@/lib/notifications";
 import { sendPaymentReceiptEmail } from "@/lib/email";
 
-
 export const dynamic = "force-dynamic";
+
+/** Maps rent frequency to its duration in months. */
+const FREQUENCY_MONTHS = {
+  DAILY: 0, // handled separately in days
+  MONTHLY: 1,
+  QUARTERLY: 3,
+  YEARLY: 12,
+  PER_SEMESTER: 6,
+};
+
+/**
+ * When a tenant pays the FIRST installment, this function generates
+ * concrete RecurringCharge records for all remaining installments.
+ * Due dates are evenly spaced across the full lease term.
+ *
+ * e.g. Yearly rent, 3 installments → installment 2 due in 4 months, 3 in 8 months.
+ *
+ * @param {object} p
+ * @param {string} p.tenantId - TenantProfile.id
+ * @param {number} p.installmentAmount - Amount per installment (fixed at checkout time)
+ * @param {number} p.totalInstallments - Total number of installments chosen
+ * @param {number} p.paidInstallmentNumber - The installment number just paid (1)
+ * @param {string} p.rentFrequency - The billing rule frequency (e.g. "YEARLY")
+ */
+async function scheduleRemainingInstallments({ tenantId, installmentAmount, totalInstallments, paidInstallmentNumber, rentFrequency }) {
+  const remaining = totalInstallments - paidInstallmentNumber;
+  if (remaining <= 0) return;
+
+  // Upsert a hidden system BillingRule for rent installments so RecurringCharge
+  // has a valid billingRuleId FK without requiring a schema migration.
+  const installmentRule = await prisma.billingRule.upsert({
+    where: { id: "__system_rent_installment__" },
+    update: {},
+    create: {
+      id: "__system_rent_installment__",
+      title: "Rent Installment",
+      description: "System-generated installment for partial rent payment plan.",
+      amount: 0, // actual amount is stored on each RecurringCharge
+      type: "RENT_INSTALLMENT",
+      frequency: "MONTHLY",
+      isGlobal: false,
+      isOptional: false,
+    },
+  });
+
+  // Calculate the gap between installments:
+  // interval = lease term ÷ total installments
+  // e.g. YEARLY (12 months) ÷ 3 installments = 4 months each
+  const leaseMonths = FREQUENCY_MONTHS[rentFrequency] ?? 12; // default to yearly
+  const intervalMonths = Math.round(leaseMonths / totalInstallments);
+
+  const now = new Date();
+
+  for (let i = 1; i <= remaining; i++) {
+    const dueDate = new Date(now);
+
+    if (rentFrequency === "DAILY") {
+      // Daily rent: space by 1 day per installment (edge case)
+      dueDate.setDate(dueDate.getDate() + i);
+    } else {
+      dueDate.setMonth(dueDate.getMonth() + intervalMonths * i);
+    }
+
+    const dueDateUTC = new Date(Date.UTC(
+      dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate(), 0, 0, 0, 0
+    ));
+
+    await prisma.recurringCharge.create({
+      data: {
+        tenantId,
+        billingRuleId: installmentRule.id,
+        amount: installmentAmount,
+        dueDate: dueDateUTC,
+        status: "UNPAID",
+      },
+    });
+
+    const installmentNum = paidInstallmentNumber + i;
+    console.log(`[Installments] Scheduled installment ${installmentNum}/${totalInstallments} for tenant ${tenantId} — ₦${installmentAmount} due ${dueDateUTC.toISOString().slice(0, 10)} (${rentFrequency} ÷ ${totalInstallments} = ${intervalMonths}mo interval)`);
+  }
+}
 
 const verifySchema = z.object({
   reference: z.string().min(1),
@@ -240,6 +320,8 @@ export async function POST(req) {
             rulesSigned: true,
             rulesSignedAt: new Date(),
             rulesSignedName: signature || "Signed Online",
+            allowPartialPayment: !!isPartial,
+            partialPaymentInstallments: isPartial ? totalInstallments : null,
           },
         })
       );
@@ -260,6 +342,27 @@ export async function POST(req) {
 
     await prisma.$transaction(txOps);
 
+    // ── Generate remaining installment charges when first installment is paid ──
+    // Amounts are locked at checkout. Due dates are spaced evenly across the lease term.
+    if (isPartial && isRentSelected && installmentNumber === 1 && totalInstallments && totalInstallments > 1) {
+      // Fetch the rent billing rule to determine the lease frequency
+      const rentRule = profile.room?.id ? await prisma.billingRule.findFirst({
+        where: {
+          rooms: { some: { id: profile.room.id } },
+          type: { in: ["Base Rent", "Base_Rent", "BaseRent", "Rent", "RENT", "BASE_RENT"] },
+        },
+      }) : null;
+      const rentFrequency = rentRule?.frequency || "YEARLY";
+
+      await scheduleRemainingInstallments({
+        tenantId: profile.id,
+        installmentAmount: actualPaidAmount,
+        totalInstallments,
+        paidInstallmentNumber: 1,
+        rentFrequency,
+      });
+    }
+
     // For each non-ONCE billing rule paid via the Rent Checkout bundle,
     // stamp a PAID RecurringCharge for today's cycle so the cron never
     // generates a duplicate bill for the same period.
@@ -267,16 +370,13 @@ export async function POST(req) {
       const now = new Date();
       const todayUTC = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0));
 
-      // Fetch the billing rules to get amounts
       const checkoutRules = await prisma.billingRule.findMany({
         where: { id: { in: checkoutBillingRuleIds } },
       });
 
       for (const rule of checkoutRules) {
-        if (rule.frequency === "ONCE") continue; // Safety guard — ONCE fees are never recurring
+        if (rule.frequency === "ONCE") continue;
 
-        // Check if an open charge already exists for today (shouldn't happen due to page-level guard,
-        // but we handle it gracefully to avoid unique constraint errors)
         const existing = await prisma.recurringCharge.findFirst({
           where: {
             tenantId: profile.id,
@@ -286,7 +386,6 @@ export async function POST(req) {
         });
 
         if (existing) {
-          // Mark it paid if it isn't already
           if (existing.status !== "PAID") {
             await prisma.recurringCharge.update({
               where: { id: existing.id },
@@ -294,7 +393,6 @@ export async function POST(req) {
             });
           }
         } else {
-          // Create a PAID stamp for this cycle
           await prisma.recurringCharge.create({
             data: {
               tenantId: profile.id,

@@ -5,7 +5,8 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import {
   ArrowLeft, MapPin, Phone, Mail, GraduationCap,
-  Briefcase, FileText, ShieldCheck, Calendar, Home, Link2
+  Briefcase, FileText, ShieldCheck, Calendar, Home, Link2,
+  CreditCard, CheckCircle2, Clock
 } from "lucide-react";
 import ApprovalActions from "../ApprovalActions";
 import AssignRoomActions from "../AssignRoomActions";
@@ -55,6 +56,61 @@ export default async function TenantProfilePage({ params }) {
 
   // Use only the billing rules directly ticked on the tenant's room.
   const billingRules = profile.room?.billingRules || [];
+
+  // ── Installment Balance ──
+  // Fetch all installment charges for this tenant to compute balance.
+  // The targetTenantId is the primary tenant (sharers don't hold the ledger).
+  const targetTenantId = profile.primaryTenantId || profile.id;
+  const allInstallmentCharges = await prisma.recurringCharge.findMany({
+    where: {
+      tenantId: targetTenantId,
+      billingRuleId: "__system_rent_installment__",
+    },
+    orderBy: { dueDate: "asc" },
+  });
+
+  // Partial payments made by this tenant (SUCCESS or VERIFIED)
+  const partialPaymentsMade = profile.payments.filter(
+    p => (p.status === "SUCCESS" || p.status === "VERIFIED") && p.isPartial
+  );
+  const paidInstallmentAmount = partialPaymentsMade.reduce((sum, p) => sum + p.amount, 0);
+
+  // --- Path A: New system — installment RecurringCharge records exist ---
+  const hasNewSystemCharges = allInstallmentCharges.length > 0;
+
+  let remainingInstallmentCharges = [];
+  let remainingBalance = 0;
+  let totalPlanAmount = 0;
+  let totalInstallmentCount = 0;
+  let paidInstallments = 0;
+  let nextInstallment = null;
+  let hasActiveInstallmentPlan = false;
+
+  if (hasNewSystemCharges) {
+    remainingInstallmentCharges = allInstallmentCharges.filter(
+      c => c.status === "UNPAID" || c.status === "OVERDUE" || c.status === "PENDING"
+    );
+    remainingBalance = remainingInstallmentCharges.reduce((sum, c) => sum + c.amount, 0);
+    paidInstallments = allInstallmentCharges.filter(c => c.status === "PAID").length + 1; // +1 for first payment
+    totalInstallmentCount = allInstallmentCharges.length + 1; // +1 for first
+    totalPlanAmount = paidInstallmentAmount + remainingBalance;
+    nextInstallment = remainingInstallmentCharges[0] || null;
+    hasActiveInstallmentPlan = remainingInstallmentCharges.length > 0;
+
+  // --- Path B: Legacy fallback — tenant has allowPartialPayment on profile ---
+  } else if (profile.allowPartialPayment && profile.partialPaymentInstallments > 1 && partialPaymentsMade.length > 0) {
+    totalInstallmentCount = profile.partialPaymentInstallments;
+    paidInstallments = partialPaymentsMade.length;
+    // Each installment amount = what they paid last time
+    const installmentAmount = partialPaymentsMade[partialPaymentsMade.length - 1]?.amount || 0;
+    const installmentsLeft = totalInstallmentCount - paidInstallments;
+    remainingBalance = installmentsLeft * installmentAmount;
+    totalPlanAmount = paidInstallmentAmount + remainingBalance;
+    hasActiveInstallmentPlan = installmentsLeft > 0;
+    // No concrete nextInstallment date — legacy tenants don't have scheduled charges
+    nextInstallment = null;
+  }
+
 
   const status = profile.primaryTenantId ? (profile.primaryTenant?.user?.status || "ACTIVE") : (profile.user?.status || "ACTIVE");
   const isSelfEmployed = profile.workType === "Self employed/Worker" && !profile.isStudent;
@@ -272,6 +328,67 @@ export default async function TenantProfilePage({ params }) {
               </p>
             </div>
           )}
+
+          {/* Installment Balance Card */}
+          {hasActiveInstallmentPlan && (
+            <div className="bg-white rounded-3xl border border-blue-100 shadow-sm p-5 space-y-4">
+              <h2 className="text-xs font-bold text-blue-400 uppercase tracking-widest flex items-center gap-1.5">
+                <CreditCard size={12} /> Installment Balance
+              </h2>
+
+              {/* Progress bar */}
+              <div>
+                <div className="flex justify-between items-center mb-1.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Progress</span>
+                  <span className="text-[10px] font-bold text-blue-600">{paidInstallments - 1} of {totalInstallmentCount} paid</span>
+                </div>
+                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-2 bg-blue-500 rounded-full transition-all"
+                    style={{ width: `${Math.round(((paidInstallments - 1) / totalInstallmentCount) * 100)}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Amounts */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-slate-500">Total Plan</span>
+                  <span className="text-xs font-bold text-slate-800">₦{totalPlanAmount.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-slate-500 flex items-center gap-1"><CheckCircle2 size={10} className="text-green-500" /> Paid</span>
+                  <span className="text-xs font-bold text-green-600">₦{paidInstallmentAmount.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center border-t border-slate-100 pt-2">
+                  <span className="text-xs font-bold text-slate-700">Remaining</span>
+                  <span className="text-sm font-black text-blue-700">₦{remainingBalance.toLocaleString()}</span>
+                </div>
+              </div>
+
+              {/* Next due — only available for new-system tenants with scheduled charges */}
+              {nextInstallment ? (
+                <div className="flex items-center gap-2 bg-blue-50 rounded-xl px-3 py-2">
+                  <Clock size={12} className="text-blue-400 shrink-0" />
+                  <div>
+                    <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Next Due</p>
+                    <p className="text-xs font-bold text-blue-800">
+                      {new Date(nextInstallment.dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} — ₦{nextInstallment.amount.toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              ) : hasActiveInstallmentPlan && (
+                <div className="flex items-center gap-2 bg-amber-50 rounded-xl px-3 py-2">
+                  <Clock size={12} className="text-amber-400 shrink-0" />
+                  <div>
+                    <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest">Next Due</p>
+                    <p className="text-xs text-amber-700">Not scheduled — tenant must pay next installment manually.</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
         </div>
       </div>
     </div>

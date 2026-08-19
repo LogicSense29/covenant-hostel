@@ -14,6 +14,9 @@ export async function autoCreateNextCharge(tx, chargeId) {
   });
 
   if (!charge || charge.billingRule.frequency === "ONCE") return null;
+  // System rent installment charges are one-time records — never auto-renew them.
+  if (charge.billingRule.type === "RENT_INSTALLMENT") return null;
+
 
   const nextDue = new Date(charge.dueDate);
   switch (charge.billingRule.frequency) {

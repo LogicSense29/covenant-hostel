@@ -24,6 +24,8 @@ export async function GET(request) {
     if (settingsObj.INSPECTION_FEE_ENABLED === undefined) settingsObj.INSPECTION_FEE_ENABLED = "true";
     if (settingsObj.INSPECTION_FEE === undefined) settingsObj.INSPECTION_FEE = "5000";
     if (settingsObj.WHATSAPP_REMINDERS_ENABLED === undefined) settingsObj.WHATSAPP_REMINDERS_ENABLED = "false";
+    if (settingsObj.GLOBAL_PARTIAL_PAYMENT_ENABLED === undefined) settingsObj.GLOBAL_PARTIAL_PAYMENT_ENABLED = "false";
+    if (settingsObj.GLOBAL_PARTIAL_PAYMENT_INSTALLMENTS === undefined) settingsObj.GLOBAL_PARTIAL_PAYMENT_INSTALLMENTS = "3";
 
     return NextResponse.json(settingsObj);
   } catch (error) {

@@ -34,7 +34,12 @@ export default function PaymentBreakdownPanel({
   allRecurringCharges = [],
   isSharer = false,
   primaryName = "",
+  canChoosePartial = false,
+  defaultInstallments = 1,
+  hasActiveInstallmentPlan = false,
 }) {
+  const [localIsPartialMode, setLocalIsPartialMode] = useState(isPartialMode || canChoosePartial);
+
   // We keep track of checked state for each billing item.
   // By default, base rent, caution fees, and overdue charges are mandatory (checked and disabled).
   // Standard unpaid recurring charges are toggleable.
@@ -81,8 +86,9 @@ export default function PaymentBreakdownPanel({
   const rentAndFeesTotal = (selectedItems["rent"] ? rentAmount : 0) + 
     billingRules.reduce((sum, rule) => sum + (selectedItems[`rule_${rule.id}`] ? rule.amount : 0), 0);
 
-  const rentAndFeesInstallment = isPartialMode 
-    ? rentAndFeesTotal / profile.partialPaymentInstallments 
+  const activeInstallments = localIsPartialMode ? (defaultInstallments || profile.partialPaymentInstallments || 2) : 1;
+  const rentAndFeesInstallment = localIsPartialMode 
+    ? rentAndFeesTotal / activeInstallments
     : rentAndFeesTotal;
 
   const utilityTotal = unpaidCharges.reduce((sum, charge) => sum + (selectedItems[`charge_${charge.id}`] ? charge.amount : 0), 0);
@@ -109,15 +115,15 @@ export default function PaymentBreakdownPanel({
   const breakdown = [];
   if (selectedItems["rent"]) {
     breakdown.push({
-      name: `Base Room Rent${isPartialMode ? ` (Installment ${nextInstallmentNumber}/${profile.partialPaymentInstallments})` : ""}`,
-      amount: isPartialMode ? rentAmount / profile.partialPaymentInstallments : rentAmount
+      name: `Base Room Rent${localIsPartialMode ? ` (Installment ${nextInstallmentNumber}/${activeInstallments})` : ""}`,
+      amount: localIsPartialMode ? rentAmount / activeInstallments : rentAmount
     });
   }
   billingRules.forEach(rule => {
     if (selectedItems[`rule_${rule.id}`]) {
       breakdown.push({
-        name: `${rule.title || rule.description}${isPartialMode ? ` (Installment ${nextInstallmentNumber}/${profile.partialPaymentInstallments})` : ""}`,
-        amount: isPartialMode ? rule.amount / profile.partialPaymentInstallments : rule.amount
+        name: `${rule.title || rule.description}${localIsPartialMode ? ` (Installment ${nextInstallmentNumber}/${activeInstallments})` : ""}`,
+        amount: localIsPartialMode ? rule.amount / activeInstallments : rule.amount
       });
     }
   });
@@ -165,12 +171,47 @@ export default function PaymentBreakdownPanel({
         </div>
 
         <div className="p-6 sm:p-8 space-y-4">
+          {canChoosePartial && (
+            <div className="bg-blue-50/50 rounded-2xl border border-blue-100 p-5 mb-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-sm font-bold text-blue-900">Payment Plan Option</h3>
+                  <p className="text-xs text-blue-700 mt-1">
+                    As a returning tenant, you can choose to pay your rent in full or split it into {activeInstallments} installments.
+                  </p>
+                </div>
+                <div className="flex items-center bg-white rounded-xl border border-blue-200 p-1 shrink-0">
+                  <button
+                    onClick={() => setLocalIsPartialMode(false)}
+                    className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+                      !localIsPartialMode 
+                        ? "bg-blue-600 text-white shadow-sm" 
+                        : "text-slate-600 hover:text-blue-600"
+                    }`}
+                  >
+                    Pay Full
+                  </button>
+                  <button
+                    onClick={() => setLocalIsPartialMode(true)}
+                    className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+                      localIsPartialMode 
+                        ? "bg-blue-600 text-white shadow-sm" 
+                        : "text-slate-600 hover:text-blue-600"
+                    }`}
+                  >
+                    Installments
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <p className="text-xs text-slate-500 font-medium mb-2">
             Check the items you want to settle in this transaction. Mandatory items required to maintain or renew your tenancy are pre-selected and locked.
           </p>
 
-          {/* 1. Base Room Rent */}
-          {(() => {
+          {/* 1. Base Room Rent — hidden when tenant is mid-installment plan */}
+          {!hasActiveInstallmentPlan && (() => {
             const rentLockWindowDays = (rentFrequencyShorthand === "yr" || rentFrequencyShorthand === "sem") ? 30 : 7;
             const daysUntilRentExpiry = profile.rentExpiryDate
               ? Math.ceil((new Date(profile.rentExpiryDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
@@ -216,6 +257,19 @@ export default function PaymentBreakdownPanel({
               </div>
             );
           })()}
+
+          {/* Active installment plan notice — shown instead of base rent row */}
+          {hasActiveInstallmentPlan && (
+            <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-100 rounded-2xl">
+              <Calendar size={18} className="text-blue-500 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-bold text-blue-900">Installment Plan Active</p>
+                <p className="text-xs text-blue-700 mt-0.5">
+                  Your remaining rent installments are listed under <strong>Recurring Charges Due</strong>. Pay each one as it becomes due — no new checkout required.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* 2. Billing Fees — mandatory (locked) only if within reminder window or overdue, otherwise toggleable */}
           {billingRules.map(rule => {
@@ -353,14 +407,14 @@ export default function PaymentBreakdownPanel({
           })}
 
           {/* Dynamic Installment Notice if Partial Mode & selected items */}
-          {isPartialMode && rentAndFeesTotal > 0 && (
+          {localIsPartialMode && rentAndFeesTotal > 0 && (
             <div className="mt-6 flex flex-col sm:flex-row sm:items-center justify-between bg-blue-50 border border-blue-100 rounded-2xl p-5 gap-4">
               <div>
                 <p className="text-xs font-bold text-blue-800 uppercase tracking-wide flex items-center gap-2">
                   <Calendar size={14} /> Tenancy Installment Active
                 </p>
                 <p className="text-xs text-blue-600 mt-0.5">
-                  Your base rent and global check-in fees are split into {profile.partialPaymentInstallments} installments.
+                  Your base rent and global check-in fees are split into {activeInstallments} installments.
                 </p>
               </div>
               <div className="text-right">
@@ -377,12 +431,12 @@ export default function PaymentBreakdownPanel({
         <div className="p-6 sm:p-8 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="text-center sm:text-left">
             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-              {isPartialMode ? "Total to Pay Now" : "Total Selected to Pay"}
+              {localIsPartialMode ? "Total to Pay Now" : "Total Selected to Pay"}
             </p>
             <p className="text-3xl font-black text-slate-900 tracking-tight mt-1">
               ₦{totalToPayNow.toLocaleString()}
             </p>
-            {isPartialMode && (
+            {localIsPartialMode && (
               <p className="text-[10px] text-slate-500 mt-0.5 font-semibold">
                 (₦{rentAndFeesInstallment.toLocaleString()} installment + ₦{utilityTotal.toLocaleString()} utilities in full)
               </p>
@@ -449,27 +503,27 @@ export default function PaymentBreakdownPanel({
                     <div className="flex justify-between py-2 font-medium text-slate-700">
                       <div>
                         <span>Room Rent ({room.roomNumber})</span>
-                        {isPartialMode && (
+                        {localIsPartialMode && (
                           <span className="ml-1.5 text-[9px] font-bold text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded-full border border-blue-100">
-                            Installment {nextInstallmentNumber}/{profile.partialPaymentInstallments}
+                            Installment {nextInstallmentNumber}/{activeInstallments}
                           </span>
                         )}
                       </div>
                       <span className="font-bold text-slate-900">
-                        ₦{(isPartialMode ? rentAmount / profile.partialPaymentInstallments : rentAmount).toLocaleString()}
+                        ₦{(localIsPartialMode ? rentAmount / activeInstallments : rentAmount).toLocaleString()}
                       </span>
                     </div>
                   )}
                   {billingRules.map(rule => {
                     if (!selectedItems[`rule_${rule.id}`]) return null;
-                    const displayAmount = isPartialMode ? rule.amount / profile.partialPaymentInstallments : rule.amount;
+                    const displayAmount = localIsPartialMode ? rule.amount / activeInstallments : rule.amount;
                     return (
                       <div key={rule.id} className="flex justify-between py-2 font-medium text-slate-700">
                         <div>
                           <span>{rule.title || rule.description}</span>
-                          {isPartialMode && (
+                          {localIsPartialMode && (
                             <span className="ml-1.5 text-[9px] font-bold text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded-full border border-blue-100">
-                              Installment {nextInstallmentNumber}/{profile.partialPaymentInstallments}
+                              Installment {nextInstallmentNumber}/{activeInstallments}
                             </span>
                           )}
                         </div>
@@ -494,7 +548,7 @@ export default function PaymentBreakdownPanel({
                 </div>
                 <div className="pt-3 border-t border-slate-200 flex justify-between items-center text-sm">
                   <span className="font-bold text-slate-950">
-                    {isPartialMode ? "Total to Pay Now" : "Total Due"}
+                    {localIsPartialMode ? "Total to Pay Now" : "Total Due"}
                   </span>
                   <span className="font-black text-slate-950">₦{totalToPayNow.toLocaleString()}</span>
                 </div>
@@ -503,13 +557,13 @@ export default function PaymentBreakdownPanel({
               {/* The PaymentFormWrapper inside Modal Body */}
               <PaymentFormWrapper
                 totalDue={totalToPayNow}
-                canPayPartial={profile.allowPartialPayment}
-                partialPaymentInstallments={profile.partialPaymentInstallments}
+                canPayPartial={localIsPartialMode}
+                partialPaymentInstallments={activeInstallments}
                 tenantEmail={session.user.email}
                 tenantId={profile.id}
                 rentStartDate={profile.rentStartDate}
                 existingPayments={paymentHistory}
-                recurringChargeIds={selectedRecurringChargeIds}
+                recurringChargeIds={checkoutBillingRuleIds.concat(selectedRecurringChargeIds)}
                 isRentSelected={!!selectedItems["rent"]}
                 rentFrequencyShorthand={rentFrequencyShorthand}
                 breakdown={breakdown}

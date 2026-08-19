@@ -28,6 +28,12 @@ export default async function TenantPaymentsPage() {
     },
   });
 
+  const settings = await prisma.systemSetting.findMany({
+    where: { key: { in: ["GLOBAL_PARTIAL_PAYMENT_ENABLED", "GLOBAL_PARTIAL_PAYMENT_INSTALLMENTS"] } },
+  });
+  const globalPartialEnabled = settings.find((s) => s.key === "GLOBAL_PARTIAL_PAYMENT_ENABLED")?.value === "true";
+  const globalPartialInstallments = parseInt(settings.find((s) => s.key === "GLOBAL_PARTIAL_PAYMENT_INSTALLMENTS")?.value || "2", 10);
+
   const user = profile?.user ?? null;
 
   if (!profile || (!profile.room && !["AWAITING_PAYMENT", "PAYMENT_MADE", "ACTIVE", "EXPIRED"].includes(user?.status))) {
@@ -179,8 +185,31 @@ export default async function TenantPaymentsPage() {
   const totalFees = initialCheckoutFees.reduce((s, r) => s + r.amount, 0);
   const totalDue = baseRentAmount + totalFees;
 
-  const isPartialMode = profile.allowPartialPayment && profile.partialPaymentInstallments > 1;
-  const installmentAmount = isPartialMode ? totalDue / profile.partialPaymentInstallments : null;
+  // ── Determine Effective Expiry Status ──
+  // Sharers mirror their primary tenant's expiry status
+  const effectiveProfile = isSharer && profile.primaryTenant ? profile.primaryTenant : profile;
+  const effectiveUser = isSharer && profile.primaryTenant ? profile.primaryTenant.user : user;
+
+  // Check if tenancy is about to expire to allow early renewal
+  const RENEWAL_WINDOW_DAYS = (rentFrequencyShorthand === "yr" || rentFrequencyShorthand === "sem") ? 30 : 7;
+  const effectiveExpiryDate = effectiveProfile.rentExpiryDate;
+  const daysUntilExpiry = effectiveExpiryDate 
+    ? Math.ceil((new Date(effectiveExpiryDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) 
+    : null;
+  const isExpiringSoon = daysUntilExpiry !== null && daysUntilExpiry <= RENEWAL_WINDOW_DAYS;
+
+  // If EXPIRED or expiring soon → tenant must pay a full new cycle
+  const needsRenewal = effectiveUser?.status === "EXPIRED" || isExpiringSoon;
+  
+  // Is this an old tenant renewing? (They must have a rentStartDate from a previous lease)
+  const isOldTenant = effectiveProfile.rentStartDate !== null;
+
+  // Partial Payment Logic
+  const hasSpecificPartialAccess = profile.allowPartialPayment && profile.partialPaymentInstallments > 1;
+  const canChoosePartial = isOldTenant && needsRenewal && (hasSpecificPartialAccess || globalPartialEnabled);
+  const defaultInstallments = hasSpecificPartialAccess ? profile.partialPaymentInstallments : (globalPartialEnabled ? globalPartialInstallments : 1);
+  const isPartialMode = hasSpecificPartialAccess && !canChoosePartial; // Force partial if specific is set but they can't choose (e.g. new tenant)
+  const installmentAmount = (isPartialMode || canChoosePartial) ? totalDue / defaultInstallments : null;
 
   const verifiedPayments = paymentHistory.filter(p => p.status === "SUCCESS" || p.status === "VERIFIED");
   const verifiedRentPayments = verifiedPayments.filter(p => p.paymentType !== "RECURRING");
@@ -199,26 +228,18 @@ export default async function TenantPaymentsPage() {
   const pendingCharges = recurringCharges.filter(c => c.status === "PENDING");
   const unpaidRecurringTotal = unpaidCharges.reduce((s, c) => s + c.amount, 0);
 
-  // Upcoming scheduled charges (future, past today — shown as a preview only, not as due)
+  // Upcoming scheduled charges (future — shown as a preview only, not as due)
   const upcomingCharges = recurringCharges.filter(c =>
     c.status === "UNPAID" && new Date(c.dueDate) > _endOfToday
   );
 
-  // ── Determine Effective Expiry Status ──
-  // Sharers mirror their primary tenant's expiry status
-  const effectiveProfile = isSharer && profile.primaryTenant ? profile.primaryTenant : profile;
-  const effectiveUser = isSharer && profile.primaryTenant ? profile.primaryTenant.user : user;
-
-  // Check if tenancy is about to expire to allow early renewal
-  const RENEWAL_WINDOW_DAYS = (rentFrequencyShorthand === "yr" || rentFrequencyShorthand === "sem") ? 30 : 7;
-  const effectiveExpiryDate = effectiveProfile.rentExpiryDate;
-  const daysUntilExpiry = effectiveExpiryDate 
-    ? Math.ceil((new Date(effectiveExpiryDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) 
-    : null;
-  const isExpiringSoon = daysUntilExpiry !== null && daysUntilExpiry <= RENEWAL_WINDOW_DAYS;
-
-  // If EXPIRED or expiring soon → tenant must pay a full new cycle
-  const needsRenewal = effectiveUser?.status === "EXPIRED" || isExpiringSoon;
+  // ── Detect active installment plan ──
+  // If the tenant has UNPAID/OVERDUE RecurringCharges tied to the system rent installment
+  // rule, they are mid-plan. We suppress the base rent checkout row to prevent double-paying.
+  const hasActiveInstallmentPlan = recurringCharges.some(
+    c => c.billingRuleId === "__system_rent_installment__" &&
+    (c.status === "UNPAID" || c.status === "OVERDUE" || c.status === "PENDING")
+  );
 
   // rentRemaining: on renewal = full new cycle cost. Otherwise = what's left unpaid this term.
   const rentRemaining = needsRenewal
@@ -293,18 +314,38 @@ export default async function TenantPaymentsPage() {
         </span>
       </div>
       <div className="p-6 space-y-4">
-        {unpaidCharges.map(charge => (
-          <PaymentForm
-            key={charge.id}
-            isRecurringOnly={true}
-            charge={charge}
-            tenantEmail={session.user.email}
-            tenantId={profile.id}
-            isSharer={isSharer}
-            primaryName={primaryName}
-          />
-        ))}
+        {unpaidCharges.map(charge => {
+          // Annotate system installment charges with a human-readable label
+          let annotatedCharge = charge;
+          if (charge.billingRuleId === "__system_rent_installment__") {
+            const allInstallmentCharges = recurringCharges.filter(
+              c => c.billingRuleId === "__system_rent_installment__"
+            ).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+            const totalInstCount = allInstallmentCharges.length + 1; // +1 for the first (already paid)
+            const instIndex = allInstallmentCharges.findIndex(c => c.id === charge.id) + 2; // +2 because #1 was already paid
+            annotatedCharge = {
+              ...charge,
+              billingRule: {
+                ...charge.billingRule,
+                title: `Rent Installment ${instIndex} of ${totalInstCount}`,
+                description: `Rent Installment ${instIndex} of ${totalInstCount}`,
+              },
+            };
+          }
+          return (
+            <PaymentForm
+              key={charge.id}
+              isRecurringOnly={true}
+              charge={annotatedCharge}
+              tenantEmail={session.user.email}
+              tenantId={profile.id}
+              isSharer={isSharer}
+              primaryName={primaryName}
+            />
+          );
+        })}
       </div>
+
     </div>
   ) : pendingCharges.length > 0 ? (
     <div className="bg-amber-50 border border-amber-100 rounded-3xl p-6 flex items-start gap-4">
@@ -469,6 +510,8 @@ export default async function TenantPaymentsPage() {
             unpaidCharges={unpaidCharges}
             totalDue={totalDue}
             isPartialMode={isPartialMode}
+            canChoosePartial={canChoosePartial}
+            defaultInstallments={defaultInstallments}
             installmentAmount={installmentAmount}
             profile={profile}
             session={session}
@@ -477,7 +520,9 @@ export default async function TenantPaymentsPage() {
             allRecurringCharges={recurringCharges}
             isSharer={isSharer}
             primaryName={primaryName}
+            hasActiveInstallmentPlan={hasActiveInstallmentPlan}
           />
+
 
 
           {/* Recent Payments */}

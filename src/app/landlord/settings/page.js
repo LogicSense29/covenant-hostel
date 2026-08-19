@@ -11,6 +11,8 @@ export default function SettingsPage() {
   const [bankName, setBankName] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [accountName, setAccountName] = useState("");
+  const [globalPartialEnabled, setGlobalPartialEnabled] = useState(false);
+  const [globalPartialInstallments, setGlobalPartialInstallments] = useState("3");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ text: "", type: "" });
@@ -25,6 +27,8 @@ export default function SettingsPage() {
         if (data.BANK_NAME) setBankName(data.BANK_NAME);
         if (data.ACCOUNT_NUMBER) setAccountNumber(data.ACCOUNT_NUMBER);
         if (data.ACCOUNT_NAME) setAccountName(data.ACCOUNT_NAME);
+        if (data.GLOBAL_PARTIAL_PAYMENT_ENABLED !== undefined) setGlobalPartialEnabled(data.GLOBAL_PARTIAL_PAYMENT_ENABLED === "true");
+        if (data.GLOBAL_PARTIAL_PAYMENT_INSTALLMENTS) setGlobalPartialInstallments(data.GLOBAL_PARTIAL_PAYMENT_INSTALLMENTS);
         setLoading(false);
       })
       .catch(err => {
@@ -39,58 +43,73 @@ export default function SettingsPage() {
     setMessage({ text: "", type: "" });
 
     try {
-      // Save Fee Amount
-      await fetch("/api/settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          key: "INSPECTION_FEE",
-          value: fee.toString(),
-          description: "The fee charged for prospective guests to book a physical inspection tour of the hostel.",
+      const requests = [
+        fetch("/api/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            key: "INSPECTION_FEE",
+            value: fee.toString(),
+            description: "The fee charged for prospective guests to book a physical inspection tour of the hostel.",
+          }),
         }),
-      });
+        fetch("/api/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            key: "INSPECTION_FEE_ENABLED",
+            value: isEnabled.toString(),
+            description: "Whether or not to charge for guest inspections.",
+          }),
+        }),
+        fetch("/api/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            key: "BANK_NAME",
+            value: bankName,
+            description: "The bank name for manual transfer payments.",
+          }),
+        }),
+        fetch("/api/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            key: "ACCOUNT_NUMBER",
+            value: accountNumber,
+            description: "The account number for manual transfer payments.",
+          }),
+        }),
+        fetch("/api/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            key: "ACCOUNT_NAME",
+            value: accountName,
+            description: "The account name for manual transfer payments.",
+          }),
+        }),
+        fetch("/api/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            key: "GLOBAL_PARTIAL_PAYMENT_ENABLED",
+            value: globalPartialEnabled.toString(),
+            description: "Whether old tenants can choose to pay in installments.",
+          }),
+        }),
+        fetch("/api/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            key: "GLOBAL_PARTIAL_PAYMENT_INSTALLMENTS",
+            value: globalPartialInstallments.toString(),
+            description: "Default number of installments for old tenants.",
+          }),
+        })
+      ];
 
-      // Save Enabled Status
-      await fetch("/api/settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          key: "INSPECTION_FEE_ENABLED",
-          value: isEnabled.toString(),
-          description: "Whether or not to charge for guest inspections.",
-        }),
-      });
-
-      // Save Bank Details Settings
-      await fetch("/api/settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          key: "BANK_NAME",
-          value: bankName,
-          description: "The bank name for manual transfer payments.",
-        }),
-      });
-
-      await fetch("/api/settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          key: "ACCOUNT_NUMBER",
-          value: accountNumber,
-          description: "The account number for manual transfer payments.",
-        }),
-      });
-
-      await fetch("/api/settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          key: "ACCOUNT_NAME",
-          value: accountName,
-          description: "The account name for manual transfer payments.",
-        }),
-      });
+      await Promise.all(requests);
 
       setMessage({ text: "Settings saved successfully!", type: "success" });
     } catch (err) {
@@ -133,6 +152,8 @@ export default function SettingsPage() {
           <p className="text-slate-500 text-sm mt-1">Manage global system variables and preferences.</p>
         </div>
       </div>
+
+
 
       {/* ── WhatsApp Reminders Section ── */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-500">
@@ -240,6 +261,61 @@ export default function SettingsPage() {
             </div>
           </div>
           
+          {/* Divider */}
+          <div className="border-t border-slate-100 my-6" />
+
+          {/* Partial Payments Settings */}
+          <div className="space-y-4">
+            <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
+              <span className="p-2 bg-purple-50 text-purple-600 rounded-lg">
+                <ToggleRight size={18} />
+              </span>
+              Installment Plans (Renewals)
+            </h3>
+            <p className="text-xs text-slate-500 font-medium">
+              Allow returning (old) tenants to choose between paying full rent or setting up an installment plan during renewal.
+            </p>
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-slate-50 rounded-2xl border border-slate-100 mt-4">
+              <div className="flex items-center gap-4">
+                <div className={`p-3 rounded-xl ${globalPartialEnabled ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/20' : 'bg-slate-200 text-slate-500'}`}>
+                  <ToggleRight size={20} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 leading-none">Enable Partial Payments</h3>
+                  <p className="text-xs text-slate-500 mt-1 font-medium">Toggle whether old tenants can opt for installments.</p>
+                </div>
+              </div>
+              
+              <button
+                 type="button"
+                 onClick={() => setGlobalPartialEnabled(!globalPartialEnabled)}
+                 className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${globalPartialEnabled ? 'bg-purple-600' : 'bg-slate-200'}`}
+              >
+                <span
+                  className={`${globalPartialEnabled ? 'translate-x-6' : 'translate-x-1'} inline-block h-5 w-5 transform rounded-full bg-white transition-transform`}
+                />
+              </button>
+            </div>
+
+            <div className={`max-w-md space-y-4 transition-all duration-300 ${globalPartialEnabled ? 'opacity-100 scale-100' : 'opacity-40 scale-95 pointer-events-none'}`}>
+              <div>
+                <label className="block text-xs font-bold text-slate-900 uppercase tracking-widest mb-2 mt-4">Default Number of Installments</label>
+                <input
+                  type="number"
+                  min="2"
+                  max="3"
+                  value={globalPartialInstallments}
+                  onChange={(e) => setGlobalPartialInstallments(e.target.value)}
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-purple-500/10 focus:border-purple-500 transition-all font-bold text-slate-900"
+                  placeholder="e.g. 3"
+                  required={globalPartialEnabled}
+                />
+                <p className="text-xs text-slate-400 mt-2 font-medium italic">How many equal parts the base rent will be split into.</p>
+              </div>
+            </div>
+          </div>
+
           {/* Divider */}
           <div className="border-t border-slate-100 my-6" />
 

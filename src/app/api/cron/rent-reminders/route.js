@@ -253,82 +253,176 @@ export async function GET(req) {
       await Promise.allSettled(sharerTasks);
     }
 
-    // ── 3. Partial payment installment reminders ──
-    for (const days of thresholds) {
-      const targetDate = new Date(today);
-      targetDate.setDate(today.getDate() + days);
-      const nextDay = new Date(targetDate);
-      nextDay.setDate(targetDate.getDate() + 1);
+    // ── 3. Proactive installment reminders (calculated from rentStartDate, like rent expiry) ──
+    // Works even before the tenant has submitted any payment.
+    // Thresholds: 14, 7, 3, 1 days before the next installment due date.
+    const installmentThresholds = [14, 7, 3, 1];
 
-      // Find pending partial payments with a due date in the threshold window
-      const upcomingInstallments = await prisma.payment.findMany({
-        where: {
-          paymentType: "PARTIAL",
-          status: "PENDING",
-          dueDate: { gte: targetDate, lt: nextDay },
-        },
-        include: {
-          tenant: {
-            include: { user: true, room: true },
-          },
-        },
-      });
-
-      for (const payment of upcomingInstallments) {
-        const { tenant } = payment;
-        if (tenant.user?.email) {
-          await sendPartialPaymentDueReminder({
-            email: tenant.user.email,
-            name: tenant.user.name,
-            roomNumber: tenant.room?.roomNumber || "N/A",
-            dueDate: payment.dueDate,
-            amount: payment.amount,
-            installmentNumber: payment.installmentNumber,
-            totalInstallments: payment.totalInstallments,
-          });
-        }
-        // WhatsApp: partial payment due
-        if (whatsappEnabled && tenant.phone) {
-          const dueDateStr = new Date(payment.dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-          await sendWhatsAppMessage({
-            to: tenant.phone,
-            body: `💰 *Covenant Hostel – Installment Due*\n\nDear ${tenant.user?.name || "Tenant"}, installment *${payment.installmentNumber}/${payment.totalInstallments}* of ₦${payment.amount.toLocaleString()} is due in *${days} day${days > 1 ? "s" : ""}* (${dueDateStr}).\n\n${process.env.NEXTAUTH_URL || ""}/tenant/payments`,
-          });
-        }
-
-        if (adminEmail) {
-          await sendAdminPartialPaymentAlert({
-            adminEmail,
-            tenantName: tenant.user?.name || "Unknown",
-            roomNumber: tenant.room?.roomNumber || "N/A",
-            amount: payment.amount,
-            installmentNumber: payment.installmentNumber,
-            totalInstallments: payment.totalInstallments,
-            dueDate: payment.dueDate,
-          });
-        }
-      }
-    }
-
-    // ── 3b. Overdue partial payment reminders (sent daily for up to 3 days after due date) ──
-    const threeDaysAgo = new Date(today);
-    threeDaysAgo.setDate(today.getDate() - 3);
-
-    const overdueInstallments = await prisma.payment.findMany({
+    const partialTenants = await prisma.tenantProfile.findMany({
       where: {
-        paymentType: "PARTIAL",
-        status: "PENDING",
-        dueDate: { lt: today, gte: threeDaysAgo },
+        allowPartialPayment: true,
+        partialPaymentInstallments: { gt: 1 },
+        primaryTenantId: null,
+        rentStartDate: { not: null },
+        user: { status: "ACTIVE" },
       },
       include: {
-        tenant: {
-          include: { user: true, room: true },
+        user: true,
+        room: true,
+        payments: {
+          where: {
+            paymentType: "PARTIAL",
+            status: { notIn: ["REJECTED"] },
+          },
+          orderBy: { installmentNumber: "asc" },
         },
       },
     });
 
-    const paymentPromises = overdueInstallments.map(async (payment) => {
-      const { tenant } = payment;
+    for (const tenant of partialTenants) {
+      const n = tenant.partialPaymentInstallments;
+      const start = new Date(tenant.rentStartDate);
+
+      // Count fully verified installments to find the next one due
+      const paidCount = tenant.payments.filter(
+        (p) => p.status === "SUCCESS" || p.status === "VERIFIED"
+      ).length;
+
+      if (paidCount >= n) continue; // All installments already paid — nothing to remind
+
+      const nextInstallmentNumber = paidCount + 1;
+
+      // Skip if tenant has already submitted a PENDING receipt for this installment
+      const alreadySubmitted = tenant.payments.some(
+        (p) => p.installmentNumber === nextInstallmentNumber && p.status === "PENDING"
+      );
+      if (alreadySubmitted) continue;
+
+      // Calculate the due date: rentStartDate + (paidCount) months
+      // Use Date.UTC to avoid setMonth() day-overflow (e.g. Jan 31 + 1 month → Mar 3).
+      // We always anchor to the same day-of-month as rentStartDate, clamped to month end.
+      const startDay = start.getUTCDate();
+      const targetMonth = start.getUTCMonth() + paidCount;
+      const targetYear = start.getUTCFullYear() + Math.floor(targetMonth / 12);
+      const clampedMonth = targetMonth % 12;
+      // Clamp day to last day of the target month
+      const daysInTargetMonth = new Date(Date.UTC(targetYear, clampedMonth + 1, 0)).getUTCDate();
+      const clampedDay = Math.min(startDay, daysInTargetMonth);
+      const normalizedDue = new Date(Date.UTC(targetYear, clampedMonth, clampedDay, 0, 0, 0, 0));
+
+      const daysUntilDue = Math.ceil(
+        (normalizedDue.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+      );
+
+      if (!installmentThresholds.includes(daysUntilDue)) continue;
+
+      // Determine installment amount: use the first recorded payment amount if available,
+      // otherwise fall back to room.rentAmount / n.
+      // Guard: if amount resolves to 0, skip — no point sending a ₦0 reminder.
+      const referencePayment = tenant.payments.find((p) => p.installmentNumber !== null && p.amount > 0);
+      const installmentAmount = referencePayment
+        ? referencePayment.amount
+        : Math.round((tenant.room?.rentAmount || 0) / n);
+      if (!installmentAmount || installmentAmount <= 0) continue;
+
+      const dueDateStr = normalizedDue.toLocaleDateString("en-GB", {
+        day: "numeric", month: "short", year: "numeric",
+      });
+
+      // Email reminder
+      if (tenant.user?.email) {
+        await sendPartialPaymentDueReminder({
+          email: tenant.user.email,
+          name: tenant.user.name,
+          roomNumber: tenant.room?.roomNumber || "N/A",
+          dueDate: normalizedDue,
+          amount: installmentAmount,
+          installmentNumber: nextInstallmentNumber,
+          totalInstallments: n,
+        });
+      }
+
+      // WhatsApp reminder
+      if (whatsappEnabled && tenant.phone) {
+        await sendWhatsAppMessage({
+          to: tenant.phone,
+          body: `💰 *Covenant Hostel – Installment Due*\n\nDear ${tenant.user?.name || "Tenant"}, installment *${nextInstallmentNumber}/${n}* of ₦${installmentAmount.toLocaleString()} is due in *${daysUntilDue} day${daysUntilDue > 1 ? "s" : ""}* (${dueDateStr}).\n\nLog in to pay: ${process.env.NEXTAUTH_URL || ""}/tenant/payments`,
+        });
+      }
+
+      // In-app notification (tenant)
+      const dueMsg =
+        daysUntilDue === 1
+          ? `Your installment ${nextInstallmentNumber}/${n} of ₦${installmentAmount.toLocaleString()} is due tomorrow (${dueDateStr}).`
+          : `Your installment ${nextInstallmentNumber}/${n} of ₦${installmentAmount.toLocaleString()} is due in ${daysUntilDue} days on ${dueDateStr}.`;
+      await createNotification({
+        userId: tenant.userId,
+        title: `Installment Due ${daysUntilDue === 1 ? "Tomorrow" : `in ${daysUntilDue} Days`}`,
+        message: dueMsg,
+        type: "PAYMENT",
+        link: "/tenant/payments",
+      });
+
+      // Admin alert
+      if (adminEmail) {
+        await sendAdminPartialPaymentAlert({
+          adminEmail,
+          tenantName: tenant.user?.name || "Unknown",
+          roomNumber: tenant.room?.roomNumber || "N/A",
+          amount: installmentAmount,
+          installmentNumber: nextInstallmentNumber,
+          totalInstallments: n,
+          dueDate: normalizedDue,
+        });
+      }
+    }
+
+    // ── 3b. Proactive overdue installment reminders (up to 7 days after due date) ──
+    // Fires for installments whose calculated due date has passed but haven't been paid/submitted.
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(today.getDate() - 7);
+
+    // Re-use the same partialTenants list fetched above
+    const overdueInstallmentTasks = partialTenants.map(async (tenant) => {
+      const n = tenant.partialPaymentInstallments;
+      const start = new Date(tenant.rentStartDate);
+
+      const paidCount = tenant.payments.filter(
+        (p) => p.status === "SUCCESS" || p.status === "VERIFIED"
+      ).length;
+
+      if (paidCount >= n) return;
+
+      const nextInstallmentNumber = paidCount + 1;
+
+      // If there's already a PENDING submission for this installment, the existing
+      // PENDING-based overdue logic below will handle it — skip here.
+      const alreadySubmitted = tenant.payments.some(
+        (p) => p.installmentNumber === nextInstallmentNumber && p.status === "PENDING"
+      );
+      if (alreadySubmitted) return;
+
+      // Same overflow-safe date calculation as section 3
+      const startDay3b = start.getUTCDate();
+      const targetMonth3b = start.getUTCMonth() + paidCount;
+      const targetYear3b = start.getUTCFullYear() + Math.floor(targetMonth3b / 12);
+      const clampedMonth3b = targetMonth3b % 12;
+      const daysInTargetMonth3b = new Date(Date.UTC(targetYear3b, clampedMonth3b + 1, 0)).getUTCDate();
+      const clampedDay3b = Math.min(startDay3b, daysInTargetMonth3b);
+      const normalizedDue = new Date(Date.UTC(targetYear3b, clampedMonth3b, clampedDay3b, 0, 0, 0, 0));
+
+      // Only alert if overdue within the past 7 days
+      if (normalizedDue >= today || normalizedDue < sevenDaysAgo) return;
+
+      const referencePayment = tenant.payments.find((p) => p.installmentNumber !== null && p.amount > 0);
+      const installmentAmount = referencePayment
+        ? referencePayment.amount
+        : Math.round((tenant.room?.rentAmount || 0) / n);
+      if (!installmentAmount || installmentAmount <= 0) return;
+
+      const dueDateStr = normalizedDue.toLocaleDateString("en-GB", {
+        day: "numeric", month: "short", year: "numeric",
+      });
       const tasks = [];
 
       if (tenant.user?.email) {
@@ -336,25 +430,24 @@ export async function GET(req) {
           email: tenant.user.email,
           name: tenant.user.name,
           roomNumber: tenant.room?.roomNumber || "N/A",
-          dueDate: payment.dueDate,
-          amount: payment.amount,
-          installmentNumber: payment.installmentNumber,
-          totalInstallments: payment.totalInstallments,
+          dueDate: normalizedDue,
+          amount: installmentAmount,
+          installmentNumber: nextInstallmentNumber,
+          totalInstallments: n,
         }));
       }
-      
+
       if (whatsappEnabled && tenant.phone) {
-        const dueDateStr = new Date(payment.dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
         tasks.push(sendWhatsAppMessage({
           to: tenant.phone,
-          body: `⚠️ *Covenant Hostel – OVERDUE Installment*\n\nDear ${tenant.user?.name || "Tenant"}, installment *${payment.installmentNumber}/${payment.totalInstallments}* of ₦${payment.amount.toLocaleString()} is now *OVERDUE*. It was due on ${dueDateStr}.\n\nPlease pay immediately: ${process.env.NEXTAUTH_URL || ""}/tenant/payments`,
+          body: `⚠️ *Covenant Hostel – OVERDUE Installment*\n\nDear ${tenant.user?.name || "Tenant"}, installment *${nextInstallmentNumber}/${n}* of ₦${installmentAmount.toLocaleString()} was due on *${dueDateStr}* and is now *OVERDUE*.\n\nPlease pay immediately: ${process.env.NEXTAUTH_URL || ""}/tenant/payments`,
         }));
       }
 
       tasks.push(createNotification({
         userId: tenant.userId,
         title: "Installment Overdue",
-        message: `Your installment of ₦${payment.amount.toLocaleString()} is OVERDUE. Please pay immediately.`,
+        message: `Your installment ${nextInstallmentNumber}/${n} of ₦${installmentAmount.toLocaleString()} was due on ${dueDateStr} and is OVERDUE. Please pay immediately.`,
         type: "PAYMENT",
         link: "/tenant/payments",
       }));
@@ -364,17 +457,17 @@ export async function GET(req) {
           adminEmail,
           tenantName: tenant.user?.name || "Unknown",
           roomNumber: tenant.room?.roomNumber || "N/A",
-          amount: payment.amount,
-          installmentNumber: payment.installmentNumber,
-          totalInstallments: payment.totalInstallments,
-          dueDate: payment.dueDate,
+          amount: installmentAmount,
+          installmentNumber: nextInstallmentNumber,
+          totalInstallments: n,
+          dueDate: normalizedDue,
         }));
       }
 
       await Promise.allSettled(tasks);
     });
 
-    await Promise.allSettled(paymentPromises);
+    await Promise.allSettled(overdueInstallmentTasks);
 
     // ── 4. Mark overdue recurring charges ──
     const newlyOverdueCharges = await prisma.recurringCharge.findMany({
