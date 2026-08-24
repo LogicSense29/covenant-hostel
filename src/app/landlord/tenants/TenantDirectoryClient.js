@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   X,
   Mail,
+  CreditCard,
   ExternalLink,
   ArrowRight,
   Loader2,
@@ -169,6 +170,7 @@ export default function TenantDirectoryClient({ initialTenants, initialNextCurso
           <option value="ACTIVE">Active</option>
           <option value="REJECTED">Rejected</option>
           <option disabled>──────────</option>
+          <option value="INSTALLMENTS">💳 Installment Plan</option>
           <option value="EXPIRING_7">⚠ Expiring in 7 days</option>
           <option value="EXPIRING_14">📅 Expiring in 14 days</option>
           <option value="EXPIRING_30">📅 Expiring in 30 days</option>
@@ -259,6 +261,14 @@ export default function TenantDirectoryClient({ initialTenants, initialNextCurso
                               ) : (
                                 <span className="shrink-0 flex items-center gap-1 text-[8px] px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded font-bold uppercase tracking-tighter">
                                   <Briefcase size={9} /> Pro
+                                </span>
+                              )}
+                              {profile.allowPartialPayment && (
+                                <span 
+                                  className="shrink-0 flex items-center gap-1 text-[8px] px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded font-bold uppercase tracking-tighter border border-blue-100"
+                                  title={`Installment Plan (${profile.partialPaymentInstallments}x)`}
+                                >
+                                  <CreditCard size={9} /> Installments
                                 </span>
                               )}
                               {status === 'PENDING' && <span className="shrink-0 text-[8px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-bold uppercase tracking-tighter">Pending</span>}

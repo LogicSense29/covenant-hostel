@@ -189,15 +189,27 @@ export default function ProviderManager({ initialProviders }) {
                     onChange={(e) => setFormData({...formData, email: e.target.value})}
                   />
                 </div>
-                <div className="col-span-2 sm:col-span-1">
+                <div className="col-span-2 sm:col-span-1 space-y-1.5">
                   <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 px-1">Phone Number</label>
-                  <input
-                    type="text"
-                    required
-                    className="w-full text-slate-700 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white transition-all"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                  />
+                  <div className="relative group">
+                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors flex items-center gap-1">
+                      <Phone size={18} />
+                      <span className="text-xs font-bold">+234</span>
+                    </div>
+                    <input
+                      type="tel"
+                      required
+                      className="w-full text-slate-700 pl-20 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white focus:border-blue-500 transition-all"
+                      placeholder="7061608636"
+                      value={formData.phone.replace("+234", "")}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                        setFormData({...formData, phone: val ? `+234${val}` : ""});
+                      }}
+                      maxLength={10}
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-400 ml-1">Enter 10-digit phone number without +234</p>
                 </div>
               </div>
 

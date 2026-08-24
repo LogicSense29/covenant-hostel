@@ -278,7 +278,10 @@ export default function MaintenanceManager({ initialTickets, currentUser, tenant
                     <div className="flex items-center gap-4 text-xs text-slate-400 font-medium flex-wrap">
                        <span className="flex items-center gap-1"><Clock size={12} /> Reported {new Date(ticket.createdAt).toLocaleDateString()}</span>
                        {ticket.provider && (
-                         <span className="flex items-center gap-1 text-blue-600"><CheckCircle2 size={12} /> Assigned to {ticket.provider.user.name}</span>
+                         <span className="flex items-center gap-1 text-blue-600">
+                           <CheckCircle2 size={12} /> Assigned to {ticket.provider.user.name} 
+                           {ticket.provider.phone && <span className="ml-1 text-slate-500 font-normal">({ticket.provider.phone})</span>}
+                         </span>
                        )}
                     </div>
                  </div>

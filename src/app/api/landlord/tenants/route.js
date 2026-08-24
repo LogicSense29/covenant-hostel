@@ -55,7 +55,10 @@ export async function GET(request) {
         ...(whereClause.user || {}),
         status: "EXPIRED"
       };
+    } else if (status === "INSTALLMENTS") {
+      whereClause.allowPartialPayment = true;
     } else {
+
       whereClause.user = {
         ...(whereClause.user || {}),
         status: status

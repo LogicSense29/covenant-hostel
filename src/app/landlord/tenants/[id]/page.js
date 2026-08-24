@@ -340,12 +340,12 @@ export default async function TenantProfilePage({ params }) {
               <div>
                 <div className="flex justify-between items-center mb-1.5">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Progress</span>
-                  <span className="text-[10px] font-bold text-blue-600">{paidInstallments - 1} of {totalInstallmentCount} paid</span>
+                  <span className="text-[10px] font-bold text-blue-600">{paidInstallments} of {totalInstallmentCount} paid</span>
                 </div>
                 <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
                   <div
                     className="h-2 bg-blue-500 rounded-full transition-all"
-                    style={{ width: `${Math.round(((paidInstallments - 1) / totalInstallmentCount) * 100)}%` }}
+                    style={{ width: `${Math.round((paidInstallments / totalInstallmentCount) * 100)}%` }}
                   />
                 </div>
               </div>
