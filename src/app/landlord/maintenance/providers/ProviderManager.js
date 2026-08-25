@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { 
@@ -18,6 +18,11 @@ import {
 export default function ProviderManager({ initialProviders }) {
   const router = useRouter();
   const [providers, setProviders] = useState(initialProviders);
+
+  useEffect(() => {
+    setProviders(initialProviders);
+  }, [initialProviders]);
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({

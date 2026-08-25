@@ -171,7 +171,15 @@ export async function POST(req) {
     
     // Check for Prisma unique constraint errors
     if (error.code === 'P2002') {
-      const field = error.meta?.target?.[0] || "field";
+      let field = "field";
+      const errorString = JSON.stringify(error.meta || {}).toLowerCase() + " " + (error.message || "").toLowerCase();
+      
+      if (errorString.includes('phone')) {
+        field = "phone number";
+      } else if (errorString.includes('email')) {
+        field = "email";
+      }
+      
       return NextResponse.json({ message: `A user with this ${field} already exists.` }, { status: 400 });
     }
 
