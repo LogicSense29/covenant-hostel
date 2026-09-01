@@ -48,6 +48,15 @@ export async function POST(request) {
       create: { key, value: String(value), description: description || null }
     });
 
+    // Bust the public bank-details cache so the booking form picks up changes immediately
+    try {
+      const { revalidatePath } = await import("next/cache");
+      revalidatePath("/api/public/bank-details");
+      revalidatePath("/book-inspection");
+    } catch (e) {
+      console.warn("Revalidation failed:", e);
+    }
+
     return NextResponse.json({ success: true, setting });
   } catch (error) {
     console.error("Settings POST error:", error);

@@ -179,9 +179,9 @@ export default function SettingsPage() {
             whatsappEnabled ? "bg-emerald-50 border-emerald-100" : "bg-slate-50 border-slate-100"
           }`}>
             <div className="flex items-center gap-4">
-              <div className={`p-2.5 rounded-xl transition-colors ${whatsappEnabled ? "bg-emerald-500" : "bg-slate-200"}`}>
+              {/* <div className={`p-2.5 rounded-xl transition-colors ${whatsappEnabled ? "bg-emerald-500" : "bg-slate-200"}`}>
                 <Phone size={18} className={whatsappEnabled ? "text-white" : "text-slate-400"} />
-              </div>
+              </div> */}
               <div>
                 <p className="text-sm font-bold text-slate-900">Enable WhatsApp Reminders</p>
                 <p className="text-xs text-slate-500 mt-0.5">Rent expiry, installments, and recurring charge reminders sent via WhatsApp</p>
@@ -219,9 +219,9 @@ export default function SettingsPage() {
           {/* Toggle Section */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-slate-50 rounded-2xl border border-slate-100">
             <div className="flex items-center gap-4">
-              <div className={`p-3 rounded-xl ${isEnabled ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-slate-200 text-slate-500'}`}>
+              {/* <div className={`p-3 rounded-xl ${isEnabled ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-slate-200 text-slate-500'}`}>
                 <CreditCard size={20} />
-              </div>
+              </div> */}
               <div>
                 <h3 className="font-bold text-slate-900 leading-none">Inspection Fee</h3>
                 <p className="text-xs text-slate-500 mt-1 font-medium">Toggle whether guests pay to book inspections.</p>
@@ -278,9 +278,9 @@ export default function SettingsPage() {
 
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-slate-50 rounded-2xl border border-slate-100 mt-4">
               <div className="flex items-center gap-4">
-                <div className={`p-3 rounded-xl ${globalPartialEnabled ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/20' : 'bg-slate-200 text-slate-500'}`}>
+                {/* <div className={`p-3 rounded-xl ${globalPartialEnabled ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/20' : 'bg-slate-200 text-slate-500'}`}>
                   <ToggleRight size={20} />
-                </div>
+                </div> */}
                 <div>
                   <h3 className="font-bold text-slate-900 leading-none">Enable Partial Payments</h3>
                   <p className="text-xs text-slate-500 mt-1 font-medium">Toggle whether old tenants can opt for installments.</p>
@@ -381,7 +381,7 @@ export default function SettingsPage() {
                 </span>
               ) : (
                 <>
-                  <Save size={18} />
+                  {/* <Save size={18} /> */}
                   Save Settings
                 </>
               )}
