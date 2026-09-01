@@ -76,6 +76,20 @@ export default function BookInspectionForm() {
     };
 
     fetchSettings();
+
+    // Re-fetch silently when the guest returns to this tab
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") fetchSettings();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    // Also poll every 60s in case the guest stays on the page while the fee changes
+    const interval = setInterval(fetchSettings, 60_000);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, []);
 
   const handleShare = () => {
