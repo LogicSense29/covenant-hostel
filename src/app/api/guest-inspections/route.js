@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { sendGuestInspectionConfirmation, sendLandlordInspectionAlert } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
-
 
 export async function POST(request) {
   try {
@@ -70,7 +70,7 @@ export async function POST(request) {
         address: address || null,
         status: "PENDING",
         feePaid: false,
-        amountPaid: isFree ? 0 : null,
+        amountPaid: feeAmount,
         receiptUrl: receiptUrl || null,
       }
     });
@@ -78,32 +78,40 @@ export async function POST(request) {
     // Send email notifications
     try {
       if (isFree) {
-        const { sendInspectionReceipt, sendLandlordInspectionAlert } = await import("@/lib/email");
-        
-        // Send Receipt to guest
+        // Free: Auto-confirm and send confirmation
+        await sendGuestInspectionConfirmation({
+          email,
+          name,
+          date,
+          roomNumber,
+          blockName,
+          address,
+          amount: feeAmount,
+        });
+      } else {
+        // Paid: Send pending receipt email
+        const { sendInspectionReceipt } = await import("@/lib/email");
         await sendInspectionReceipt({
           email,
           name,
           date,
-          roomNumber,
-          blockName,
-          address,
-          isFree,
-          amount: feeAmount,
-        });
-
-        // Send alert to landlord
-        await sendLandlordInspectionAlert({
-          name,
-          email,
-          phone,
-          date,
-          roomNumber,
-          blockName,
-          address,
+          reference: "Manual Bank Transfer",
+          isFree: false,
           amount: feeAmount,
         });
       }
+
+      // Always send alert to landlord when a booking happens
+      await sendLandlordInspectionAlert({
+        name,
+        email,
+        phone,
+        date,
+        roomNumber,
+        blockName,
+        address,
+        amount: feeAmount,
+      });
     } catch (emailError) {
       console.error("Non-fatal: Inspection email failed:", emailError);
     }

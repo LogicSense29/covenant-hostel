@@ -370,6 +370,38 @@ export default async function TenantPaymentsPage() {
       </div>
       <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {recurringRules.map(rule => {
+          const ruleTypeNorm = String(rule.type || "").toUpperCase().replace(/[_\s-]/g, "");
+          const isBaseRentRule = ruleTypeNorm === "BASERENT" || ruleTypeNorm === "RENT" || ruleTypeNorm === "BASE";
+
+          // For base rent rows: if there's an active installment plan, show the next installment instead
+          if (isBaseRentRule && hasActiveInstallmentPlan) {
+            const allInstCharges = recurringCharges
+              .filter(c => c.billingRuleId === "__system_rent_installment__")
+              .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+            const nextInst = allInstCharges.find(c => c.status === "UNPAID" || c.status === "OVERDUE");
+
+            if (nextInst) {
+              const totalInstCount = allInstCharges.length + 1;
+              const instIndex = allInstCharges.findIndex(c => c.id === nextInst.id) + 2;
+              const instDueDateStr = new Date(nextInst.dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+              return (
+                <div key={rule.id} className="flex justify-between items-center py-3 px-4 bg-blue-50 rounded-2xl border border-blue-100">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-700">Rent Installment {instIndex} of {totalInstCount}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-[9px] font-bold text-blue-600 uppercase">Installment Plan</span>
+                      <span className="text-[9px] font-semibold text-slate-400">· Due: {instDueDateStr}</span>
+                    </div>
+                  </div>
+                  <span className="text-sm font-bold text-blue-700 ml-4">
+                    ₦{nextInst.amount.toLocaleString()}
+                  </span>
+                </div>
+              );
+            }
+          }
+
+          // Default: show full rule amount and next due date as before
           const nextCharge = recurringCharges.find(c => c.billingRuleId === rule.id && (c.status === "UNPAID" || c.status === "OVERDUE"));
           const dueDateStr = nextCharge ? new Date(nextCharge.dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : null;
           return (
