@@ -107,10 +107,9 @@ export default function PaymentBreakdownPanel({
     .filter(rule => rule.frequency !== "ONCE" && selectedItems[`rule_${rule.id}`])
     .map(rule => rule.id);
 
-  // Compute the detailed breakdown array to be stored in the database
-  const nextInstallmentNumber = (paymentHistory?.filter(
-    p => p.paymentType !== "RECURRING" && p.status !== "REJECTED"
-  ).length || 0) + 1;
+  // When paying base rent through this checkout UI, it is ALWAYS the first installment
+  // of a new plan. Subsequent installments are paid directly from the "Recurring Charges Due" list.
+  const nextInstallmentNumber = 1;
 
   const breakdown = [];
   if (selectedItems["rent"]) {

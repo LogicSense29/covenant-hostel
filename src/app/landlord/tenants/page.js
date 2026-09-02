@@ -64,7 +64,13 @@ export default async function TenantsPage() {
     orderBy: { roomNumber: "asc" }
   });
 
+  const allBlocks = await prisma.block.findMany({
+    orderBy: { name: "asc" },
+    select: { name: true }
+  });
+  const blockNames = allBlocks.map(b => b.name);
+
   return (
-    <TenantDirectoryClient initialTenants={initialData} initialNextCursor={nextCursor} availableRooms={availableRooms} />
+    <TenantDirectoryClient initialTenants={initialData} initialNextCursor={nextCursor} availableRooms={availableRooms} blocks={blockNames} />
   );
 }

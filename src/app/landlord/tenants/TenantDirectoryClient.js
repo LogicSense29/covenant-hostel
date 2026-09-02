@@ -26,10 +26,11 @@ import PartialPaymentToggle from "@/components/PartialPaymentToggle";
 import TenantEmailModal from "./TenantEmailModal";
 import BulkEmailModal from "./BulkEmailModal";
 
-export default function TenantDirectoryClient({ initialTenants, initialNextCursor, availableRooms }) {
+export default function TenantDirectoryClient({ initialTenants, initialNextCursor, availableRooms, blocks = [] }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [blockFilter, setBlockFilter] = useState("");
   
   const [tenants, setTenants] = useState(initialTenants || []);
   const [nextCursor, setNextCursor] = useState(initialNextCursor || null);
@@ -65,7 +66,7 @@ export default function TenantDirectoryClient({ initialTenants, initialNextCurso
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
-      if (debouncedSearch === "" && statusFilter === "") return;
+      if (debouncedSearch === "" && statusFilter === "" && blockFilter === "") return;
     }
 
     let isMounted = true;
@@ -75,6 +76,7 @@ export default function TenantDirectoryClient({ initialTenants, initialNextCurso
         const query = new URLSearchParams({
           search: debouncedSearch,
           status: statusFilter,
+          block: blockFilter,
           limit: "20"
         });
         const res = await fetch(`/api/landlord/tenants?${query.toString()}`);
@@ -95,7 +97,7 @@ export default function TenantDirectoryClient({ initialTenants, initialNextCurso
     fetchFiltered();
     
     return () => { isMounted = false; };
-  }, [debouncedSearch, statusFilter]);
+  }, [debouncedSearch, statusFilter, blockFilter]);
 
   // Infinite Scroll logic
   const fetchNextPage = async () => {
@@ -106,6 +108,7 @@ export default function TenantDirectoryClient({ initialTenants, initialNextCurso
       const query = new URLSearchParams({
         search: debouncedSearch,
         status: statusFilter,
+        block: blockFilter,
         cursor: nextCursor,
         limit: "20"
       });
@@ -127,7 +130,7 @@ export default function TenantDirectoryClient({ initialTenants, initialNextCurso
     if (target.isIntersecting && nextCursor && !isFetchingNextPage && !isLoading) {
       fetchNextPage();
     }
-  }, [nextCursor, isFetchingNextPage, isLoading, debouncedSearch, statusFilter]);
+  }, [nextCursor, isFetchingNextPage, isLoading, debouncedSearch, statusFilter, blockFilter]);
 
   useEffect(() => {
     const element = observerRef.current;
@@ -158,27 +161,39 @@ export default function TenantDirectoryClient({ initialTenants, initialNextCurso
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="bg-slate-50 px-4 py-2.5 rounded-xl border border-slate-100 text-sm font-semibold text-slate-600 outline-none focus:ring-2 focus:ring-blue-500/10 transition-all shrink-0"
-        >
-          <option value="">All Status</option>
-          <option value="PENDING">Pending</option>
-          <option value="AWAITING_PAYMENT">Awaiting Payment</option>
-          <option value="PAYMENT_MADE">Payment Made</option>
-          <option value="ACTIVE">Active</option>
-          <option value="REJECTED">Rejected</option>
-          <option disabled>──────────</option>
-          <option value="INSTALLMENTS">💳 Installment Plan</option>
-          <option value="EXPIRING_7">⚠ Expiring in 7 days</option>
-          <option value="EXPIRING_14">📅 Expiring in 14 days</option>
-          <option value="EXPIRING_30">📅 Expiring in 30 days</option>
-          <option value="EXPIRED_TENANT">🔴 Expired</option>
-        </select>
+        <div className="flex flex-wrap gap-2 md:flex-nowrap">
+          <select
+            value={blockFilter}
+            onChange={(e) => setBlockFilter(e.target.value)}
+            className="bg-slate-50 px-4 py-2.5 rounded-xl border border-slate-100 text-sm font-semibold text-slate-600 outline-none focus:ring-2 focus:ring-blue-500/10 transition-all shrink-0 w-full md:w-auto"
+          >
+            <option value="">All Blocks</option>
+            {blocks.map(b => (
+              <option key={b} value={b}>{b}</option>
+            ))}
+          </select>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="bg-slate-50 px-4 py-2.5 rounded-xl border border-slate-100 text-sm font-semibold text-slate-600 outline-none focus:ring-2 focus:ring-blue-500/10 transition-all shrink-0 w-full md:w-auto"
+          >
+            <option value="">All Status</option>
+            <option value="PENDING">Pending</option>
+            <option value="AWAITING_PAYMENT">Awaiting Payment</option>
+            <option value="PAYMENT_MADE">Payment Made</option>
+            <option value="ACTIVE">Active</option>
+            <option value="REJECTED">Rejected</option>
+            <option disabled>──────────</option>
+            <option value="INSTALLMENTS">💳 Installment Plan</option>
+            <option value="EXPIRING_7">⚠ Expiring in 7 days</option>
+            <option value="EXPIRING_14">📅 Expiring in 14 days</option>
+            <option value="EXPIRING_30">📅 Expiring in 30 days</option>
+            <option value="EXPIRED_TENANT">🔴 Expired</option>
+          </select>
+        </div>
         <button
           onClick={() => setShowBulkEmail(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-all shadow-sm shrink-0"
+          className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-all shadow-sm shrink-0 w-full md:w-auto justify-center"
         >
           <Mail size={16} />
           Bulk Email

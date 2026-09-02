@@ -16,6 +16,7 @@ export async function GET(request) {
   const cursor = searchParams.get("cursor");
   const search = searchParams.get("search") || "";
   const status = searchParams.get("status") || "";
+  const block = searchParams.get("block") || "";
   const limit = parseInt(searchParams.get("limit") || "20", 10);
 
   // Build the dynamic where clause
@@ -64,6 +65,14 @@ export async function GET(request) {
         status: status
       };
     }
+  }
+
+  // Filter by block name (tenant must be assigned to a room in that block)
+  if (block) {
+    whereClause.room = {
+      ...(whereClause.room || {}),
+      block: { name: { equals: block, mode: "insensitive" } }
+    };
   }
 
   const queryParams = {

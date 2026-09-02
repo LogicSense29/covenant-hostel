@@ -90,24 +90,37 @@ export default async function TenantDashboard() {
   const effectiveProfile = isRoomSharer && profile.primaryTenant ? profile.primaryTenant : profile;
   const effectiveUser = isRoomSharer && profile.primaryTenant ? profile.primaryTenant.user : user;
 
+  // Helper to check for unresolved rejected payments
+  const hasUnresolvedRejection = (paymentsArray) => {
+    if (!paymentsArray || !Array.isArray(paymentsArray)) return false;
+    
+    return paymentsArray
+      .filter(p => p?.status === "REJECTED")
+      .some(rejected => {
+        const newerValid = paymentsArray.find(p => 
+          p && new Date(p.createdAt) > new Date(rejected.createdAt) && 
+          ["PENDING", "VERIFIED", "SUCCESS"].includes(p.status)
+        );
+        return !newerValid;
+      });
+  };
+
   // ── Pre-active status screens ──
   if (effectiveUser.status === "PENDING") {
     return <PreActiveScreen type="pending" room={room} profile={effectiveProfile} primaryTenantName={isRoomSharer ? effectiveProfile.user?.name : null} />;
   }
   if (effectiveUser.status === "AWAITING_PAYMENT") {
     const paymentsToCheck = isRoomSharer ? profile.primaryTenant?.payments || [] : payments;
-    const hasRejected = paymentsToCheck.some(p => p.status === "REJECTED");
-    return <PreActiveScreen type="awaiting_payment" room={room} profile={effectiveProfile} primaryTenantName={isRoomSharer ? effectiveProfile.user?.name : null} hasRejectedPayment={hasRejected} />;
+    return <PreActiveScreen type="awaiting_payment" room={room} profile={effectiveProfile} primaryTenantName={isRoomSharer ? effectiveProfile.user?.name : null} hasRejectedPayment={hasUnresolvedRejection(paymentsToCheck)} />;
   }
   if (effectiveUser.status === "PAYMENT_MADE") {
-    const paymentsToCheck = isRoomSharer ? profile.primaryTenant.payments : payments;
+    const paymentsToCheck = isRoomSharer ? profile.primaryTenant?.payments || [] : payments;
     const hasVerified = paymentsToCheck.some(p => p.status === "VERIFIED" || p.status === "SUCCESS");
     return <PreActiveScreen type={hasVerified ? "payment_approved" : "payment_review"} room={room} profile={effectiveProfile} primaryTenantName={isRoomSharer ? effectiveProfile.user?.name : null} />;
   }
   if (effectiveUser.status === "EXPIRED") {
     const paymentsToCheck = isRoomSharer ? profile.primaryTenant?.payments || [] : payments;
-    const hasRejected = paymentsToCheck.some(p => p.status === "REJECTED");
-    return <PreActiveScreen type="expired" room={room} profile={effectiveProfile} primaryTenantName={isRoomSharer ? effectiveProfile.user?.name : null} hasRejectedPayment={hasRejected} />;
+    return <PreActiveScreen type="expired" room={room} profile={effectiveProfile} primaryTenantName={isRoomSharer ? effectiveProfile.user?.name : null} hasRejectedPayment={hasUnresolvedRejection(paymentsToCheck)} />;
   }
   if (effectiveUser.status === "REJECTED") {
     return <PreActiveScreen type="rejected" room={room} profile={effectiveProfile} primaryTenantName={isRoomSharer ? effectiveProfile.user?.name : null} />;
@@ -116,9 +129,21 @@ export default async function TenantDashboard() {
   // ── ACTIVE dashboard ──
   const targetPayments = isRoomSharer && profile.primaryTenant ? profile.primaryTenant.payments : profile.payments;
 
+  // Determine if there is an unresolved rejected payment
+  // A rejected payment is unresolved if there are no newer PENDING, VERIFIED, or SUCCESS payments.
+  const unresolvedRejected = targetPayments
+    .filter(p => p.status === "REJECTED")
+    .some(rejected => {
+      const newerValid = targetPayments.find(p => 
+        new Date(p.createdAt) > new Date(rejected.createdAt) && 
+        ["PENDING", "VERIFIED", "SUCCESS"].includes(p.status)
+      );
+      return !newerValid;
+    });
+
   const hasVerifiedPayment = targetPayments.some(p => p.status === "VERIFIED" || p.status === "SUCCESS");
   const hasPendingReceipt  = targetPayments.some(p => p.status === "PENDING");
-  const hasRejectedReceipt = targetPayments.some(p => p.status === "REJECTED");
+  const hasRejectedReceipt = unresolvedRejected;
   const hasNoPayment       = !hasVerifiedPayment && !hasPendingReceipt;
 
   // Use the effective profile's rentExpiryDate (primary's if sharer)
