@@ -88,7 +88,7 @@ export default function PaymentBreakdownPanel({
 
   const activeInstallments = localIsPartialMode ? (defaultInstallments || profile.partialPaymentInstallments || 2) : 1;
   const rentAndFeesInstallment = localIsPartialMode 
-    ? rentAndFeesTotal / activeInstallments
+    ? Math.round((rentAndFeesTotal / activeInstallments) * 100) / 100
     : rentAndFeesTotal;
 
   const utilityTotal = unpaidCharges.reduce((sum, charge) => sum + (selectedItems[`charge_${charge.id}`] ? charge.amount : 0), 0);
@@ -107,22 +107,24 @@ export default function PaymentBreakdownPanel({
     .filter(rule => rule.frequency !== "ONCE" && selectedItems[`rule_${rule.id}`])
     .map(rule => rule.id);
 
-  // When paying base rent through this checkout UI, it is ALWAYS the first installment
-  // of a new plan. Subsequent installments are paid directly from the "Recurring Charges Due" list.
-  const nextInstallmentNumber = 1;
+  // Only count VERIFIED/SUCCESS installments — PENDING means receipt submitted but not approved yet
+  const paidInstallmentCount = (paymentHistory || []).filter(
+    (p) => p.installmentNumber != null && (p.status === "VERIFIED" || p.status === "SUCCESS")
+  ).length;
+  const nextInstallmentNumber = paidInstallmentCount + 1;
 
   const breakdown = [];
   if (selectedItems["rent"]) {
     breakdown.push({
       name: `Base Room Rent${localIsPartialMode ? ` (Installment ${nextInstallmentNumber}/${activeInstallments})` : ""}`,
-      amount: localIsPartialMode ? rentAmount / activeInstallments : rentAmount
+      amount: localIsPartialMode ? Math.round((rentAmount / activeInstallments) * 100) / 100 : rentAmount
     });
   }
   billingRules.forEach(rule => {
     if (selectedItems[`rule_${rule.id}`]) {
       breakdown.push({
         name: `${rule.title || rule.description}${localIsPartialMode ? ` (Installment ${nextInstallmentNumber}/${activeInstallments})` : ""}`,
-        amount: localIsPartialMode ? rule.amount / activeInstallments : rule.amount
+        amount: localIsPartialMode ? Math.round((rule.amount / activeInstallments) * 100) / 100 : rule.amount
       });
     }
   });
@@ -251,7 +253,7 @@ export default function PaymentBreakdownPanel({
                   </div>
                 </div>
                 <span className="text-sm sm:text-base font-display font-bold text-slate-900">
-                  ₦{rentAmount.toLocaleString()}/{rentFrequencyShorthand}
+                  ₦{rentAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}/{rentFrequencyShorthand}
                 </span>
               </div>
             );
@@ -338,7 +340,7 @@ export default function PaymentBreakdownPanel({
                 </div>
               </div>
               <span className="text-sm sm:text-base font-display font-bold text-slate-900">
-                ₦{rule.amount.toLocaleString()}/{freqLabel(rule.frequency)}
+                ₦{rule.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}/{freqLabel(rule.frequency)}
               </span>
             </div>
           )})}
@@ -399,7 +401,7 @@ export default function PaymentBreakdownPanel({
                   </div>
                 </div>
                 <span className="text-sm sm:text-base font-display font-bold text-slate-900">
-                  ₦{charge.amount.toLocaleString()}/{freqLabel(charge.billingRule?.frequency)}
+                  ₦{charge.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}/{freqLabel(charge.billingRule?.frequency)}
                 </span>
               </div>
             );
@@ -419,7 +421,7 @@ export default function PaymentBreakdownPanel({
               <div className="text-right">
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Tenancy Installment</p>
                 <p className="text-xl font-black text-blue-700 mt-0.5">
-                  ₦{rentAndFeesInstallment.toLocaleString()} <span className="text-xs text-blue-500 font-normal">each</span>
+                  ₦{rentAndFeesInstallment.toLocaleString(undefined, { maximumFractionDigits: 2 })} <span className="text-xs text-blue-500 font-normal">each</span>
                 </p>
               </div>
             </div>
@@ -433,11 +435,11 @@ export default function PaymentBreakdownPanel({
               {localIsPartialMode ? "Total to Pay Now" : "Total Selected to Pay"}
             </p>
             <p className="text-3xl font-black text-slate-900 tracking-tight mt-1">
-              ₦{totalToPayNow.toLocaleString()}
+              ₦{totalToPayNow.toLocaleString(undefined, { maximumFractionDigits: 2 })}
             </p>
             {localIsPartialMode && (
               <p className="text-[10px] text-slate-500 mt-0.5 font-semibold">
-                (₦{rentAndFeesInstallment.toLocaleString()} installment + ₦{utilityTotal.toLocaleString()} utilities in full)
+                (₦{rentAndFeesInstallment.toLocaleString(undefined, { maximumFractionDigits: 2 })} installment + ₦{utilityTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })} utilities in full)
               </p>
             )}
           </div>
@@ -509,13 +511,13 @@ export default function PaymentBreakdownPanel({
                         )}
                       </div>
                       <span className="font-bold text-slate-900">
-                        ₦{(localIsPartialMode ? rentAmount / activeInstallments : rentAmount).toLocaleString()}
+                        ₦{(localIsPartialMode ? Math.round((rentAmount / activeInstallments) * 100) / 100 : rentAmount).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                       </span>
                     </div>
                   )}
                   {billingRules.map(rule => {
                     if (!selectedItems[`rule_${rule.id}`]) return null;
-                    const displayAmount = localIsPartialMode ? rule.amount / activeInstallments : rule.amount;
+                    const displayAmount = localIsPartialMode ? Math.round((rule.amount / activeInstallments) * 100) / 100 : rule.amount;
                     return (
                       <div key={rule.id} className="flex justify-between py-2 font-medium text-slate-700">
                         <div>
@@ -526,7 +528,7 @@ export default function PaymentBreakdownPanel({
                             </span>
                           )}
                         </div>
-                        <span className="font-bold text-slate-900">₦{displayAmount.toLocaleString()}</span>
+                        <span className="font-bold text-slate-900">₦{displayAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                       </div>
                     );
                   })}
@@ -540,7 +542,7 @@ export default function PaymentBreakdownPanel({
                             Full amount due
                           </span>
                         </div>
-                        <span className="font-bold text-slate-900">₦{charge.amount.toLocaleString()}</span>
+                        <span className="font-bold text-slate-900">₦{charge.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                       </div>
                     );
                   })}
@@ -549,7 +551,7 @@ export default function PaymentBreakdownPanel({
                   <span className="font-bold text-slate-950">
                     {localIsPartialMode ? "Total to Pay Now" : "Total Due"}
                   </span>
-                  <span className="font-black text-slate-950">₦{totalToPayNow.toLocaleString()}</span>
+                  <span className="font-black text-slate-950">₦{totalToPayNow.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                 </div>
               </div>
 
@@ -567,6 +569,7 @@ export default function PaymentBreakdownPanel({
                 rentFrequencyShorthand={rentFrequencyShorthand}
                 breakdown={breakdown}
                 checkoutBillingRuleIds={checkoutBillingRuleIds}
+                baseInstallmentAmount={rentAndFeesInstallment}
               />
             </div>
 

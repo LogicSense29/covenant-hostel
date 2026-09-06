@@ -208,7 +208,8 @@ export default async function TenantPaymentsPage() {
   const hasSpecificPartialAccess = profile.allowPartialPayment && profile.partialPaymentInstallments > 1;
   const canChoosePartial = isOldTenant && needsRenewal && (hasSpecificPartialAccess || globalPartialEnabled);
   const defaultInstallments = hasSpecificPartialAccess ? profile.partialPaymentInstallments : (globalPartialEnabled ? globalPartialInstallments : 1);
-  const isPartialMode = hasSpecificPartialAccess && !canChoosePartial; // Force partial if specific is set but they can't choose (e.g. new tenant)
+    // const isPartialMode = hasSpecificPartialAccess && !canChoosePartial;
+  const isPartialMode = isOldTenant && hasSpecificPartialAccess && !canChoosePartial; // Force partial only for returning tenants
   const installmentAmount = (isPartialMode || canChoosePartial) ? totalDue / defaultInstallments : null;
 
   const verifiedPayments = paymentHistory.filter(p => p.status === "SUCCESS" || p.status === "VERIFIED");

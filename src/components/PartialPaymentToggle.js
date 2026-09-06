@@ -12,7 +12,7 @@ export default function PartialPaymentToggle({ tenantProfileId, allowPartialPaym
   const [savedEnabled, setSavedEnabled] = useState(allowPartialPayment);
   const [savedInstallments, setSavedInstallments] = useState(partialPaymentInstallments || 3);
 
-  const installmentAmount = totalDue ? (totalDue / installments) : null;
+  const installmentAmount = totalDue ? Math.round((totalDue / installments) * 100) / 100 : null;
 
   const handleSave = async () => {
     setLoading(true);
@@ -85,7 +85,7 @@ export default function PartialPaymentToggle({ tenantProfileId, allowPartialPaym
           {installmentAmount && (
             <div className="bg-blue-50 rounded-xl px-4 py-3 flex items-center justify-between">
               <span className="text-xs font-medium text-blue-700">Min. per installment</span>
-              <span className="text-sm font-black text-blue-700">₦{installmentAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+              <span className="text-sm font-black text-blue-700">₦{installmentAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
             </div>
           )}
 

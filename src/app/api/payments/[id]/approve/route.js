@@ -51,7 +51,7 @@ export async function POST(req, { params }) {
         include: { billingRule: true }
       });
       
-      let isRentPayment = false;
+      let isRentPayment = payment.paymentType === "FULL" || payment.paymentType === "PARTIAL";
 
       for (const charge of linkedCharges) {
         await tx.recurringCharge.update({

@@ -386,6 +386,16 @@ export async function GET(req) {
       where: { tenantId: tenant.id },
     });
 
+    await prisma.tenantProfile.update({
+      where: { id: tenant.id },
+      data: { rentStartDate: null, rentExpiryDate: null },
+    });
+
+    await prisma.user.update({
+      where: { id: tenant.userId },
+      data: { status: "AWAITING_PAYMENT" },
+    });
+
     return new NextResponse(`
       <html>
         <head>

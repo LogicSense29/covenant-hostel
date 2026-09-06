@@ -25,6 +25,7 @@ export default function PaymentForm({
   isSharer = false,
   primaryName = "",
   checkoutBillingRuleIds = [],
+  baseInstallmentAmount = null,
 }) {
   const router = useRouter();
   const { data: session } = useSession();
@@ -56,22 +57,36 @@ export default function PaymentForm({
   // Compute installment schedule
   const installments = useMemo(() => {
     if (!canPayPartial || !partialPaymentInstallments) return [];
-    const installmentAmount = totalDue / partialPaymentInstallments;
+    
+    // Use the mathematically rounded amount passed from the panel
+    const installmentAmount = baseInstallmentAmount || Math.round((totalDue / partialPaymentInstallments) * 100) / 100;
+    
+    // Determine interval months based on lease frequency
+    const getIntervalMonths = (freq) => {
+      switch (freq) {
+        case "yr": return 12;
+        case "sem": return 6;
+        case "qtr": return 3;
+        case "mo": return 1;
+        default: return 12;
+      }
+    };
+    const leaseMonths = getIntervalMonths(rentFrequencyShorthand);
+    const intervalMonths = Math.max(1, Math.round(leaseMonths / partialPaymentInstallments));
     const start = rentStartDate ? new Date(rentStartDate) : new Date();
+    
+    // Only count VERIFIED/SUCCESS — PENDING means awaiting landlord approval, not confirmed paid
+    const installmentPayments = (existingPayments || []).filter(
+      (p) => p.installmentNumber != null && (p.status === "VERIFIED" || p.status === "SUCCESS")
+    );
+
     return Array.from({ length: partialPaymentInstallments }, (_, i) => {
       const due = new Date(start);
-      due.setMonth(due.getMonth() + i);
-      const paid = existingPayments.find(
-        (p) => p.installmentNumber === i + 1 && p.status !== "REJECTED"
-      );
-      return {
-        number: i + 1,
-        amount: installmentAmount,
-        dueDate: due,
-        paid,
-      };
+      due.setMonth(due.getMonth() + intervalMonths * i);
+      const paid = installmentPayments.find((p) => p.installmentNumber === i + 1) || null;
+      return { number: i + 1, amount: installmentAmount, dueDate: due, paid };
     });
-  }, [canPayPartial, partialPaymentInstallments, totalDue, rentStartDate, existingPayments]);
+  }, [canPayPartial, partialPaymentInstallments, baseInstallmentAmount, rentFrequencyShorthand, rentStartDate, totalDue, existingPayments]);
 
   // Next unpaid installment
   const nextInstallment = installments.find((inst) => !inst.paid);
@@ -230,7 +245,7 @@ export default function PaymentForm({
           </h3>
           {isPartialMode && nextInstallment && (
             <p className="text-xs text-slate-500 mt-1">
-              Due: {nextInstallment.dueDate.toLocaleDateString()} · ₦{nextInstallment.amount.toLocaleString()}
+              Due: {nextInstallment.dueDate.toLocaleDateString()} · ₦{nextInstallment.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}
             </p>
           )}
           {!isPartialMode && (
@@ -243,7 +258,7 @@ export default function PaymentForm({
         {/* Amount display */}
         <div className="bg-slate-50 rounded-2xl p-4 flex items-center justify-between">
           <span className="text-sm font-medium text-slate-600">Amount due</span>
-          <span className="text-2xl font-black text-slate-900">₦{payAmount.toLocaleString()}</span>
+          <span className="text-2xl font-black text-slate-900">₦{payAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
         </div>
 
         {/* Installment schedule toggle */}
@@ -279,10 +294,10 @@ export default function PaymentForm({
                       <span className="text-slate-600">{inst.dueDate.toLocaleDateString()}</span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="font-bold text-slate-900">₦{inst.amount.toLocaleString()}</span>
+                      <span className="font-bold text-slate-900">₦{inst.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                       {inst.paid?.status === "VERIFIED" && <span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-0.5 rounded-full">Paid</span>}
                       {inst.paid?.status === "PENDING" && <span className="text-xs font-bold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full">Pending</span>}
-                      {!inst.paid && inst.number === nextInstallment?.number && <span className="text-xs font-bold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">Due next</span>}
+                      {!inst.paid && inst.number === nextInstallment?.number && <span className="text-xs font-bold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">Paying now</span>}
                     </div>
                   </div>
                 ))}
@@ -333,7 +348,7 @@ export default function PaymentForm({
                   </div>
                 </div>
                 <div className="text-[10px] text-blue-500 font-medium bg-blue-50/60 p-2 rounded-lg text-center mt-2 border border-blue-100/50">
-                  Kindly transfer <strong>₦{payAmount.toLocaleString()}</strong> to the details above, then upload your transfer receipt below.
+                  Kindly transfer <strong>₦{payAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</strong> to the details above, then upload your transfer receipt below.
                 </div>
               </div>
             )}
@@ -400,7 +415,7 @@ export default function PaymentForm({
             disabled={loading || !signature.trim()}
             className="w-full py-4 bg-[#0b69ff] text-white rounded-2xl text-sm font-bold hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:translate-y-px transition-all disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none flex items-center justify-center gap-2"
           >
-            {loading ? <><Loader2 size={18} className="animate-spin" /> Processing...</> : `Pay ₦${payAmount.toLocaleString()}${isRentSelected ? `/${rentFrequencyShorthand}` : ""} via Paystack`}
+            {loading ? <><Loader2 size={18} className="animate-spin" /> Processing...</> : `Pay ₦${payAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}${isRentSelected ? `/${rentFrequencyShorthand}` : ""} via Paystack`}
           </button>
         ) : (
           <button

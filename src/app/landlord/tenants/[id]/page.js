@@ -354,15 +354,15 @@ export default async function TenantProfilePage({ params }) {
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="text-xs text-slate-500">Total Plan</span>
-                  <span className="text-xs font-bold text-slate-800">₦{totalPlanAmount.toLocaleString()}</span>
+                  <span className="text-xs font-bold text-slate-800">₦{totalPlanAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-xs text-slate-500 flex items-center gap-1"><CheckCircle2 size={10} className="text-green-500" /> Paid</span>
-                  <span className="text-xs font-bold text-green-600">₦{paidInstallmentAmount.toLocaleString()}</span>
+                  <span className="text-xs font-bold text-green-600">₦{paidInstallmentAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between items-center border-t border-slate-100 pt-2">
                   <span className="text-xs font-bold text-slate-700">Remaining</span>
-                  <span className="text-sm font-black text-blue-700">₦{remainingBalance.toLocaleString()}</span>
+                  <span className="text-sm font-black text-blue-700">₦{remainingBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                 </div>
               </div>
 
@@ -373,7 +373,7 @@ export default async function TenantProfilePage({ params }) {
                   <div>
                     <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Next Due</p>
                     <p className="text-xs font-bold text-blue-800">
-                      {new Date(nextInstallment.dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} — ₦{nextInstallment.amount.toLocaleString()}
+                      {new Date(nextInstallment.dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} — ₦{nextInstallment.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                     </p>
                   </div>
                 </div>
