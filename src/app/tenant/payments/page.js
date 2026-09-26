@@ -233,17 +233,27 @@ export default async function TenantPaymentsPage() {
   const pendingCharges = recurringCharges.filter(c => c.status === "PENDING");
   const unpaidRecurringTotal = unpaidCharges.reduce((s, c) => s + c.amount, 0);
 
-  // Upcoming scheduled charges (future — shown as a preview only, not as due)
-  const upcomingCharges = recurringCharges.filter(c =>
-    c.status === "UNPAID" && new Date(c.dueDate) > _endOfToday
-  );
-
   // ── Detect active installment plan ──
-  // If the tenant has UNPAID/OVERDUE RecurringCharges tied to the system rent installment
-  // rule, they are mid-plan. We suppress the base rent checkout row to prevent double-paying.
-  const hasActiveInstallmentPlan = recurringCharges.some(
+  // An installment plan is only considered "active" once the landlord has VERIFIED
+  // the first installment payment. Before approval (PENDING), we do NOT treat the plan
+  // as active — even if RecurringCharge records exist from old code.
+  const hasVerifiedInstallment = paymentHistory.some(
+    p => p.installmentNumber != null && (p.status === "VERIFIED" || p.status === "SUCCESS")
+  );
+  const hasInstallmentCharges = recurringCharges.some(
     c => c.billingRuleId === "__system_rent_installment__" &&
     (c.status === "UNPAID" || c.status === "OVERDUE" || c.status === "PENDING")
+  );
+  const hasActiveInstallmentPlan = hasVerifiedInstallment && hasInstallmentCharges;
+
+  // Upcoming scheduled charges (future — shown as a preview only, not as due)
+  // Exclude installment charges from unverified plans (payment still PENDING approval)
+  const upcomingCharges = recurringCharges.filter(c =>
+    c.status === "UNPAID" && new Date(c.dueDate) > _endOfToday &&
+    (
+      c.billingRuleId !== "__system_rent_installment__" ||
+      hasVerifiedInstallment
+    )
   );
 
   // rentRemaining: on renewal = full new cycle cost. Otherwise = what's left unpaid this term.
@@ -523,16 +533,40 @@ export default async function TenantPaymentsPage() {
           </div>
         </div>
       )}
-      {effectiveUser?.status !== "EXPIRED" && isExpiringSoon && !isFullyPaid && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl px-6 py-4 flex items-start gap-4">
-          <div className="p-2 bg-amber-100 rounded-xl shrink-0">
-            <Clock size={18} className="text-amber-600" />
+      {/* ── Pending Payment Banner — shown instead of expiry warning ── */}
+      {hasPendingRentPayment && isExpiringSoon && !isFullyPaid && (
+        <div className="bg-blue-50 border border-blue-200 rounded-2xl px-6 py-4 flex items-start gap-4">
+          <div className="p-2 bg-blue-100 rounded-xl shrink-0">
+            <CheckCircle2 size={18} className="text-blue-600" />
           </div>
           <div>
-            <p className="text-sm font-bold text-amber-900">
-              Tenancy expiring in {daysUntilExpiry} day{daysUntilExpiry !== 1 ? "s" : ""}
+            <p className="text-sm font-bold text-blue-900">Payment submitted — awaiting approval</p>
+            <p className="text-xs text-blue-700 mt-0.5">
+              Your rent payment receipt has been received and is being reviewed by the landlord. Your tenancy will be renewed once approved.
             </p>
-            <p className="text-xs text-amber-700 mt-0.5">Renew your rent now to avoid any service interruption.</p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Expiry Warning Banner — hidden if payment is already pending ── */}
+      {effectiveUser?.status !== "EXPIRED" && isExpiringSoon && !isFullyPaid && !hasPendingRentPayment && (
+        <div className={`border rounded-2xl px-6 py-4 flex items-start gap-4 ${daysUntilExpiry < 0 ? "bg-red-50 border-red-200" : "bg-amber-50 border-amber-200"}`}>
+          <div className={`p-2 rounded-xl shrink-0 ${daysUntilExpiry < 0 ? "bg-red-100" : "bg-amber-100"}`}>
+            <Clock size={18} className={daysUntilExpiry < 0 ? "text-red-600" : "text-amber-600"} />
+          </div>
+          <div>
+            <p className={`text-sm font-bold ${daysUntilExpiry < 0 ? "text-red-900" : "text-amber-900"}`}>
+              {daysUntilExpiry < 0
+                ? `Tenancy expired ${Math.abs(daysUntilExpiry)} day${Math.abs(daysUntilExpiry) !== 1 ? "s" : ""} ago`
+                : `Tenancy expiring in ${daysUntilExpiry} day${daysUntilExpiry !== 1 ? "s" : ""}`
+              }
+            </p>
+            <p className={`text-xs mt-0.5 ${daysUntilExpiry < 0 ? "text-red-700" : "text-amber-700"}`}>
+              {daysUntilExpiry < 0
+                ? "Your tenancy has lapsed. Please renew immediately to restore full access."
+                : "Renew your rent now to avoid any service interruption."
+              }
+            </p>
           </div>
         </div>
       )}

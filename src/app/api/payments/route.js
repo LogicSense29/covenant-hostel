@@ -54,6 +54,10 @@ export async function POST(req) {
         });
         const chargeTitle = charge?.billingRule?.title || charge?.billingRule?.description || "Recurring Charge";
 
+        if (receiptUrl && charge && amount < (charge.amount - 10)) {
+          throw new Error("Amount submitted is less than the required charge amount.");
+        }
+
         const p = await tx.payment.create({
           data: {
             amount,
@@ -97,6 +101,26 @@ export async function POST(req) {
       }) : [];
 
       const chargesTotal = charges.reduce((sum, c) => sum + c.amount, 0);
+
+      if (receiptUrl) {
+        // Prevent manual receipt amount spoofing
+        if (isRentSelected && tenant.roomId) {
+          const room = await tx.room.findUnique({ where: { id: tenant.roomId } });
+          const baseRent = room?.rentAmount || 0;
+          // If paying installments, check against the split amount. Otherwise, check against full rent.
+          const expectedMinRent = isPartial && totalInstallments > 1 
+            ? (baseRent / totalInstallments) 
+            : baseRent;
+            
+          // We use -10 as a small margin for float rounding differences
+          if (amount < (chargesTotal + expectedMinRent - 10)) {
+            throw new Error(`Amount (₦${amount}) is suspiciously lower than the expected minimum for this rent transaction.`);
+          }
+        } else if (!isRentSelected && amount < (chargesTotal - 10)) {
+           throw new Error("Amount submitted is less than the total of selected charges.");
+        }
+      }
+
       const rentAmount = isRentSelected ? Math.max(0, amount - chargesTotal) : 0;
 
       let consolidatedPayment = null;

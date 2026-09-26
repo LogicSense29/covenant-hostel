@@ -299,10 +299,43 @@ export async function POST(req) {
       },
     });
 
+    let finalStatus = session.user.status === "ACTIVE" || session.user.status === "EXPIRED" || session.user.status === "AWAITING_PAYMENT" 
+      ? "PAYMENT_MADE" 
+      : session.user.status;
+      
+    let newExpiryDate = null;
+
+    if (isRentSelected && profile.rentStartDate) {
+      finalStatus = "ACTIVE";
+      const rentRule = profile.room?.id ? await prisma.billingRule.findFirst({
+        where: {
+          type: { in: ["Base Rent", "Base_Rent", "BaseRent", "Rent", "RENT", "BASE_RENT"] },
+          rooms: { some: { id: profile.room.id } },
+        },
+      }) : null;
+      const frequency = rentRule?.frequency || "YEARLY";
+
+      let baseDate = new Date();
+      if (session.user.status === "ACTIVE" && profile.rentExpiryDate && profile.rentExpiryDate > new Date()) {
+        baseDate = new Date(profile.rentExpiryDate);
+      }
+
+      newExpiryDate = new Date(baseDate);
+      
+      switch (frequency) {
+        case "DAILY": newExpiryDate.setDate(newExpiryDate.getDate() + 1); break;
+        case "MONTHLY": newExpiryDate.setMonth(newExpiryDate.getMonth() + 1); break;
+        case "QUARTERLY": newExpiryDate.setMonth(newExpiryDate.getMonth() + 3); break;
+        case "YEARLY": newExpiryDate.setFullYear(newExpiryDate.getFullYear() + 1); break;
+        case "PER_SEMESTER": newExpiryDate.setMonth(newExpiryDate.getMonth() + 6); break;
+        default: newExpiryDate.setFullYear(newExpiryDate.getFullYear() + 1); break;
+      }
+    }
+
     const txOps = [
       prisma.user.update({
         where: { id: session.user.id },
-        data: { status: "PAYMENT_MADE" },
+        data: { status: finalStatus },
       })
     ];
 
@@ -316,6 +349,7 @@ export async function POST(req) {
             rulesSignedName: signature || "Signed Online",
             allowPartialPayment: !!isPartial,
             partialPaymentInstallments: isPartial ? totalInstallments : null,
+            ...(newExpiryDate ? { rentExpiryDate: newExpiryDate } : {})
           },
         })
       );

@@ -66,12 +66,7 @@ export async function POST(req, { params }) {
         }
       }
 
-      if (payment.tenant.user.status === "PAYMENT_MADE") {
-        await tx.user.update({
-          where: { id: payment.tenant.userId },
-          data: { status: "PAYMENT_MADE" },
-        });
-      } else if (isRentPayment || payment.tenant.user.status === "EXPIRED") {
+      if (isRentPayment && payment.tenant.rentStartDate) {
         // Automatic rent extension for returning tenants
         const matchingRules = payment.tenant.roomId ? await tx.billingRule.findMany({
           where: {
@@ -108,6 +103,13 @@ export async function POST(req, { params }) {
         await tx.tenantProfile.update({
           where: { userId: payment.tenant.userId },
           data: { rentExpiryDate: expiryDate }
+        });
+      } else if (payment.tenant.user.status === "PAYMENT_MADE" || payment.tenant.user.status === "AWAITING_PAYMENT") {
+        // For new tenants, or non-rent payments, just ensure they are PAYMENT_MADE 
+        // so the landlord can assign a room / activate them later if needed.
+        await tx.user.update({
+          where: { id: payment.tenant.userId },
+          data: { status: "PAYMENT_MADE" },
         });
       }
 
