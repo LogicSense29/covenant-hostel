@@ -53,23 +53,17 @@ async function scheduleRemainingInstallments({ tenantId, installmentAmount, tota
     },
   });
 
-  // Calculate the gap between installments:
-  // interval = lease term ÷ total installments
-  // e.g. YEARLY (12 months) ÷ 3 installments = 4 months each
+  // Calculate the gap between installments in days to ensure they strictly fall
+  // within the same rent cycle (frequency) regardless of how short it is.
   const leaseMonths = FREQUENCY_MONTHS[rentFrequency] ?? 12; // default to yearly
-  const intervalMonths = Math.round(leaseMonths / totalInstallments);
+  const leaseDays = rentFrequency === "DAILY" ? 1 : leaseMonths * 30; // Approx 30 days/month
+  const intervalDays = Math.round(leaseDays / totalInstallments);
 
   const now = new Date();
 
   for (let i = 1; i <= remaining; i++) {
     const dueDate = new Date(now);
-
-    if (rentFrequency === "DAILY") {
-      // Daily rent: space by 1 day per installment (edge case)
-      dueDate.setDate(dueDate.getDate() + i);
-    } else {
-      dueDate.setMonth(dueDate.getMonth() + intervalMonths * i);
-    }
+    dueDate.setDate(dueDate.getDate() + intervalDays * i);
 
     const dueDateUTC = new Date(Date.UTC(
       dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate(), 0, 0, 0, 0

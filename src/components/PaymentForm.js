@@ -62,18 +62,20 @@ export default function PaymentForm({
     const installmentAmount = baseInstallmentAmount || Math.round((totalDue / partialPaymentInstallments) * 100) / 100;
     
     // Determine interval months based on lease frequency
-    const getIntervalMonths = (freq) => {
+    const getIntervalDays = (freq) => {
       switch (freq) {
-        case "yr": return 12;
-        case "sem": return 6;
-        case "qtr": return 3;
-        case "mo": return 1;
-        default: return 12;
+        case "day": return 1;
+        case "yr": return 12 * 30;
+        case "sem": return 6 * 30;
+        case "qtr": return 3 * 30;
+        case "mo": return 30;
+        default: return 12 * 30;
       }
     };
-    const leaseMonths = getIntervalMonths(rentFrequencyShorthand);
-    const intervalMonths = Math.max(1, Math.round(leaseMonths / partialPaymentInstallments));
-    const start = rentStartDate ? new Date(rentStartDate) : new Date();
+    const leaseDays = getIntervalDays(rentFrequencyShorthand);
+    const intervalDays = Math.round(leaseDays / partialPaymentInstallments);
+    // Use today as baseline — matches exactly what the backend uses when scheduling
+    const start = new Date();
     
     // Only count VERIFIED/SUCCESS — PENDING means awaiting landlord approval, not confirmed paid
     const installmentPayments = (existingPayments || []).filter(
@@ -82,7 +84,7 @@ export default function PaymentForm({
 
     return Array.from({ length: partialPaymentInstallments }, (_, i) => {
       const due = new Date(start);
-      due.setMonth(due.getMonth() + intervalMonths * i);
+      due.setDate(due.getDate() + intervalDays * i);
       const paid = installmentPayments.find((p) => p.installmentNumber === i + 1) || null;
       return { number: i + 1, amount: installmentAmount, dueDate: due, paid };
     });
