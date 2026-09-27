@@ -6,7 +6,14 @@ import { createNotification } from "@/lib/notifications";
 import { autoCreateNextCharge } from "@/lib/billing";
 import { sendPaymentRejectedEmail, sendPaymentReceiptEmail } from "@/lib/email";
 
-
+/** Maps rent frequency to its duration in months. */
+const FREQUENCY_MONTHS = {
+  DAILY: 0, // handled separately in days
+  MONTHLY: 1,
+  QUARTERLY: 3,
+  YEARLY: 12,
+  PER_SEMESTER: 6,
+};
 
 export const dynamic = "force-dynamic";
 
@@ -61,7 +68,7 @@ export async function POST(req, { params }) {
         await autoCreateNextCharge(tx, charge.id);
 
         const rType = charge.billingRule?.type;
-        if (rType && ["Base Rent", "Base_Rent", "BaseRent", "Rent", "RENT", "BASE_RENT"].includes(rType)) {
+        if (rType && ["Base Rent", "Base_Rent", "BaseRent", "Rent", "RENT", "BASE_RENT", "RENT_INSTALLMENT"].includes(rType)) {
           isRentPayment = true;
         }
       }
@@ -86,14 +93,16 @@ export async function POST(req, { params }) {
 
         const expiryDate = new Date(baseDate);
         
-        switch (frequency) {
-          case "DAILY": expiryDate.setDate(expiryDate.getDate() + 1); break;
-          case "MONTHLY": expiryDate.setMonth(expiryDate.getMonth() + 1); break;
-          case "QUARTERLY": expiryDate.setMonth(expiryDate.getMonth() + 3); break;
-          case "YEARLY": expiryDate.setFullYear(expiryDate.getFullYear() + 1); break;
-          case "PER_SEMESTER": expiryDate.setMonth(expiryDate.getMonth() + 6); break;
-          default: expiryDate.setFullYear(expiryDate.getFullYear() + 1); break;
-        }
+        const leaseMonths = FREQUENCY_MONTHS[frequency] ?? 12;
+        const leaseDays = frequency === "DAILY" ? 1 : leaseMonths * 30;
+        
+        // Use total installments from payment or tenant profile for the calculation
+        const totalInstallments = payment.totalInstallments || payment.tenant.partialPaymentInstallments || 1;
+        const intervalDays = payment.isPartial || payment.paymentType === "RECURRING" // RECURRING could be installment 2+
+          ? Math.round(leaseDays / totalInstallments)
+          : leaseDays;
+
+        expiryDate.setDate(expiryDate.getDate() + intervalDays);
 
         await tx.user.update({
           where: { id: payment.tenant.userId },

@@ -593,7 +593,7 @@ export default async function TenantPaymentsPage() {
               </p>
               {_nextInst && _dueDateStr && (
                 <p className="text-xs text-blue-700 mt-0.5">
-                  Next payment of ₦{_nextInst.amount.toLocaleString()} is due on {_dueDateStr}. Pay via the Recurring Charges section below.
+                  Next payment of ₦{_nextInst.amount.toLocaleString()} is due on {_dueDateStr}.
                 </p>
               )}
             </div>

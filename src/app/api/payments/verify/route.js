@@ -197,6 +197,39 @@ export async function POST(req) {
         data: { status: "PAID", paymentId: rcPayment.id },
       });
 
+      if (charge.billingRuleId === "__system_rent_installment__" && profile.rentStartDate) {
+        const rentRule = profile.room?.id ? await prisma.billingRule.findFirst({
+          where: {
+            type: { in: ["Base Rent", "Base_Rent", "BaseRent", "Rent", "RENT", "BASE_RENT"] },
+            rooms: { some: { id: profile.room.id } },
+          },
+        }) : null;
+        const frequency = rentRule?.frequency || "YEARLY";
+        
+        let baseDate = new Date();
+        if (session.user.status === "ACTIVE" && profile.rentExpiryDate && profile.rentExpiryDate > new Date()) {
+          baseDate = new Date(profile.rentExpiryDate);
+        }
+
+        const newExpiryDate = new Date(baseDate);
+        const leaseMonths = FREQUENCY_MONTHS[frequency] ?? 12;
+        const leaseDays = frequency === "DAILY" ? 1 : leaseMonths * 30;
+        const totalInstallments = profile.partialPaymentInstallments || 1;
+        const intervalDays = Math.round(leaseDays / totalInstallments);
+
+        newExpiryDate.setDate(newExpiryDate.getDate() + intervalDays);
+
+        await prisma.user.update({
+          where: { id: session.user.id },
+          data: { status: "ACTIVE" },
+        });
+
+        await prisma.tenantProfile.update({
+          where: { id: profile.id },
+          data: { rentExpiryDate: newExpiryDate }
+        });
+      }
+
       await autoCreateNextCharge(prisma, recurringChargeId);
 
       // Notify tenant
@@ -322,14 +355,11 @@ export async function POST(req) {
 
       newExpiryDate = new Date(baseDate);
       
-      switch (frequency) {
-        case "DAILY": newExpiryDate.setDate(newExpiryDate.getDate() + 1); break;
-        case "MONTHLY": newExpiryDate.setMonth(newExpiryDate.getMonth() + 1); break;
-        case "QUARTERLY": newExpiryDate.setMonth(newExpiryDate.getMonth() + 3); break;
-        case "YEARLY": newExpiryDate.setFullYear(newExpiryDate.getFullYear() + 1); break;
-        case "PER_SEMESTER": newExpiryDate.setMonth(newExpiryDate.getMonth() + 6); break;
-        default: newExpiryDate.setFullYear(newExpiryDate.getFullYear() + 1); break;
-      }
+      const leaseMonths = FREQUENCY_MONTHS[frequency] ?? 12;
+      const leaseDays = frequency === "DAILY" ? 1 : leaseMonths * 30;
+      const intervalDays = isPartial && totalInstallments ? Math.round(leaseDays / totalInstallments) : leaseDays;
+
+      newExpiryDate.setDate(newExpiryDate.getDate() + intervalDays);
     }
 
     const txOps = [
