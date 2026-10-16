@@ -36,8 +36,17 @@ export default async function TenantsPage() {
       primaryTenant: { 
         include: { 
           user: true,
-          room: { include: { block: true } }
+          room: { include: { block: true } },
+          payments: { orderBy: { createdAt: "desc" } },
+          recurringCharges: {
+            where: { billingRuleId: "__system_rent_installment__" },
+            orderBy: { dueDate: "asc" }
+          }
         } 
+      },
+      recurringCharges: {
+        where: { billingRuleId: "__system_rent_installment__" },
+        orderBy: { dueDate: "asc" }
       }
     },
     orderBy: {

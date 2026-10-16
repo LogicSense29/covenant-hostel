@@ -25,6 +25,7 @@ import AssignRoomActions from "./AssignRoomActions";
 import PartialPaymentToggle from "@/components/PartialPaymentToggle";
 import TenantEmailModal from "./TenantEmailModal";
 import BulkEmailModal from "./BulkEmailModal";
+import InstallmentBalanceCard from "@/components/InstallmentBalanceCard";
 
 export default function TenantDirectoryClient({ initialTenants, initialNextCursor, availableRooms, blocks = [] }) {
   const [searchTerm, setSearchTerm] = useState("");
@@ -491,6 +492,12 @@ export default function TenantDirectoryClient({ initialTenants, initialNextCurso
                   </div>
                 )}
               </div>
+
+              {/* Installment Balance */}
+              <InstallmentBalanceCard 
+                profile={selectedTenant} 
+                allInstallmentCharges={selectedTenant.recurringCharges || []} 
+              />
 
               {/* Quick approval actions */}
               <div className="space-y-2">

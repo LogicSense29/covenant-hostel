@@ -268,6 +268,16 @@ export default async function TenantPaymentsPage() {
   const isRentPaid = !needsRenewal && rentRemaining === 0 && verifiedRentTotal > 0;
   const isFullyPaid = isRentPaid && unpaidCharges.length === 0;
 
+  // ── Early Installment Payment ──
+  // Even when isRentPaid is true (current period not yet expired), a tenant on an
+  // installment plan should still be able to pay their next upcoming installment early.
+  const nextInstallmentCharge = hasActiveInstallmentPlan
+    ? recurringCharges
+        .filter(c => c.billingRuleId === "__system_rent_installment__" && (c.status === "UNPAID" || c.status === "OVERDUE"))
+        .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))[0] || null
+    : null;
+  const canPayEarlyInstallment = isRentPaid && !!nextInstallmentCharge && !hasPendingRentPayment;
+
 
   // For the status card — use the most recent rent payment (not recurring)
   const latestRentPayment = verifiedRentPayments[0] || null;
@@ -601,8 +611,8 @@ export default async function TenantPaymentsPage() {
         );
       })()}
 
-      {/* ── Rent Checkout Panel — only when rent is outstanding ── */}
-      {!isRentPaid && (
+      {/* ── Rent Checkout Panel — shown when rent is outstanding OR early installment payment is available ── */}
+      {(!isRentPaid || canPayEarlyInstallment) && (
         <PaymentBreakdownPanel
           room={room}
           baseRentAmount={baseRentAmount}
@@ -621,6 +631,7 @@ export default async function TenantPaymentsPage() {
           isSharer={isSharer}
           primaryName={primaryName}
           hasActiveInstallmentPlan={hasActiveInstallmentPlan}
+          earlyInstallmentCharge={canPayEarlyInstallment ? nextInstallmentCharge : null}
         />
       )}
 

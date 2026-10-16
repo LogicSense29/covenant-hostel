@@ -3,6 +3,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import Link from "next/link";
 import { Search, Building2, X, Star, Menu, ChevronRight, SlidersHorizontal, Check } from "lucide-react";
+import PublicFooter from "@/components/PublicFooter";
 
 // A room is "new" if it was added within the last 30 days
 const NEW_ROOM_THRESHOLD_DAYS = 30;
@@ -103,9 +104,20 @@ export default function LandingClient({ initialRooms }) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
 
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-1 group shrink-0">
-            <img src="/convenant-hostel-logo.png" alt="Covenant Hostel" className="w-12 h-12 object-contain drop-shadow-md" />
-            <span className="font-semibold text-primary hidden sm:block ">Covenant Hostel</span>
+          <Link href="/" className="flex items-center gap-2 group shrink-0">
+            <img 
+              src="/convenant-hostel-logo.png" 
+              alt="Covenant Hostel" 
+              className="w-11 h-11 sm:w-12 sm:h-12 object-contain drop-shadow-md" 
+            />
+            <div className="flex flex-col">
+              <span className="font-semibold text-primary text-sm sm:text-base leading-tight">
+                Covenant Hostel
+              </span>
+              <span className="text-[10px] sm:text-[11px] text-gray-500 font-medium leading-tight">
+                By Afaraade Nigeria Limited
+              </span>
+            </div>
           </Link>
 
           {/* Center search pill (desktop) */}
@@ -127,6 +139,9 @@ export default function LandingClient({ initialRooms }) {
 
           {/* Right actions */}
           <div className="flex items-center gap-2 shrink-0">
+            <Link href="/about" className="hidden md:block text-sm font-semibold text-gray-600 hover:text-gray-900 hover:bg-gray-100 px-4 py-2 rounded-full transition-colors">
+              About
+            </Link>
             <Link href="#availableRooms" className="hidden md:block text-sm font-semibold text-gray-500 hover:bg-gray-100 px-4 py-2 rounded-full transition-colors">
               Available Rooms
             </Link>
@@ -145,6 +160,24 @@ export default function LandingClient({ initialRooms }) {
         {/* Mobile menu — absolutely positioned so it overlays instead of pushing content */}
         {mobileMenuOpen && (
           <div className="md:hidden absolute top-full left-0 right-0 border-t border-gray-100 bg-white shadow-lg px-4 py-4 flex flex-col gap-4 z-50 max-h-[80vh] overflow-y-auto">
+            {/* Quick Links */}
+            <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
+              <Link 
+                href="/about" 
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex-1 text-center py-2 px-3 rounded-lg text-xs font-bold text-gray-700 bg-gray-50 hover:bg-gray-100"
+              >
+                About Covenant Hostel
+              </Link>
+              <Link 
+                href="/login" 
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex-1 text-center py-2 px-3 rounded-lg text-xs font-bold text-white bg-primary hover:bg-blue-700"
+              >
+                Portal Login
+              </Link>
+            </div>
+
             {/* Search */}
             <div className="flex items-center border border-gray-300 rounded-full px-4 py-2 gap-2">
               <Search size={16} className="text-gray-400" />
@@ -621,51 +654,8 @@ export default function LandingClient({ initialRooms }) {
         </div>
       </section> */}
 
-      {/* ── Footer ── */}
-      <footer className="bg-gray-900 text-gray-400 py-16 px-4">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-10 border-b border-gray-800 pb-12">
-          <div className="md:col-span-1">
-            <div className="flex items-center gap-2 mb-4">
-             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#203090] to-[#1a2673] flex items-center justify-center shadow-md shadow-[#203090]/30 group-hover:shadow-xl group-hover:shadow-[#203090]/40 transition-all duration-300 group-hover:scale-110 border border-[#1a2673]/50">
-               <img src="/convenant-hostel-logo.png" alt="Covenant Hostel" className="w-6 h-6 object-contain brightness-0 invert drop-shadow-md" />
-             </div>
-              <span className="text-white font-semibold text-lg">Covenant</span>
-            </div>
-            <p className="text-sm leading-relaxed">Premium student hostel management. Simplified discovery, transparent pricing.</p>
-          </div>
-          <div>
-            <h4 className="text-white font-bold text-sm mb-4">Explore</h4>
-            <div className="flex flex-col gap-3 text-sm">
-              <Link href="/" className="hover:text-white transition-colors">Available Rooms</Link>
-              {/* <Link href="/book-inspection" className="hover:text-white transition-colors">Book Inspection</Link> */}
-            </div>
-          </div>
-          <div>
-            <h4 className="text-white font-bold text-sm mb-4">Account</h4>
-            <div className="flex flex-col gap-3 text-sm">
-              <Link href="/login" className="hover:text-white transition-colors">Log In</Link>
-               <Link href="/register" className="hover:text-white transition-colors">Register</Link>
-              {/* <Link href="/register" className="hover:text-white transition-colors">Sign Up</Link>
-              <Link href="/dashboard" className="hover:text-white transition-colors">Dashboard</Link> */}
-            </div>
-          </div>
-          <div>
-            <h4 className="text-white font-bold text-sm mb-4">Legal</h4>
-            <div className="flex flex-col gap-3 text-sm">
-              <Link href="#" className="hover:text-white transition-colors">Privacy Policy</Link>
-              <Link href="#" className="hover:text-white transition-colors">Terms of Use</Link>
-              <Link href="#" className="hover:text-white transition-colors">Contact Support</Link>
-            </div>
-          </div>
-        </div>
-        <div className="max-w-7xl mx-auto pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
-          <p>© 2026 Covenant. All rights reserved.</p>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-green-500" />
-            <span>All systems operational</span>
-          </div>
-        </div>
-      </footer>
+      {/* ── Reusable Footer ── */}
+      <PublicFooter />
     </div>
   );
 }
