@@ -353,9 +353,6 @@ export default function AboutClient() {
 
           <div className="grid sm:grid-cols-3 gap-5">
             <div className="bg-white rounded-2xl border border-gray-200/90 p-6 flex items-start gap-4 shadow-sm hover:shadow-md transition-shadow">
-              <div className="w-11 h-11 rounded-xl bg-blue-50 text-primary flex items-center justify-center shrink-0">
-                <Building2 size={20} />
-              </div>
               <div className="min-w-0">
                 <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Corporate Parent</p>
                 <p className="text-sm font-bold text-gray-900 mt-0.5 truncate">Afaraade Nigeria Ltd.</p>
@@ -364,9 +361,6 @@ export default function AboutClient() {
             </div>
 
             <div className="bg-white rounded-2xl border border-gray-200/90 p-6 flex items-start gap-4 shadow-sm hover:shadow-md transition-shadow">
-              <div className="w-11 h-11 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
-                <Phone size={20} />
-              </div>
               <div className="min-w-0">
                 <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Resident Helpline</p>
                 <p className="text-sm font-bold text-gray-900 mt-0.5 truncate">Management Desk</p>
@@ -375,14 +369,11 @@ export default function AboutClient() {
             </div>
 
             <div className="bg-white rounded-2xl border border-gray-200/90 p-6 flex items-start gap-4 shadow-sm hover:shadow-md transition-shadow">
-              <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                <MapPin size={20} />
-              </div>
               <div className="min-w-0">
                 <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Location</p>
                 <p className="text-sm font-bold text-gray-900 mt-0.5 truncate">Nigeria</p>
                 <p className="text-xs text-gray-500 mt-1">
-                  No.3. block 2 Lister Building, Ring Road Ibadan South West Oyo State
+                  Oyo State
                 </p>
               </div>
             </div>

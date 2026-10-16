@@ -96,7 +96,7 @@ export default function PrivacyPage() {
               <p className="font-bold text-gray-900">Afaraade Nigeria Limited</p>
               <p className="text-xs text-gray-600">Operating entity for Covenant Hostel</p>
               <p className="text-xs text-gray-600">Incorporated with the Corporate Affairs Commission (CAC), Federal Republic of Nigeria</p>
-              <p className="text-xs text-gray-600">Email: <span className="font-mono text-primary">management@convenanthostel.com</span></p>
+              <p className="text-xs text-gray-600">Email: <span className="font-mono text-primary">info@convenanthostel.com</span></p>
             </div>
           </section>
 
