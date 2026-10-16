@@ -197,7 +197,7 @@ export default function TermsPage() {
             <p className="text-sm text-gray-600">
               For tenancy clarifications or administrative assistance, please contact the legal and property desk of <strong>Afaraade Nigeria Limited</strong>:
             </p>
-            <div className="pt-2">
+            {/* <div className="pt-2">
               <Link
                 href="/about"
                 className="inline-flex items-center gap-2 text-sm font-bold text-primary hover:text-blue-700 hover:underline"
@@ -205,7 +205,7 @@ export default function TermsPage() {
                 <span>Read About Our Management Team</span>
                 <span>→</span>
               </Link>
-            </div>
+            </div> */}
           </section>
 
         </div>
