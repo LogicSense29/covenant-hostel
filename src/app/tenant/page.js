@@ -12,6 +12,7 @@ import Link from "next/link";
 import ShareRoomButton from "@/components/ShareRoomButton";
 import StayHistoryModalButton from "@/components/StayHistoryModalButton";
 import EmergencyCard from "@/components/EmergencyCard";
+import WhatsAppCard from "@/components/WhatsAppCard";
 
 export const dynamic = "force-dynamic";
 
@@ -124,6 +125,9 @@ export default async function TenantDashboard() {
   }
   if (effectiveUser.status === "REJECTED") {
     return <PreActiveScreen type="rejected" room={room} profile={effectiveProfile} primaryTenantName={isRoomSharer ? effectiveProfile.user?.name : null} />;
+  }
+  if (effectiveUser.status === "ARCHIVED") {
+    return <PreActiveScreen type="archived" room={room} profile={effectiveProfile} primaryTenantName={isRoomSharer ? effectiveProfile.user?.name : null} />;
   }
 
   // ── ACTIVE dashboard ──
@@ -375,6 +379,9 @@ export default async function TenantDashboard() {
             {/* Emergency — dial on mobile, copy on desktop */}
             <EmergencyCard />
 
+            {/* WhatsApp — chat with management */}
+            <WhatsAppCard />
+
           </div>
         </div>
 
@@ -556,6 +563,16 @@ function PreActiveScreen({ type, room, profile, primaryTenantName = null, hasRej
       body: "Your application or payment has been rejected. Please contact management for more details or to resolve the issue.",
       pill: "bg-red-50 text-red-700 border-red-200",
       pillLabel: "Rejected",
+      cta: null,
+    },
+    archived: {
+      top: "border-t-slate-400",
+      gradFrom: "from-slate-50/60",
+      icon: <AlertCircle size={32} className="text-slate-500" />,
+      title: "Tenancy Archived",
+      body: "Your tenancy has been archived by management. This typically happens after extended expiry. Contact the office to renew or reactivate your account.",
+      pill: "bg-slate-50 text-slate-700 border-slate-200",
+      pillLabel: "Archived",
       cta: null,
     },
   };

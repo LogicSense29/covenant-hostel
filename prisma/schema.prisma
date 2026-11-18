@@ -49,9 +49,11 @@ model TenantProfile {
   rentExpiryDate      DateTime?
   allowPartialPayment Boolean             @default(false)
   partialPaymentInstallments Int?
+  carriedOverBalance  Float               @default(0)
   rulesSigned       Boolean             @default(false)
   rulesSignedAt     DateTime?
   rulesSignedName   String?
+  archivedAt        DateTime?
   primaryTenantId     String?
   formerPrimaryTenantIds String[]     @default([])
   createdAt           DateTime            @default(now())
@@ -62,7 +64,7 @@ model TenantProfile {
   payments            Payment[]
   stayHistory         StayHistory[]
   recurringCharges    RecurringCharge[]
-  room                Room?               @relation("RoomToTenants", fields: [roomId], references: [id])
+  room                Room?               @relation("RoomToTenants", fields: [roomId], references: [id], onDelete: SetNull)
   user                User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   primaryTenant       TenantProfile?      @relation("RoomSharings", fields: [primaryTenantId], references: [id])
   roomSharers         TenantProfile[]     @relation("RoomSharings")
@@ -225,7 +227,7 @@ model BillingRule {
 model RecurringCharge {
   id            String        @id @default(cuid())
   tenantId      String
-  billingRuleId String
+  billingRuleId String?
   amount        Float
   dueDate       DateTime
   status        RecurringChargeStatus @default(UNPAID)
@@ -233,7 +235,7 @@ model RecurringCharge {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   tenant        TenantProfile @relation(fields: [tenantId], references: [id])
-  billingRule   BillingRule   @relation(fields: [billingRuleId], references: [id])
+  billingRule   BillingRule?  @relation(fields: [billingRuleId], references: [id])
   payment       Payment?      @relation(fields: [paymentId], references: [id])
 }
 
@@ -312,6 +314,7 @@ enum RoomStatus {
   OCCUPIED
   EXPIRED_RENT
   UNDER_MAINTENANCE
+  TESTING
 }
 
 enum MaintenanceStatus {
@@ -342,4 +345,5 @@ enum UserStatus {
   ACTIVE
   REJECTED
   EXPIRED
+  ARCHIVED
 }

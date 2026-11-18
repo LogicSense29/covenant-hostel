@@ -21,7 +21,7 @@ export async function sendInspectionReceipt({ email, name, date, reference, isFr
     const info = await transporter.sendMail({
       from: `"Covenant Hostel" <${smtpUser}>`,
       to: email,
-      subject: "Your Booking Receipt - Covenant Hostel Tour",
+      subject: isFree ? "Inspection Booking Confirmed - Covenant Hostel" : "Your Booking Receipt - Covenant Hostel Tour",
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: auto;">
           <h2>Inspection Booked</h2>
@@ -29,11 +29,11 @@ export async function sendInspectionReceipt({ email, name, date, reference, isFr
           <p>Thank you for booking an inspection to visit Covenant Hostel.</p>
           <div style="background: #f4f7fb; padding: 20px; border-radius: 10px; margin: 20px 0;">
             <h3>Booking Details:</h3>
-            <p><strong>Inspection Date:</strong> ${new Date(date).toLocaleDateString()}</p>
-            <p><strong>Amount Paid:</strong> ₦${amount.toLocaleString()}</p>
-            ${isFree ? `<p></p>` : `<p><strong>Payment Reference:</strong> ${reference}</p>`}
-          <p><strong>Be on the Lookout, We will notify you when the booking is confirmed.</strong></p>
-            </div>
+            <p><strong>Inspection Date:</strong> ${new Date(date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+            <p><strong>Amount Paid:</strong> ${amount === 0 ? "FREE" : `₦${Number(amount).toLocaleString()}`}</p>
+            ${!isFree && reference ? `<p><strong>Payment Reference:</strong> ${reference}</p>` : ""}
+            <p><strong>${isFree ? "Your booking is confirmed." : "Be on the lookout — we will notify you when the booking is confirmed."}</strong></p>
+          </div>
           <p>If you have any questions, feel free to contact us.</p>
           <p>Best regards,<br/>The Covenant Hostel Management Team</p>
         </div>
@@ -782,17 +782,17 @@ export async function sendProviderAssignedEmail({ email, name, roomNumber, issue
     await transporter.sendMail({
       from: `"Covenant Hostel" <${smtpUser}>`,
       to: email,
-      subject: `New Task Assigned — Room ${roomNumber}`,
+      subject: `New Task Assigned — ${roomNumber}`,
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
           <h2 style="color: #0b69ff;">New Maintenance Task</h2>
           <p>Hi ${name},</p>
           <p>You have been assigned a new maintenance ticket by the landlord.</p>
           <div style="background: #f0f7ff; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 4px solid #0b69ff;">
-            <p><strong>Room:</strong> ${roomNumber}</p>
-            <p><strong>Issue:</strong> ${issue}</p>
-            <p><strong>Priority:</strong> ${priority}</p>
-            <p><strong>Description:</strong> ${description || "No description provided."}</p>
+            <p style="margin: 6px 0;"><strong>Room:</strong> ${roomNumber}</p>
+            <p style="margin: 6px 0;"><strong>Issue:</strong> ${issue || "Not specified"}</p>
+            <p style="margin: 6px 0;"><strong>Priority:</strong> ${priority || "Normal"}</p>
+            <p style="margin: 6px 0;"><strong>Description:</strong> ${description || "No description provided."}</p>
           </div>
           <p>Please log in to your dashboard to contact the tenant and resolve the issue.</p>
           <p>Best regards,<br/>Covenant Hostel Management</p>
@@ -806,22 +806,28 @@ export async function sendProviderAssignedEmail({ email, name, roomNumber, issue
   }
 }
 
-export async function sendTenantProviderAssignedEmail({ email, name, providerName, specialty, roomNumber, issue }) {
+export async function sendTenantProviderAssignedEmail({ email, name, providerName, specialty, providerPhone, providerEmail, roomNumber, issue }) {
   try {
     const transporter = createTransporter();
+    const contactLines = [
+      providerPhone ? `<p style="margin: 6px 0;"><strong>Phone:</strong> <a href="tel:${providerPhone}" style="color: #0b69ff;">${providerPhone}</a></p>` : "",
+      providerEmail ? `<p style="margin: 6px 0;"><strong>Email:</strong> <a href="mailto:${providerEmail}" style="color: #0b69ff;">${providerEmail}</a></p>` : "",
+    ].filter(Boolean).join("");
+
     await transporter.sendMail({
       from: `"Covenant Hostel" <${smtpUser}>`,
       to: email,
-      subject: `Service Provider Assigned to your request`,
+      subject: `Service Provider Assigned — ${roomNumber}`,
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
           <h2 style="color: #0b69ff;">Help is on the way!</h2>
           <p>Hi ${name},</p>
-          <p>A service provider has been assigned to your maintenance request for <strong>Room ${roomNumber}</strong>.</p>
+          <p>A service provider has been assigned to your maintenance request for <strong>${roomNumber}</strong>.</p>
           <div style="background: #f0f7ff; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 4px solid #0b69ff;">
-            <p><strong>Issue:</strong> ${issue}</p>
-            <p><strong>Provider Name:</strong> ${providerName}</p>
-            <p><strong>Specialty:</strong> ${specialty}</p>
+            <p style="margin: 6px 0;"><strong>Issue:</strong> ${issue || "Not specified"}</p>
+            <p style="margin: 6px 0;"><strong>Provider:</strong> ${providerName}</p>
+            <p style="margin: 6px 0;"><strong>Specialty:</strong> ${specialty || "Maintenance"}</p>
+            ${contactLines ? `<div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #dbeafe;">${contactLines}</div>` : ""}
           </div>
           <p>The provider will reach out to you shortly or arrive at your room to assess the situation.</p>
           <p>Best regards,<br/>Covenant Hostel Management</p>

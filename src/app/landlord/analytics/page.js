@@ -11,6 +11,7 @@ import Link from "next/link";
 import RevenueChart from "@/components/RevenueChart";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 30;
 
 export default async function AnalyticsPage() {
   const session = await getServerSession(authOptions);
@@ -18,16 +19,52 @@ export default async function AnalyticsPage() {
     redirect("/login");
   }
 
-  // ── Rooms & Occupancy ──
-  const rooms = await prisma.room.findMany({
-    include: { 
-      tenants: { 
-        where: { user: { status: { notIn: ["REJECTED"] } } }
-      }, 
-      block: true 
-    },
-  });
+  const now = new Date();
+  const in30Days = new Date(); in30Days.setDate(now.getDate() + 30);
 
+  // Run all independent DB queries in parallel
+  const [
+    rooms,
+    tenantStatusCounts,
+    expiringCount,
+    verifiedPayments,
+    pendingPayments,
+    allPayments,
+    ticketsByStatus,
+    recentTickets,
+  ] = await Promise.all([
+    prisma.room.findMany({
+      include: {
+        tenants: { where: { user: { status: { notIn: ["REJECTED"] } } } },
+        block: true,
+      },
+    }),
+    prisma.user.groupBy({ by: ["status"], where: { role: "TENANT" }, _count: true }),
+    prisma.tenantProfile.count({
+      where: { rentExpiryDate: { gte: now, lte: in30Days }, user: { status: "ACTIVE" } },
+    }),
+    prisma.payment.aggregate({
+      _sum: { amount: true }, _count: true,
+      where: { status: { in: ["SUCCESS", "VERIFIED"] } },
+    }),
+    prisma.payment.aggregate({
+      _sum: { amount: true }, _count: true,
+      where: { status: "PENDING" },
+    }),
+    prisma.payment.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 100,
+      select: { amount: true, status: true, createdAt: true, paymentType: true },
+    }),
+    prisma.maintenanceTicket.groupBy({ by: ["status"], _count: true }),
+    prisma.maintenanceTicket.findMany({
+      take: 5,
+      orderBy: { createdAt: "desc" },
+      include: { tenant: { include: { user: true, room: true } } },
+    }),
+  ]);
+
+  // Derived room metrics
   const totalRooms = rooms.length;
   const totalCapacity = rooms.reduce((s, r) => s + r.capacity, 0);
   const totalOccupants = rooms.reduce((s, r) => s + r.tenants.length, 0);
@@ -45,49 +82,13 @@ export default async function AnalyticsPage() {
     blockMap[key].occupants += room.tenants.length;
     blockMap[key].rooms += 1;
   }
-  const blockStats = Object.entries(blockMap).map(([name, data]) => ({
-    name,
-    ...data,
-    rate: data.capacity > 0 ? (data.occupants / data.capacity) * 100 : 0,
-  })).sort((a, b) => b.rate - a.rate);
+  const blockStats = Object.entries(blockMap)
+    .map(([name, data]) => ({ name, ...data, rate: data.capacity > 0 ? (data.occupants / data.capacity) * 100 : 0 }))
+    .sort((a, b) => b.rate - a.rate);
 
-  // ── Tenants ──
-  const tenantStatusCounts = await prisma.user.groupBy({
-    by: ["status"],
-    where: { role: "TENANT" },
-    _count: true,
-  });
+  // Tenant status map
   const statusMap = Object.fromEntries(tenantStatusCounts.map(s => [s.status, s._count]));
   const totalTenants = Object.values(statusMap).reduce((s, v) => s + v, 0);
-
-  // Expiring tenancies in next 30 days
-  const in30Days = new Date();
-  in30Days.setDate(in30Days.getDate() + 30);
-  const expiringCount = await prisma.tenantProfile.count({
-    where: {
-      rentExpiryDate: { gte: new Date(), lte: in30Days },
-      user: { status: "ACTIVE" },
-    },
-  });
-
-  // ── Payments ──
-  const [verifiedPayments, pendingPayments, allPayments] = await Promise.all([
-    prisma.payment.aggregate({
-      _sum: { amount: true },
-      _count: true,
-      where: { status: { in: ["SUCCESS", "VERIFIED"] } },
-    }),
-    prisma.payment.aggregate({
-      _sum: { amount: true },
-      _count: true,
-      where: { status: "PENDING" },
-    }),
-    prisma.payment.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 100,
-      select: { amount: true, status: true, createdAt: true, paymentType: true },
-    }),
-  ]);
 
   // Monthly revenue — last 6 months
   const now = new Date();
@@ -112,18 +113,7 @@ export default async function AnalyticsPage() {
   const partialPayments = allPayments.filter(p => p.paymentType === "PARTIAL" && (p.status === "SUCCESS" || p.status === "VERIFIED"));
   const recurringPayments = allPayments.filter(p => p.paymentType === "RECURRING" && (p.status === "SUCCESS" || p.status === "VERIFIED"));
 
-  // ── Maintenance ──
-  const [ticketsByStatus, recentTickets] = await Promise.all([
-    prisma.maintenanceTicket.groupBy({
-      by: ["status"],
-      _count: true,
-    }),
-    prisma.maintenanceTicket.findMany({
-      take: 5,
-      orderBy: { createdAt: "desc" },
-      include: { tenant: { include: { user: true, room: true } } },
-    }),
-  ]);
+  // Monthly revenue — last 6 months
   const ticketStatusMap = Object.fromEntries(ticketsByStatus.map(t => [t.status, t._count]));
   const totalTickets = Object.values(ticketStatusMap).reduce((s, v) => s + v, 0);
 

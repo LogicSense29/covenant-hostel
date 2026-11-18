@@ -4,9 +4,13 @@ import LandingClient from "@/components/LandingClient";
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  // Fetch available rooms (those with at least one free bed)
+  // Fetch available rooms (exclude maintenance and testing rooms)
   const availableRooms = await prisma.room.findMany({
-    where: { NOT: { status: "UNDER_MAINTENANCE" } },
+    where: { 
+      status: { 
+        notIn: ["UNDER_MAINTENANCE", "TESTING"] 
+      } 
+    },
     include: {
       block: true,
       tenants: { 

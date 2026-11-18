@@ -474,6 +474,7 @@ export default function RoomForm({ initialData }) {
               <option value="OCCUPIED" disabled={!isEditing || initialData.status !== "OCCUPIED"}>Occupied (Assigned by system)</option>
               <option value="EXPIRED_RENT">Expired Rent</option>
               <option value="UNDER_MAINTENANCE">Under Maintenance</option>
+              <option value="TESTING">Testing (Hidden from public)</option>
             </select>
           </div>
 

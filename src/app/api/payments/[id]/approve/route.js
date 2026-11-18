@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createNotification } from "@/lib/notifications";
-import { autoCreateNextCharge } from "@/lib/billing";
+import { autoCreateNextCharge, scheduleRemainingInstallments } from "@/lib/billing";
 import { sendPaymentRejectedEmail, sendPaymentReceiptEmail } from "@/lib/email";
 
 /** Maps rent frequency to its duration in months. */
@@ -74,6 +74,12 @@ export async function POST(req, { params }) {
       }
 
       if (isRentPayment && payment.tenant.rentStartDate) {
+        // Only extend expiry for manual receipt payments (PENDING → VERIFIED).
+        // Paystack payments (SUCCESS) already had their expiry extended in verify/route.js.
+        // Extending again here would double the lease duration.
+        const wasAlreadyVerifiedByPaystack = payment.status === "SUCCESS";
+
+        if (!wasAlreadyVerifiedByPaystack) {
         // Automatic rent extension for returning tenants
         const matchingRules = payment.tenant.roomId ? await tx.billingRule.findMany({
           where: {
@@ -98,11 +104,25 @@ export async function POST(req, { params }) {
         
         // Use total installments from payment or tenant profile for the calculation
         const totalInstallments = payment.totalInstallments || payment.tenant.partialPaymentInstallments || 1;
-        const intervalDays = payment.isPartial || payment.paymentType === "RECURRING" // RECURRING could be installment 2+
-          ? Math.round(leaseDays / totalInstallments)
-          : leaseDays;
+        const isPartialPayment = payment.isPartial || (payment.installmentNumber != null && totalInstallments > 1);
 
-        expiryDate.setDate(expiryDate.getDate() + intervalDays);
+        let targetExpiryDate;
+        if (!isPartialPayment && payment.paymentType === "FULL") {
+          // Paying full rent: lease extends to full lease duration from rentStartDate (or extended by leaseDays if renewing)
+          const fullLeaseEndDate = new Date(payment.tenant.rentStartDate);
+          fullLeaseEndDate.setDate(fullLeaseEndDate.getDate() + leaseDays);
+
+          if (expiryDate < fullLeaseEndDate) {
+            targetExpiryDate = fullLeaseEndDate;
+          } else {
+            expiryDate.setDate(expiryDate.getDate() + leaseDays);
+            targetExpiryDate = expiryDate;
+          }
+        } else {
+          const intervalDays = Math.round(leaseDays / totalInstallments);
+          expiryDate.setDate(expiryDate.getDate() + intervalDays);
+          targetExpiryDate = expiryDate;
+        }
 
         await tx.user.update({
           where: { id: payment.tenant.userId },
@@ -111,8 +131,18 @@ export async function POST(req, { params }) {
 
         await tx.tenantProfile.update({
           where: { userId: payment.tenant.userId },
-          data: { rentExpiryDate: expiryDate }
+          data: {
+            rentExpiryDate: targetExpiryDate,
+            ...(!isPartialPayment ? { allowPartialPayment: false, partialPaymentInstallments: null } : {})
+          }
         });
+        } else {
+          // Paystack payment — expiry already extended in verify route. Just activate the user.
+          await tx.user.update({
+            where: { id: payment.tenant.userId },
+            data: { status: "ACTIVE" },
+          });
+        }
       } else if (payment.tenant.user.status === "PAYMENT_MADE" || payment.tenant.user.status === "AWAITING_PAYMENT") {
         // For new tenants, or non-rent payments, just ensure they are PAYMENT_MADE 
         // so the landlord can assign a room / activate them later if needed.
@@ -124,6 +154,50 @@ export async function POST(req, { params }) {
 
       return p;
     });
+
+    // ── Generate remaining installment charges if first installment is approved ──
+    if (payment.isPartial) {
+      const totalInstallments = payment.totalInstallments || payment.tenant.partialPaymentInstallments || 2;
+      const installmentNum = payment.installmentNumber || 1;
+      if (installmentNum === 1 && totalInstallments > 1) {
+        try {
+          const matchingRules = payment.tenant.roomId ? await prisma.billingRule.findMany({
+            where: {
+              type: { in: ["Base Rent", "Base_Rent", "BaseRent", "Rent", "RENT", "BASE_RENT"] },
+              rooms: { some: { id: payment.tenant.roomId } },
+            },
+          }) : [];
+          const rentRule = matchingRules[0] || null;
+          const frequency = rentRule?.frequency || "YEARLY";
+
+          // Use only the rent portion of the payment for scheduling future installments.
+          // The first installment may include one-time fees (caution, security deposit, etc.)
+          // that must NOT be included in installments 2+.
+          // Extract from breakdown if present, otherwise fall back to the billing rule amount.
+          let rentOnlyAmount = payment.amount;
+          if (Array.isArray(payment.breakdown)) {
+            const rentItem = payment.breakdown.find(b =>
+              b.name?.toLowerCase().includes("rent")
+            );
+            if (rentItem?.amount) rentOnlyAmount = rentItem.amount;
+          } else if (rentRule?.amount) {
+            // Divide full rent by installments to get per-installment rent amount
+            rentOnlyAmount = Math.round((rentRule.amount / totalInstallments) * 100) / 100;
+          }
+
+          await scheduleRemainingInstallments({
+            tenantId: payment.tenantId,
+            installmentAmount: rentOnlyAmount,
+            totalInstallments,
+            paidInstallmentNumber: 1,
+            rentFrequency: frequency,
+            startDate: payment.tenant.rentStartDate || new Date(),
+          });
+        } catch (err) {
+          console.error("[Installments] Failed to schedule remaining installments on approval:", err);
+        }
+      }
+    }
 
     // Notify tenant
     await createNotification({
@@ -226,22 +300,37 @@ export async function DELETE(req, { params }) {
       });
 
       if (pendingPayments === 0) {
-        let newStatus = "AWAITING_PAYMENT";
-        const rentExpiry = payment.tenant.rentExpiryDate;
-        
-        if (rentExpiry) {
-          const now = new Date();
-          if (rentExpiry > now) {
-            newStatus = "ACTIVE"; // Rent is active
-          } else {
-            newStatus = "EXPIRED"; // Rent has expired
-          }
-        }
+        // Only change status for rent payments (FULL or PARTIAL).
+        // Rejecting a utility/recurring charge should never lock the tenant out.
+        const isRentPayment = payment.paymentType === "FULL" || payment.paymentType === "PARTIAL" || payment.isPartial;
 
-        await tx.user.update({
-          where: { id: payment.tenant.userId },
-          data: { status: newStatus },
-        });
+        if (isRentPayment) {
+          // Determine the correct locked status.
+          // We do NOT trust rentExpiryDate to decide if they are "active" —
+          // the payment was just rejected, meaning their rent money did not go through.
+          // For a returning tenant whose previous cycle had already expired: EXPIRED.
+          // For a new tenant or one whose previous cycle has not yet expired but
+          // they were trying to pay a fresh cycle: AWAITING_PAYMENT.
+          const rentExpiry = payment.tenant.rentExpiryDate;
+          const now = new Date();
+
+          let newStatus;
+          if (rentExpiry && rentExpiry < now) {
+            // Previous rent cycle already expired — keep them EXPIRED
+            newStatus = "EXPIRED";
+          } else {
+            // No expiry yet (new tenant) or future expiry (renewal rejected mid-cycle)
+            // → lock back to AWAITING_PAYMENT so routes are restricted
+            newStatus = "AWAITING_PAYMENT";
+          }
+
+          await tx.user.update({
+            where: { id: payment.tenant.userId },
+            data: { status: newStatus },
+          });
+        }
+        // If RECURRING payment rejected: do not change user status.
+        // Tenant keeps their current access — they just need to re-upload the utility receipt.
       }
     });
 

@@ -31,19 +31,23 @@ export default function LandlordLayout({ children }) {
   const router = useRouter();
   const { data: session, status } = useSession();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [pendingPaymentsCount, setPendingPaymentsCount] = useState(0);
 
   useEffect(() => {
     if (status === "loading") return;
-    
-    if (!session) {
-      router.push("/login");
-      return;
-    }
-
+    if (!session) { router.push("/login"); return; }
     if (session.user.role !== "LANDLORD" && session.user.role !== "ADMIN") {
       router.push("/dashboard");
     }
   }, [session, status, router]);
+
+  useEffect(() => {
+    if (!session || (session.user.role !== "LANDLORD" && session.user.role !== "ADMIN")) return;
+    fetch("/api/payments/pending-count")
+      .then(r => r.ok ? r.json() : { count: 0 })
+      .then(data => setPendingPaymentsCount(data.count || 0))
+      .catch(() => {});
+  }, [pathname, session]);
 
   if (status === "loading" || !session) {
     return (
@@ -116,6 +120,11 @@ export default function LandlordLayout({ children }) {
               >
                 <Icon size={20} className={isActive ? "text-blue-600" : "text-slate-400 group-hover:text-slate-600"} />
                 {item.name}
+                {item.href === "/landlord/payments" && pendingPaymentsCount > 0 && (
+                  <span className="ml-auto text-[10px] font-black bg-red-500 text-white px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none">
+                    {pendingPaymentsCount > 99 ? "99+" : pendingPaymentsCount}
+                  </span>
+                )}
               </Link>
             );
           })}

@@ -25,47 +25,48 @@ export default async function TenantProfilePage({ params }) {
 
   const { id } = await params;
 
-  const profile = await prisma.tenantProfile.findUnique({
-    where: { id },
-    include: {
-      user: true,
-      room: { include: { block: true, billingRules: true } },
-      stayHistory: {
-        include: { room: { include: { block: true } } },
-        orderBy: { startDate: "desc" },
-        take: 50,
-      },
-      payments: { 
-        orderBy: { createdAt: "desc" },
-        include: {
-          recurringCharge: {
-            include: { billingRule: true }
+  // Run all queries in parallel
+  const [profile, availableRooms] = await Promise.all([
+    prisma.tenantProfile.findUnique({
+      where: { id },
+      include: {
+        user: true,
+        room: { include: { block: true, billingRules: true } },
+        stayHistory: {
+          include: { room: { include: { block: true } } },
+          orderBy: { startDate: "desc" },
+          take: 50,
+        },
+        payments: { 
+          orderBy: { createdAt: "desc" },
+          include: {
+            recurringCharge: {
+              include: { billingRule: true }
+            }
           }
-        }
+        },
+        primaryTenant: { include: { user: true } }
       },
-      primaryTenant: { include: { user: true } }
-    },
-  });
+    }),
+    prisma.room.findMany({
+      where: { NOT: { status: "UNDER_MAINTENANCE" } },
+      include: { tenants: true, block: true, billingRules: true },
+      orderBy: { roomNumber: "asc" },
+    }),
+  ]);
 
   if (!profile) notFound();
 
-  const availableRooms = await prisma.room.findMany({
-    where: { NOT: { status: "UNDER_MAINTENANCE" } },
-    include: { tenants: true, block: true, billingRules: true },
-    orderBy: { roomNumber: "asc" },
-  });
-
-  // Use only the billing rules directly ticked on the tenant's room.
+  // Billing rules from the tenant's assigned room
   const billingRules = profile.room?.billingRules || [];
 
-  // ── Installment Balance ──
-  // Fetch all installment charges for this tenant to compute balance.
-  // The targetTenantId is the primary tenant (sharers don't hold the ledger).
+  // Installment charges — depends on profile so runs after
   const targetTenantId = profile.primaryTenantId || profile.id;
   const allInstallmentCharges = await prisma.recurringCharge.findMany({
     where: {
       tenantId: targetTenantId,
       billingRuleId: "__system_rent_installment__",
+      ...(profile.rentStartDate ? { createdAt: { gte: profile.rentStartDate } } : {}),
     },
     orderBy: { dueDate: "asc" },
   });
@@ -254,7 +255,7 @@ export default async function TenantProfilePage({ params }) {
               <p className="text-xs text-slate-400 italic">Not yet assigned</p>
             )}
             {status !== "REJECTED" && (
-              <AssignRoomActions tenantId={profile.id} currentRoomId={profile.roomId} availableRooms={availableRooms} />
+              <AssignRoomActions tenantId={profile.id} currentRoomId={profile.roomId} rentExpiryDate={profile.rentExpiryDate} rentStartDate={profile.rentStartDate} availableRooms={availableRooms} />
             )}
           </div>
 

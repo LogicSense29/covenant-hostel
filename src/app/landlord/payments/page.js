@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import PaymentApprovalClient from "./PaymentApprovalClient";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 30;
 
 export default async function LandlordPaymentsPage() {
   const session = await getServerSession(authOptions);
@@ -14,6 +15,9 @@ export default async function LandlordPaymentsPage() {
 
   const payments = await prisma.payment.findMany({
     include: {
+      recurringCharge: {
+        select: { billingRuleId: true }
+      },
       tenant: {
         include: { user: true, room: { include: { block: true } } },
       },

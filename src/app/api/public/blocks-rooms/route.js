@@ -9,7 +9,9 @@ export async function GET() {
       include: {
         rooms: {
           where: {
-            status: "AVAILABLE"
+            status: { 
+              notIn: ["UNDER_MAINTENANCE", "TESTING"] 
+            }
           },
           select: {
             id: true,

@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getCachedRooms, getCachedDashboardStats, getCachedRecentTickets } from "@/lib/cachedQueries";
 import { 
   Users, 
   Home, 
@@ -16,119 +17,53 @@ import {
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 30;
 
 export default async function LandlordDashboard() {
   const session = await getServerSession(authOptions);
-  
-  // Dashboard Metrics
-  const rooms = await prisma.room.findMany({
-    include: { 
-      tenants: {
-        where: {
-          user: {
-            status: { in: ["ACTIVE", "PAYMENT_MADE", "AWAITING_PAYMENT", "PENDING", "EXPIRED"] }
-          }
-        }
-      } 
-    }
-  });
 
+  const isAdmin = session?.user?.role === "ADMIN";
+
+  // All heavy queries run from cache (revalidates every 30s)
+  const [rooms, cachedStats, recentTickets] = await Promise.all([
+    getCachedRooms(),
+    getCachedDashboardStats(),
+    getCachedRecentTickets(),
+  ]);
+
+  const {
+    openTickets, expiredTenantCount, expiringSoon7, expiringSoon30,
+    roomReservations, inspectionRequests,
+    totalRentCollected, totalOtherBillings, totalInspectionFees,
+  } = cachedStats;
+
+  // Derived room metrics (computed from cached data, no extra DB calls)
   const totalRooms = rooms.length;
   const vacantRooms = rooms.filter(r => r.tenants.length < r.capacity && r.status !== "UNDER_MAINTENANCE").length;
   const occupiedRooms = rooms.filter(r => r.tenants.length > 0).length;
-  const expiredRooms = rooms.filter(r => 
-    r.status === "EXPIRED_RENT" || 
+  const expiredRooms = rooms.filter(r =>
+    r.status === "EXPIRED_RENT" ||
     (r.rentExpiryDate && new Date(r.rentExpiryDate) < new Date()) ||
     r.tenants.some(t => t.rentExpiryDate && new Date(t.rentExpiryDate) < new Date())
   ).length;
   const totalCapacity = rooms.reduce((acc, r) => acc + r.capacity, 0);
   const totalOccupants = rooms.reduce((acc, r) => acc + r.tenants.length, 0);
-  const openTickets = await prisma.maintenanceTicket.count({ where: { status: "OPEN" } });
-
-  // Expiry monitoring counts
-  const todayUTC = new Date();
-  const in7days = new Date(todayUTC); in7days.setDate(todayUTC.getDate() + 7);
-  const in30days = new Date(todayUTC); in30days.setDate(todayUTC.getDate() + 30);
-
-  const [expiredTenantCount, expiringSoon7, expiringSoon30] = await Promise.all([
-    prisma.tenantProfile.count({ where: { user: { status: "EXPIRED" } } }),
-    prisma.tenantProfile.count({ where: { rentExpiryDate: { gte: todayUTC, lte: in7days }, user: { status: "ACTIVE" } } }),
-    prisma.tenantProfile.count({ where: { rentExpiryDate: { gte: todayUTC, lte: in30days }, user: { status: "ACTIVE" } } }),
-  ]);
-  
-  // Room reservation requests (tenants with roomId but status PENDING or AWAITING_PAYMENT)
-  const roomReservations = await prisma.tenantProfile.count({
-    where: {
-      roomId: { not: null },
-      user: {
-        status: { in: ["PENDING", "AWAITING_PAYMENT"] }
-      }
-    }
-  });
-
-  // Inspection requests (guest inspections with PENDING or CONFIRMED status)
-  const inspectionRequests = await prisma.guestInspection.count({
-    where: {
-      status: { in: ["PENDING", "CONFIRMED"] }
-    }
-  });
-  
-  // Occupancy rate: only count rooms that are actually available (exclude UNDER_MAINTENANCE)
   const availableRooms = rooms.filter(r => r.status !== "UNDER_MAINTENANCE");
   const availableCapacity = availableRooms.reduce((acc, r) => acc + r.capacity, 0);
   const occupancyRate = availableCapacity > 0 ? (totalOccupants / availableCapacity) * 100 : 0;
-
-  // Payment Totals
-  const rentPayments = await prisma.payment.aggregate({
-    _sum: { amount: true },
-    where: { 
-      status: { in: ["SUCCESS", "VERIFIED"] },
-      paymentType: { not: "RECURRING" }
-    },
-  });
-  const otherBillingsPayments = await prisma.payment.aggregate({
-    _sum: { amount: true },
-    where: { 
-      status: { in: ["SUCCESS", "VERIFIED"] },
-      paymentType: "RECURRING"
-    },
-  });
-  const inspectionPayments = await prisma.guestInspection.aggregate({
-    _sum: { amountPaid: true },
-    where: { feePaid: true },
-  });
-  const totalRentCollected = rentPayments._sum.amount || 0;
-  const totalOtherBillings = otherBillingsPayments._sum.amount || 0;
-  const totalInspectionFees = inspectionPayments._sum.amountPaid || 0;
   const grandTotalRevenue = totalRentCollected + totalOtherBillings + totalInspectionFees;
 
-  // Admin Specific Global Metrics
-  const isAdmin = session?.user?.role === "ADMIN";
   let adminStats = [];
   if (isAdmin) {
-    const totalUsers = await prisma.user.count();
-    const totalLandlords = await prisma.user.count({ where: { role: "LANDLORD" } });
-    const activeInspections = await prisma.guestInspection.count({ where: { feePaid: true } });
-    
+    const [totalUsers, totalLandlords] = await Promise.all([
+      prisma.user.count(),
+      prisma.user.count({ where: { role: "LANDLORD" } }),
+    ]);
     adminStats = [
       { name: "Platform Users", value: totalUsers, icon: Users, color: "text-blue-600", bg: "bg-blue-50" },
       { name: "Total Landlords", value: totalLandlords, icon: Home, color: "text-indigo-600", bg: "bg-indigo-50" },
-      { name: "Paid Inspections", value: activeInspections, icon: CheckCircle, color: "text-emerald-600", bg: "bg-emerald-50" },
+      { name: "Paid Inspections", value: inspectionRequests, icon: CheckCircle, color: "text-emerald-600", bg: "bg-emerald-50" },
     ];
-  }
-
-
-  let recentTickets = [];
-  try {
-    recentTickets = await prisma.maintenanceTicket.findMany({
-      take: 5,
-      orderBy: { createdAt: "desc" },
-      include: {
-        tenant: { include: { user: true } },
-      }
-    });
-  } catch (err) {
-    console.error("Dashboard Tickets Fetch Error:", err);
   }
 
   const stats = [

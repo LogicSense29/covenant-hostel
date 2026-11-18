@@ -16,7 +16,7 @@ export async function PUT(req, { params }) {
   }
 
   try {
-    const { id } = params;
+    const { id } = await params;
     const { providerId } = await req.json();
 
     const newStatus = providerId ? "IN_PROGRESS" : "OPEN";
@@ -29,7 +29,8 @@ export async function PUT(req, { params }) {
       },
       include: {
         tenant: { include: { user: true } },
-        provider: { include: { user: true } }
+        provider: { include: { user: true } },
+        room: { include: { block: true } },
       }
     });
 
@@ -38,8 +39,10 @@ export async function PUT(req, { params }) {
     // ---------------------------------------------------------
     // Only send notifications if we are ASSIGNING a provider (not unassigning)
     if (providerId) {
-      const { tenant, provider } = ticket;
-      const roomNumber = ticket.roomNumber || ticket.roomId || "Unknown Room";
+      const { tenant, provider, room } = ticket;
+      const roomNumber = room
+        ? `Room ${room.roomNumber}${room.block?.name ? ` · ${room.block.name}` : ""}`
+        : "Unknown Room";
 
       // 1. Notify the Service Provider
       if (provider && provider.user) {
@@ -54,8 +57,6 @@ export async function PUT(req, { params }) {
             priority: ticket.priority
           });
         }
-
-        // WhatsApp / SMS Fallback
         if (provider.phone) {
           const body = `Covenant Hostel: You have been assigned a new maintenance task for Room ${roomNumber}. Issue: ${ticket.title}. Priority: ${ticket.priority}. Please log in for details.`;
           
@@ -87,8 +88,10 @@ export async function PUT(req, { params }) {
             name: tenant.user.name,
             providerName: provider?.user?.name || "Service Provider",
             specialty: provider?.specialty || "Maintenance",
+            providerPhone: provider?.phone || null,
+            providerEmail: provider?.user?.email || null,
             roomNumber,
-            issue: ticket.title
+            issue: ticket.title,
           });
         }
       }

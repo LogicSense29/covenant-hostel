@@ -3,6 +3,7 @@ import BlockManager from "./BlockManager";
 import { FolderCheck } from "lucide-react";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 60; // Cache for 60 seconds
 
 export default async function BlocksPage() {
   const blocks = await prisma.block.findMany({

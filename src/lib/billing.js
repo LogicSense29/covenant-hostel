@@ -75,3 +75,80 @@ export async function autoCreateNextCharge(tx, chargeId) {
   }
   return existing;
 }
+
+/**
+ * When a tenant pays an installment, this function generates
+ * concrete RecurringCharge records for all remaining installments.
+ */
+export async function scheduleRemainingInstallments({
+  tenantId,
+  installmentAmount,
+  totalInstallments,
+  paidInstallmentNumber = 1,
+  rentFrequency = "YEARLY",
+  startDate = new Date(),
+  tx = null,
+}) {
+  const db = tx || prisma;
+  const remaining = totalInstallments - paidInstallmentNumber;
+  if (remaining <= 0) return;
+
+  const installmentRule = await db.billingRule.upsert({
+    where: { id: "__system_rent_installment__" },
+    update: {},
+    create: {
+      id: "__system_rent_installment__",
+      title: "Rent Installment",
+      description: "System-generated installment for partial rent payment plan.",
+      amount: 0,
+      type: "RENT_INSTALLMENT",
+      frequency: "MONTHLY",
+      isGlobal: false,
+      isOptional: false,
+    },
+  });
+
+  const FREQUENCY_MONTHS = {
+    DAILY: 0,
+    MONTHLY: 1,
+    QUARTERLY: 3,
+    PER_SEMESTER: 6,
+    YEARLY: 12,
+  };
+
+  const leaseMonths = FREQUENCY_MONTHS[rentFrequency] ?? 12;
+  const leaseDays = rentFrequency === "DAILY" ? 1 : leaseMonths * 30;
+  const intervalDays = Math.round(leaseDays / totalInstallments);
+
+  const baseDate = startDate ? new Date(startDate) : new Date();
+
+  for (let i = 1; i <= remaining; i++) {
+    const dueDate = new Date(baseDate);
+    dueDate.setDate(dueDate.getDate() + intervalDays * i);
+
+    const dueDateUTC = new Date(Date.UTC(
+      dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate(), 0, 0, 0, 0
+    ));
+
+    const existing = await db.recurringCharge.findFirst({
+      where: {
+        tenantId,
+        billingRuleId: installmentRule.id,
+        dueDate: dueDateUTC,
+      },
+    });
+
+    if (!existing) {
+      await db.recurringCharge.create({
+        data: {
+          tenantId,
+          billingRuleId: installmentRule.id,
+          amount: installmentAmount,
+          dueDate: dueDateUTC,
+          status: "UNPAID",
+        },
+      });
+    }
+  }
+}
+

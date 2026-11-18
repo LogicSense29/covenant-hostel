@@ -141,7 +141,8 @@ export default function BillingRulesManager({ defaultRules, rooms, blocks = [] }
         toast.success("Billing rule deleted successfully!");
         router.refresh();
       } else {
-        toast.error("Failed to delete rule");
+        const errorText = await res.text();
+        toast.error(errorText || "Failed to delete rule", { duration: 6000 });
       }
     } catch (err) {
       toast.error("Error deleting rule");

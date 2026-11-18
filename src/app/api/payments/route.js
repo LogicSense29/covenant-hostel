@@ -107,10 +107,33 @@ export async function POST(req) {
         if (isRentSelected && tenant.roomId) {
           const room = await tx.room.findUnique({ where: { id: tenant.roomId } });
           const baseRent = room?.rentAmount || 0;
-          // If paying installments, check against the split amount. Otherwise, check against full rent.
+
+          // Check if tenant has verified rent payments towards this stay.
+          // Scope strictly to payments made ON OR AFTER rentStartDate to prevent
+          // payments from previous rooms bleeding into the current room's balance.
+          const existingVerifiedRent = await tx.payment.findMany({
+            where: {
+              tenantId,
+              status: { in: ["VERIFIED", "SUCCESS"] },
+              OR: [
+                { paymentType: { in: ["PARTIAL", "FULL"] } },
+                { isPartial: true },
+                { installmentNumber: { not: null } },
+              ],
+              // Only count payments from the current cycle
+              ...(tenant.rentStartDate ? { createdAt: { gte: tenant.rentStartDate } } : {}),
+            },
+          });
+          const verifiedRentPaid = existingVerifiedRent.reduce((sum, p) => sum + p.amount, 0);
+          // carriedOverBalance is a virtual credit from a mid-cycle room transfer.
+          // It reduces what the tenant owes just like a real payment would.
+          const carriedOver = tenant.carriedOverBalance ?? 0;
+          const remainingRent = Math.max(0, baseRent - verifiedRentPaid - carriedOver);
+
+          // If paying installments, check against the split amount. Otherwise, check against remaining rent balance.
           const expectedMinRent = isPartial && totalInstallments > 1 
             ? (baseRent / totalInstallments) 
-            : baseRent;
+            : (remainingRent > 0 ? remainingRent : baseRent);
             
           // We use -10 as a small margin for float rounding differences
           if (amount < (chargesTotal + expectedMinRent - 10)) {

@@ -16,17 +16,21 @@ import {
   ChevronRight,
   Info,
   X,
-  Search
+  Search,
+  Archive,
+  ArchiveRestore,
+  Trash2
 } from "lucide-react";
 import { toast } from "react-hot-toast";
-import { useRouter } from "next/navigation";
 
 export default function TenantActionsMenu({
   profile,
   availableRooms,
   onEmail,
+  userRole,
+  onTenantUpdate, // (updatedProfile) => void — called after status changes
+  onTenantRemove, // (tenantId) => void — called after delete/archive
 }) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const menuRef = useRef(null);
@@ -40,6 +44,7 @@ export default function TenantActionsMenu({
   const [selectedRoom, setSelectedRoom] = useState("");
   const [rentExpiryDate, setRentExpiryDate] = useState("");
   const [roomSearch, setRoomSearch] = useState("");
+  const [showCarryOverPrompt, setShowCarryOverPrompt] = useState(false);
 
   // Is this a room *change* (tenant already has a room) vs a fresh assignment?
   const isRoomChange = Boolean(profile.roomId);
@@ -106,8 +111,10 @@ export default function TenantActionsMenu({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userId: profile.userId }),
         });
-        if (res.ok) { toast.success("Tenant approved!", { id }); window.location.reload(); }
-        else { toast.error(await res.text() || "Approval failed", { id }); }
+        if (res.ok) {
+          toast.success("Tenant approved!", { id, duration: 3000 });
+          onTenantUpdate?.({ ...profile, user: { ...profile.user, status: "AWAITING_PAYMENT" } });
+        } else { toast.error(await res.text() || "Approval failed", { id }); }
       } catch { toast.error("Unexpected error", { id }); }
       finally { setLoading(false); }
     });
@@ -133,8 +140,10 @@ export default function TenantActionsMenu({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: profile.userId, startDate: now.toISOString() }),
       });
-      if (res.ok) { toast.success("Tenancy activated!", { id }); window.location.reload(); }
-      else { toast.error(await res.text() || "Activation failed", { id }); }
+      if (res.ok) {
+        toast.success("Tenancy activated!", { id, duration: 3000 });
+        onTenantUpdate?.({ ...profile, user: { ...profile.user, status: "ACTIVE" } });
+      } else { toast.error(await res.text() || "Activation failed", { id }); }
     } catch { toast.error("Unexpected error", { id }); }
     finally { setLoading(false); }
   };
@@ -151,9 +160,9 @@ export default function TenantActionsMenu({
         body: JSON.stringify({ userId: profile.userId, reason: rejectNote }),
       });
       if (res.ok) {
-        toast.success("Application rejected and email sent.", { id });
+        toast.success("Application rejected and email sent.", { id, duration: 3000 });
         setShowRejectModal(false);
-        window.location.reload();
+        onTenantUpdate?.({ ...profile, user: { ...profile.user, status: "REJECTED" } });
       } else { toast.error(await res.text() || "Rejection failed", { id }); }
     } catch { toast.error("An error occurred", { id }); }
     finally { setLoading(false); }
@@ -161,17 +170,29 @@ export default function TenantActionsMenu({
 
   const handleAssign = async () => {
     if (!selectedRoom) { toast.error("Please select a room."); return; }
+    const hasActiveCycle = profile.roomId && profile.rentExpiryDate && new Date(profile.rentExpiryDate) > new Date();
+    if (hasActiveCycle) {
+      setShowAssignModal(false);
+      setShowCarryOverPrompt(true);
+    } else {
+      confirmAssign(selectedRoom, false);
+    }
+  };
+
+  const confirmAssign = async (roomId, carryOverBalance) => {
+    setShowCarryOverPrompt(false);
     setLoading(true);
     try {
       const res = await fetch(`/api/tenants/${profile.id}/assign`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roomId: selectedRoom, rentExpiryDate }),
+        body: JSON.stringify({ roomId, rentExpiryDate, carryOverBalance }),
       });
       if (res.ok) {
-        toast.success("Room assigned successfully!");
+        const updatedRoom = availableRooms.find(r => r.id === roomId);
+        toast.success(carryOverBalance ? "Room changed. Remaining balance carried over." : "Room assigned successfully!", { duration: 3000 });
         setShowAssignModal(false);
-        window.location.reload();
+        onTenantUpdate?.({ ...profile, roomId, room: updatedRoom || profile.room });
       } else { toast.error(await res.text() || "Failed to assign room."); }
     } catch { toast.error("Error assigning room."); }
     finally { setLoading(false); }
@@ -192,17 +213,14 @@ export default function TenantActionsMenu({
           body: JSON.stringify({ force })
         });
         if (res.ok) { 
-          toast.success("Tenancy ended successfully."); 
-          router.refresh(); 
+          toast.success("Tenancy ended successfully.", { duration: 3000 }); 
+          onTenantUpdate?.({ ...profile, roomId: null, room: null, user: { ...profile.user, status: "AWAITING_PAYMENT" } });
         } else { 
           const errorMsg = await res.text();
           if (errorMsg.includes("Force eviction required")) {
             toast.error("Outstanding payments detected.", { duration: 4000 });
-            // Wait a tiny bit then show the force confirm
             setTimeout(() => {
-              confirmAction("Tenant owes money. Force End Tenancy anyway?", () => {
-                handleUnassign(true);
-              });
+              confirmAction("Tenant owes money. Force End Tenancy anyway?", () => handleUnassign(true));
             }, 500);
           } else {
             toast.error(errorMsg || "Failed to end tenancy."); 
@@ -211,6 +229,62 @@ export default function TenantActionsMenu({
       } catch { toast.error("Error ending tenancy."); }
       finally { setLoading(false); }
     });
+  };
+
+  const handleArchive = () => {
+    setOpen(false);
+    confirmAction("Archive this tenant? They will be moved to the archived list and access locked.", async () => {
+      setLoading(true);
+      const id = toast.loading("Archiving tenant...");
+      try {
+        const res = await fetch(`/api/tenants/${profile.id}/archive`, { method: "POST" });
+        if (res.ok) {
+          toast.success("Tenant archived!", { id, duration: 3000 });
+          onTenantRemove?.(profile.id);
+        } else { toast.error(await res.text() || "Archiving failed", { id }); }
+      } catch { toast.error("Unexpected error", { id }); }
+      finally { setLoading(false); }
+    });
+  };
+
+  const handleUnarchive = () => {
+    setOpen(false);
+    confirmAction("Restore this tenant from archive?", async () => {
+      setLoading(true);
+      const id = toast.loading("Restoring tenant...");
+      try {
+        const res = await fetch(`/api/tenants/${profile.id}/archive`, { method: "DELETE" });
+        if (res.ok) {
+          toast.success("Tenant restored!", { id, duration: 3000 });
+          onTenantRemove?.(profile.id);
+        } else { toast.error(await res.text() || "Restore failed", { id }); }
+      } catch { toast.error("Unexpected error", { id }); }
+      finally { setLoading(false); }
+    });
+  };
+
+  const handleDelete = () => {
+    setOpen(false);
+    confirmAction(
+      "⚠️ PERMANENT DELETE: This will permanently delete this tenant and all their data. This CANNOT be undone. Are you absolutely sure?",
+      async () => {
+        setLoading(true);
+        const id = toast.loading("Deleting tenant permanently...");
+        try {
+          const res = await fetch(`/api/tenants/${profile.id}/delete`, { method: "DELETE" });
+          if (res.ok) { 
+            toast.success("Tenant permanently deleted", { id, duration: 3000 });
+            onTenantRemove?.(profile.id);
+          } else { 
+            toast.error(await res.text() || "Delete failed", { id }); 
+          }
+        } catch { 
+          toast.error("Unexpected error", { id }); 
+        } finally { 
+          setLoading(false); 
+        }
+      }
+    );
   };
 
   // ── Menu items by status ──
@@ -269,6 +343,23 @@ export default function TenantActionsMenu({
         color: "text-slate-700",
       });
     }
+  }
+
+  // Archive/Unarchive
+  if (status === "ARCHIVED") {
+    menuItems.push({ label: "Restore from Archive", icon: <ArchiveRestore size={14} />, onClick: handleUnarchive, color: "text-blue-700" });
+  } else {
+    menuItems.push({ label: "Archive", icon: <Archive size={14} />, onClick: handleArchive, color: "text-slate-500" });
+  }
+
+  // Delete (ADMIN only, dangerous)
+  if (userRole === "ADMIN") {
+    menuItems.push({ 
+      label: "Delete Permanently", 
+      icon: <Trash2 size={14} />, 
+      onClick: handleDelete, 
+      color: "text-red-600" 
+    });
   }
 
   return (
@@ -528,6 +619,64 @@ export default function TenantActionsMenu({
           </div>
         </div>
       )}
+
+      {/* ── Carry-Over Balance Prompt ── */}
+      {showCarryOverPrompt && (() => {
+        const expiryFormatted = profile.rentExpiryDate
+          ? new Date(profile.rentExpiryDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+          : null;
+        return (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl border border-slate-100 overflow-hidden animate-in zoom-in-95 duration-200">
+              <div className="p-6">
+                <div className="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center mb-4">
+                  <Info size={24} className="text-amber-500" />
+                </div>
+                <h3 className="text-lg font-black text-slate-900">Active Rent Cycle Detected</h3>
+                <p className="text-sm text-slate-500 mt-1 leading-relaxed">
+                  This tenant has an active rent cycle expiring on <span className="font-bold text-slate-700">{expiryFormatted}</span>. What should happen to their remaining balance?
+                </p>
+                <div className="mt-5 space-y-3">
+                  <button
+                    onClick={() => confirmAssign(selectedRoom, true)}
+                    disabled={loading}
+                    className="w-full text-left p-4 rounded-2xl border-2 border-blue-200 bg-blue-50 hover:border-blue-400 hover:bg-blue-100 transition-all group disabled:opacity-50"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-bold text-blue-900">Carry over remaining balance</p>
+                        <p className="text-xs text-blue-600 mt-0.5">What they owe is credited to the new room. Expiry date stays the same.</p>
+                      </div>
+                      <ChevronRight size={16} className="text-blue-400 group-hover:text-blue-600 shrink-0 ml-3" />
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => confirmAssign(selectedRoom, false)}
+                    disabled={loading}
+                    className="w-full text-left p-4 rounded-2xl border-2 border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-slate-100 transition-all group disabled:opacity-50"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-bold text-slate-800">Fresh start</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Previous balance is written off. New rent cycle begins from today.</p>
+                      </div>
+                      <ChevronRight size={16} className="text-slate-400 group-hover:text-slate-600 shrink-0 ml-3" />
+                    </div>
+                  </button>
+                </div>
+              </div>
+              <div className="px-6 pb-6">
+                <button
+                  onClick={() => { setShowCarryOverPrompt(false); setShowAssignModal(true); }}
+                  className="w-full py-2.5 text-sm font-semibold text-slate-500 hover:text-slate-700 transition-colors"
+                >
+                  ← Go back
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </>
   );
 }

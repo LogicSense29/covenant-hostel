@@ -26,6 +26,10 @@ export default function PaymentForm({
   primaryName = "",
   checkoutBillingRuleIds = [],
   baseInstallmentAmount = null,
+  installmentCharges = [],
+  hasPartialBalance = false,
+  rentRemaining = null,
+  alreadyPaidRent = 0,
 }) {
   const router = useRouter();
   const { data: session } = useSession();
@@ -56,12 +60,12 @@ export default function PaymentForm({
 
   // Compute installment schedule
   const installments = useMemo(() => {
-    if (!canPayPartial || !partialPaymentInstallments) return [];
+    if (!partialPaymentInstallments) return [];
     
     // Use the mathematically rounded amount passed from the panel
     const installmentAmount = baseInstallmentAmount || Math.round((totalDue / partialPaymentInstallments) * 100) / 100;
     
-    // Determine interval months based on lease frequency
+    // Determine interval days based on lease frequency
     const getIntervalDays = (freq) => {
       switch (freq) {
         case "day": return 1;
@@ -74,30 +78,80 @@ export default function PaymentForm({
     };
     const leaseDays = getIntervalDays(rentFrequencyShorthand);
     const intervalDays = Math.round(leaseDays / partialPaymentInstallments);
-    // Use today as baseline — matches exactly what the backend uses when scheduling
-    const start = new Date();
     
-    // Only count VERIFIED/SUCCESS — PENDING means awaiting landlord approval, not confirmed paid
+    // Filter installment payments scoped to the current cycle (after rentStartDate).
+    // This prevents installments from a previous room assignment bleeding into the new schedule.
+    const cycleStart = rentStartDate ? new Date(rentStartDate) : null;
     const installmentPayments = (existingPayments || []).filter(
-      (p) => p.installmentNumber != null && (p.status === "VERIFIED" || p.status === "SUCCESS")
+      (p) => (p.installmentNumber != null || p.isPartial) &&
+        (p.status === "VERIFIED" || p.status === "SUCCESS" || p.status === "PENDING") &&
+        (!cycleStart || new Date(p.createdAt) >= cycleStart)
     );
 
-    return Array.from({ length: partialPaymentInstallments }, (_, i) => {
-      const due = new Date(start);
-      due.setDate(due.getDate() + intervalDays * i);
-      const paid = installmentPayments.find((p) => p.installmentNumber === i + 1) || null;
-      return { number: i + 1, amount: installmentAmount, dueDate: due, paid };
-    });
-  }, [canPayPartial, partialPaymentInstallments, baseInstallmentAmount, rentFrequencyShorthand, rentStartDate, totalDue, existingPayments]);
+    // Baseline start date: earliest payment createdAt, or rentStartDate, or fallback to today
+    const firstPayment = installmentPayments.find((p) => p.installmentNumber === 1 || p.isPartial);
+    const start = firstPayment?.createdAt
+      ? new Date(firstPayment.createdAt)
+      : (rentStartDate ? new Date(rentStartDate) : new Date());
 
-  // Next unpaid installment
-  const nextInstallment = installments.find((inst) => !inst.paid);
+    return Array.from({ length: partialPaymentInstallments }, (_, i) => {
+      const num = i + 1;
+
+      // 1) Find direct payment with installmentNumber === num
+      let paid = installmentPayments.find((p) => p.installmentNumber === num) || null;
+
+      // 2) If num === 1 and not yet matched, use first partial payment
+      if (!paid && num === 1 && firstPayment) {
+        paid = firstPayment;
+      }
+
+      // 3) For installments 2+, check matching charge in installmentCharges
+      const chargeRecord = (installmentCharges || [])[i - 1] || null;
+      if (!paid && chargeRecord && chargeRecord.paymentId) {
+        paid = (existingPayments || []).find((p) => p.id === chargeRecord.paymentId) || null;
+      }
+      if (!paid && chargeRecord && (chargeRecord.status === "PAID" || chargeRecord.status === "PENDING")) {
+        paid = {
+          id: chargeRecord.paymentId || chargeRecord.id,
+          status: chargeRecord.status === "PAID" ? "VERIFIED" : "PENDING",
+          createdAt: chargeRecord.updatedAt || chargeRecord.createdAt || chargeRecord.dueDate,
+          approvedAt: chargeRecord.status === "PAID" ? (chargeRecord.updatedAt || chargeRecord.createdAt) : null,
+        };
+      }
+
+      // Determine dueDate:
+      // If chargeRecord exists with dueDate, use its exact fixed dueDate from DB!
+      // Otherwise calculate from start date: start + intervalDays * i
+      let due;
+      if (chargeRecord?.dueDate) {
+        due = new Date(chargeRecord.dueDate);
+      } else if (num === 1 && firstPayment?.dueDate) {
+        due = new Date(firstPayment.dueDate);
+      } else {
+        due = new Date(start);
+        due.setDate(due.getDate() + intervalDays * i);
+      }
+
+      const instAmt = chargeRecord?.amount || installmentAmount;
+
+      return { number: num, amount: instAmt, dueDate: due, paid };
+    });
+  }, [partialPaymentInstallments, baseInstallmentAmount, rentFrequencyShorthand, rentStartDate, totalDue, existingPayments, installmentCharges]);
+
+  // Next unpaid installment: the first installment that is NOT paid and NOT pending
+  const nextInstallment = installments.find((inst) => {
+    const isPaid = inst.paid?.status === "VERIFIED" || inst.paid?.status === "SUCCESS";
+    const isPending = inst.paid?.status === "PENDING";
+    return !isPaid && !isPending;
+  });
   const isPartialMode = !isRecurringOnly && canPayPartial && partialPaymentInstallments > 1 && isRentSelected;
+  // payAmount — the exact amount to charge via Paystack.
+  // In installment mode: totalDue already = rentInstallment + fees (full), so use it directly.
+  // In full mode: totalDue = full rent + fees.
+  // NEVER re-sum breakdown items: rounding across multiple items can drift from totalDue.
   const payAmount = isRecurringOnly && charge
     ? charge.amount
-    : breakdown && breakdown.length > 0
-      ? breakdown.reduce((sum, item) => sum + item.amount, 0)
-      : (isPartialMode && nextInstallment ? nextInstallment.amount : totalDue);
+    : totalDue;
 
   const config = {
     reference: new Date().getTime().toString(),
@@ -243,14 +297,23 @@ export default function PaymentForm({
         <div className="bg-slate-50 p-6 border-b border-slate-100">
           <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
             <CreditCard size={20} className="text-blue-600" />
-            {isPartialMode ? `Installment ${nextInstallment?.number || "—"} of ${partialPaymentInstallments}` : "Make Payment"}
+            {isPartialMode 
+              ? `Installment ${nextInstallment?.number || "—"} of ${partialPaymentInstallments}` 
+              : hasPartialBalance 
+                ? "Pay Remaining Rent" 
+                : "Make Payment"}
           </h3>
           {isPartialMode && nextInstallment && (
             <p className="text-xs text-slate-500 mt-1">
-              Due: {nextInstallment.dueDate.toLocaleDateString()} · ₦{nextInstallment.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+              Due: {nextInstallment.dueDate.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} · ₦{nextInstallment.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}
             </p>
           )}
-          {!isPartialMode && (
+          {!isPartialMode && hasPartialBalance && (
+            <p className="text-xs text-slate-500 mt-1">
+              ₦{alreadyPaidRent.toLocaleString(undefined, { maximumFractionDigits: 2 })} already paid · Paying remaining rent balance in full.
+            </p>
+          )}
+          {!isPartialMode && !hasPartialBalance && (
             <p className="text-xs text-slate-500 mt-1">Full payment required.</p>
           )}
         </div>
@@ -263,7 +326,7 @@ export default function PaymentForm({
           <span className="text-2xl font-black text-slate-900">₦{payAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
         </div>
 
-        {/* Installment schedule toggle */}
+        {/* Installment schedule toggle — only shown in installment mode */}
         {isPartialMode && installments.length > 0 && (
           <div>
             <button
@@ -280,29 +343,53 @@ export default function PaymentForm({
 
             {showSchedule && (
               <div className="mt-3 rounded-xl border border-slate-100 overflow-hidden">
-                {installments.map((inst) => (
+                {installments.map((inst) => {
+                  // For paid installments: show the actual date the payment was made.
+                  // For pending/upcoming: show the computed due date.
+                  const isPaid = inst.paid?.status === "VERIFIED" || inst.paid?.status === "SUCCESS";
+                  const isPending = inst.paid?.status === "PENDING";
+                  const displayDate = isPaid
+                    ? new Date(inst.paid.approvedAt || inst.paid.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+                    : isPending
+                      ? new Date(inst.paid.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+                      : inst.dueDate.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+                  const dateLabel = isPaid ? "Paid" : isPending ? "Submitted" : "Due";
+
+                  return (
                   <div
                     key={inst.number}
                     className={`flex items-center justify-between px-4 py-3 text-sm border-b border-slate-50 last:border-0 ${
-                      inst.paid?.status === "VERIFIED" ? "bg-green-50" :
-                      inst.paid?.status === "PENDING" ? "bg-amber-50" :
+                      isPaid ? "bg-green-50/70" :
+                      isPending ? "bg-amber-50" :
                       inst.number === nextInstallment?.number ? "bg-blue-50" : ""
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <span className="w-6 h-6 rounded-full bg-slate-200 text-slate-600 text-xs font-bold flex items-center justify-center">
+                      <span className={`w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center ${
+                        isPaid ? "bg-green-200 text-green-800" :
+                        isPending ? "bg-amber-200 text-amber-800" :
+                        "bg-slate-200 text-slate-600"
+                      }`}>
                         {inst.number}
                       </span>
-                      <span className="text-slate-600">{inst.dueDate.toLocaleDateString()}</span>
+                      <div>
+                        <span className="text-slate-700 font-medium">{displayDate}</span>
+                        <span className={`block text-[10px] font-bold uppercase tracking-wider ${
+                          isPaid ? "text-green-600" :
+                          isPending ? "text-amber-600" :
+                          "text-slate-400"
+                        }`}>{dateLabel}</span>
+                      </div>
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="font-bold text-slate-900">₦{inst.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-                      {inst.paid?.status === "VERIFIED" && <span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-0.5 rounded-full">Paid</span>}
-                      {inst.paid?.status === "PENDING" && <span className="text-xs font-bold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full">Pending</span>}
-                      {!inst.paid && inst.number === nextInstallment?.number && <span className="text-xs font-bold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">Paying now</span>}
+                      {isPaid && <span className="text-xs font-bold text-green-700 bg-green-100 px-2.5 py-0.5 rounded-full">Paid</span>}
+                      {isPending && <span className="text-xs font-bold text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full">Pending Approval</span>}
+                      {!isPaid && !isPending && inst.number === nextInstallment?.number && <span className="text-xs font-bold text-blue-600 bg-blue-100 px-2.5 py-0.5 rounded-full">Paying now</span>}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

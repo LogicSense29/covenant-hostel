@@ -57,6 +57,7 @@ export default function RoomFilters({ blocks }) {
           <option value="OCCUPIED">Occupied</option>
           <option value="EXPIRED_RENT">Expired</option>
           <option value="UNDER_MAINTENANCE">Maintenance</option>
+          <option value="TESTING">Testing</option>
         </select>
       </div>
     </div>

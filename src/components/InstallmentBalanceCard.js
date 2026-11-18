@@ -3,20 +3,34 @@
 import { CreditCard, CheckCircle2, Clock } from "lucide-react";
 
 export default function InstallmentBalanceCard({ profile, allInstallmentCharges = [] }) {
-  // Partial payments made by this tenant (SUCCESS or VERIFIED)
-  const partialPaymentsMade = profile?.payments?.filter(
-    p => (p.status === "SUCCESS" || p.status === "VERIFIED") && p.isPartial
-  ) || [];
-  
+  // Scope everything to the current rent cycle using rentStartDate.
+  // rentStartDate resets on every room change — charges and payments before it
+  // belong to the old room/cycle and must be excluded.
+  const cycleStart = profile?.rentStartDate ? new Date(profile.rentStartDate) : null;
+
+  // Filter installment charges to current cycle only
+  const currentCycleCharges = allInstallmentCharges.filter(c => {
+    if (!cycleStart) return true;
+    return new Date(c.createdAt) >= cycleStart;
+  });
+
+  // Partial payments scoped to current cycle
+  const partialPaymentsMade = (profile?.payments || []).filter(p => {
+    if (p.status !== "SUCCESS" && p.status !== "VERIFIED") return false;
+    if (!p.isPartial) return false;
+    if (cycleStart && new Date(p.createdAt) < cycleStart) return false;
+    return true;
+  });
+
   const paidInstallmentAmount = partialPaymentsMade.reduce((sum, p) => sum + p.amount, 0);
 
   const lastPayment = [...partialPaymentsMade].sort((a, b) => new Date(b.approvedAt || b.createdAt) - new Date(a.approvedAt || a.createdAt))[0];
-  const lastPaymentDate = lastPayment 
-    ? new Date(lastPayment.approvedAt || lastPayment.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) 
+  const lastPaymentDate = lastPayment
+    ? new Date(lastPayment.approvedAt || lastPayment.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
     : null;
 
-  // --- Path A: New system — installment RecurringCharge records exist ---
-  const hasNewSystemCharges = allInstallmentCharges.length > 0;
+  // --- Path A: New system — installment RecurringCharge records exist (current cycle) ---
+  const hasNewSystemCharges = currentCycleCharges.length > 0;
 
   let remainingInstallmentCharges = [];
   let remainingBalance = 0;
@@ -28,12 +42,12 @@ export default function InstallmentBalanceCard({ profile, allInstallmentCharges 
   let installmentHistoryList = [];
 
   if (hasNewSystemCharges) {
-    remainingInstallmentCharges = allInstallmentCharges.filter(
+    remainingInstallmentCharges = currentCycleCharges.filter(
       c => c.status === "UNPAID" || c.status === "OVERDUE" || c.status === "PENDING"
     );
     remainingBalance = remainingInstallmentCharges.reduce((sum, c) => sum + c.amount, 0);
-    paidInstallments = allInstallmentCharges.filter(c => c.status === "PAID").length + 1; // +1 for first payment
-    totalInstallmentCount = allInstallmentCharges.length + 1; // +1 for first
+    paidInstallments = currentCycleCharges.filter(c => c.status === "PAID").length + 1; // +1 for first payment
+    totalInstallmentCount = currentCycleCharges.length + 1; // +1 for first
     totalPlanAmount = paidInstallmentAmount + remainingBalance;
     nextInstallment = remainingInstallmentCharges[0] || null;
     hasActiveInstallmentPlan = remainingInstallmentCharges.length > 0;
@@ -48,7 +62,7 @@ export default function InstallmentBalanceCard({ profile, allInstallmentCharges 
         date: "Paid on " + new Date(firstPayment.approvedAt || firstPayment.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }),
       });
     }
-    allInstallmentCharges.forEach((charge, index) => {
+    currentCycleCharges.forEach((charge, index) => {
       let dateStr = "Due " + new Date(charge.dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
       if (charge.status === "PAID" && charge.paymentId) {
         const linkedPayment = profile.payments?.find(p => p.id === charge.paymentId);
@@ -86,15 +100,47 @@ export default function InstallmentBalanceCard({ profile, allInstallmentCharges 
         date: "Paid on " + new Date(p.approvedAt || p.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }),
       });
     });
+
+    // Calculate due dates for remaining installments based on current tenancy dates
+    const baseDueDate = profile.rentExpiryDate 
+      ? new Date(profile.rentExpiryDate) 
+      : (lastPayment ? new Date(lastPayment.approvedAt || lastPayment.createdAt) : new Date());
+
+    let intervalMs = 180 * 24 * 60 * 60 * 1000; // default 6 months
+    if (profile.rentStartDate && profile.rentExpiryDate) {
+      const diff = new Date(profile.rentExpiryDate).getTime() - new Date(profile.rentStartDate).getTime();
+      if (diff > 0) intervalMs = diff;
+    }
+
     for (let i = 0; i < installmentsLeft; i++) {
+      let instDueDate;
+      if (i === 0 && profile.rentExpiryDate) {
+        instDueDate = new Date(profile.rentExpiryDate);
+      } else {
+        instDueDate = new Date(baseDueDate.getTime() + (i * intervalMs));
+      }
+
+      const formattedDueDate = instDueDate.toLocaleDateString("en-GB", { 
+        day: "numeric", 
+        month: "short", 
+        year: "numeric" 
+      });
+
       installmentHistoryList.push({
         label: `Installment ${paidInstallments + i + 1}`,
         amount: installmentAmount,
         status: "UNPAID",
-        date: "Not scheduled",
+        dueDate: instDueDate,
+        date: "Due " + formattedDueDate,
       });
+
+      if (i === 0) {
+        nextInstallment = {
+          dueDate: instDueDate,
+          amount: installmentAmount,
+        };
+      }
     }
-    nextInstallment = null;
   }
 
   if (!hasActiveInstallmentPlan) return null;
@@ -170,23 +216,15 @@ export default function InstallmentBalanceCard({ profile, allInstallmentCharges 
         </div>
       )}
 
-      {/* Next due — only available for new-system tenants with scheduled charges */}
-      {nextInstallment ? (
+      {/* Next due */}
+      {nextInstallment && (
         <div className="flex items-center gap-2 bg-blue-50 rounded-xl px-3 py-2">
-          <Clock size={12} className="text-blue-400 shrink-0" />
+          <Clock size={12} className="text-blue-500 shrink-0" />
           <div>
-            <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Next Due</p>
+            <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">Next Due</p>
             <p className="text-xs font-bold text-blue-800">
               {new Date(nextInstallment.dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} — ₦{nextInstallment.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}
             </p>
-          </div>
-        </div>
-      ) : hasActiveInstallmentPlan && (
-        <div className="flex items-center gap-2 bg-amber-50 rounded-xl px-3 py-2">
-          <Clock size={12} className="text-amber-400 shrink-0" />
-          <div>
-            <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest">Next Due</p>
-            <p className="text-xs text-amber-700">Not scheduled — tenant must pay next installment manually.</p>
           </div>
         </div>
       )}

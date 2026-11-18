@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import TenantDirectoryClient from "./TenantDirectoryClient";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 30;
 
 export default async function TenantsPage() {
   const session = await getServerSession(authOptions);
@@ -80,6 +81,12 @@ export default async function TenantsPage() {
   const blockNames = allBlocks.map(b => b.name);
 
   return (
-    <TenantDirectoryClient initialTenants={initialData} initialNextCursor={nextCursor} availableRooms={availableRooms} blocks={blockNames} />
+    <TenantDirectoryClient 
+      initialTenants={initialData} 
+      initialNextCursor={nextCursor} 
+      availableRooms={availableRooms} 
+      blocks={blockNames}
+      userRole={session.user.role}
+    />
   );
 }

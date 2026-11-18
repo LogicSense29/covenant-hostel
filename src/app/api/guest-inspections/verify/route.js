@@ -68,6 +68,7 @@ export async function POST(request) {
         name: updatedInspection.name,
         date: updatedInspection.date,
         reference: reference,
+        isFree: false,
         amount: amount,
       }).then(() => console.log("Guest receipt sent"))
         .catch(err => console.error("Guest receipt failed:", err));
@@ -77,7 +78,9 @@ export async function POST(request) {
         email: updatedInspection.email,
         phone: updatedInspection.phone,
         date: updatedInspection.date,
-        reference: reference,
+        roomNumber: updatedInspection.roomNumber,
+        blockName: updatedInspection.blockName,
+        address: updatedInspection.address,
         amount: amount,
       }).then(() => console.log("Admin alert sent"))
         .catch(err => console.error("Admin alert failed:", err));

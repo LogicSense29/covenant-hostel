@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
-import { autoCreateNextCharge } from "@/lib/billing";
+import { autoCreateNextCharge, scheduleRemainingInstallments } from "@/lib/billing";
 import { createNotification, getLandlordUserIds } from "@/lib/notifications";
 import { sendPaymentReceiptEmail } from "@/lib/email";
 
@@ -11,78 +11,12 @@ export const dynamic = "force-dynamic";
 
 /** Maps rent frequency to its duration in months. */
 const FREQUENCY_MONTHS = {
-  DAILY: 0, // handled separately in days
+  DAILY: 0,
   MONTHLY: 1,
   QUARTERLY: 3,
   YEARLY: 12,
   PER_SEMESTER: 6,
 };
-
-/**
- * When a tenant pays the FIRST installment, this function generates
- * concrete RecurringCharge records for all remaining installments.
- * Due dates are evenly spaced across the full lease term.
- *
- * e.g. Yearly rent, 3 installments → installment 2 due in 4 months, 3 in 8 months.
- *
- * @param {object} p
- * @param {string} p.tenantId - TenantProfile.id
- * @param {number} p.installmentAmount - Amount per installment (fixed at checkout time)
- * @param {number} p.totalInstallments - Total number of installments chosen
- * @param {number} p.paidInstallmentNumber - The installment number just paid (1)
- * @param {string} p.rentFrequency - The billing rule frequency (e.g. "YEARLY")
- */
-async function scheduleRemainingInstallments({ tenantId, installmentAmount, totalInstallments, paidInstallmentNumber, rentFrequency }) {
-  const remaining = totalInstallments - paidInstallmentNumber;
-  if (remaining <= 0) return;
-
-  // Upsert a hidden system BillingRule for rent installments so RecurringCharge
-  // has a valid billingRuleId FK without requiring a schema migration.
-  const installmentRule = await prisma.billingRule.upsert({
-    where: { id: "__system_rent_installment__" },
-    update: {},
-    create: {
-      id: "__system_rent_installment__",
-      title: "Rent Installment",
-      description: "System-generated installment for partial rent payment plan.",
-      amount: 0, // actual amount is stored on each RecurringCharge
-      type: "RENT_INSTALLMENT",
-      frequency: "MONTHLY",
-      isGlobal: false,
-      isOptional: false,
-    },
-  });
-
-  // Calculate the gap between installments in days to ensure they strictly fall
-  // within the same rent cycle (frequency) regardless of how short it is.
-  const leaseMonths = FREQUENCY_MONTHS[rentFrequency] ?? 12; // default to yearly
-  const leaseDays = rentFrequency === "DAILY" ? 1 : leaseMonths * 30; // Approx 30 days/month
-  const intervalDays = Math.round(leaseDays / totalInstallments);
-
-  const now = new Date();
-
-  for (let i = 1; i <= remaining; i++) {
-    const dueDate = new Date(now);
-    dueDate.setDate(dueDate.getDate() + intervalDays * i);
-
-    const dueDateUTC = new Date(Date.UTC(
-      dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate(), 0, 0, 0, 0
-    ));
-
-    await prisma.recurringCharge.create({
-      data: {
-        tenantId,
-        billingRuleId: installmentRule.id,
-        amount: installmentAmount,
-        dueDate: dueDateUTC,
-        status: "UNPAID",
-      },
-    });
-
-    const installmentNum = paidInstallmentNumber + i;
-    console.log(`[Installments] Scheduled installment ${installmentNum}/${totalInstallments} for tenant ${tenantId} — ₦${installmentAmount} due ${dueDateUTC.toISOString().slice(0, 10)} (${rentFrequency} ÷ ${totalInstallments} = ${intervalMonths}mo interval)`);
-  }
-}
 
 const verifySchema = z.object({
   reference: z.string().min(1),
@@ -357,9 +291,20 @@ export async function POST(req) {
       
       const leaseMonths = FREQUENCY_MONTHS[frequency] ?? 12;
       const leaseDays = frequency === "DAILY" ? 1 : leaseMonths * 30;
-      const intervalDays = isPartial && totalInstallments ? Math.round(leaseDays / totalInstallments) : leaseDays;
+      
+      if (!isPartial && profile.rentStartDate) {
+        const fullLeaseEndDate = new Date(profile.rentStartDate);
+        fullLeaseEndDate.setDate(fullLeaseEndDate.getDate() + leaseDays);
 
-      newExpiryDate.setDate(newExpiryDate.getDate() + intervalDays);
+        if (newExpiryDate < fullLeaseEndDate) {
+          newExpiryDate = fullLeaseEndDate;
+        } else {
+          newExpiryDate.setDate(newExpiryDate.getDate() + leaseDays);
+        }
+      } else {
+        const intervalDays = isPartial && totalInstallments ? Math.round(leaseDays / totalInstallments) : leaseDays;
+        newExpiryDate.setDate(newExpiryDate.getDate() + intervalDays);
+      }
     }
 
     const txOps = [
@@ -412,9 +357,19 @@ export async function POST(req) {
       }) : null;
       const rentFrequency = rentRule?.frequency || "YEARLY";
 
+      // Use only the rent portion — not the full payment amount which may include
+      // one-time fees (caution, security deposit) that are only due on installment 1.
+      let rentOnlyAmount = actualPaidAmount;
+      if (Array.isArray(breakdown)) {
+        const rentItem = breakdown.find(b => b.name?.toLowerCase().includes("rent"));
+        if (rentItem?.amount) rentOnlyAmount = rentItem.amount;
+      } else if (rentRule?.amount) {
+        rentOnlyAmount = Math.round((rentRule.amount / totalInstallments) * 100) / 100;
+      }
+
       await scheduleRemainingInstallments({
         tenantId: profile.id,
-        installmentAmount: actualPaidAmount,
+        installmentAmount: rentOnlyAmount,
         totalInstallments,
         paidInstallmentNumber: 1,
         rentFrequency,

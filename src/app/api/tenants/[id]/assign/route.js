@@ -36,7 +36,7 @@ export async function PUT(req, { params }) {
   try {
     const { id } = await params;
     const body = await req.json();
-    const { roomId, rentExpiryDate: clientExpiry } = body;
+    const { roomId, rentExpiryDate: clientExpiry, carryOverBalance = false } = body;
 
     if (!roomId) {
       return new NextResponse("Missing roomId", { status: 400 });
@@ -57,20 +57,71 @@ export async function PUT(req, { params }) {
 
       let rentStartDate;
       let expiry;
+      let newCarriedOverBalance = 0;
 
       if (isRoomChange) {
-        // ── Room change: tenant already has a paid cycle — preserve it ──
-        rentStartDate = profile.rentStartDate;
-        expiry        = profile.rentExpiryDate;
+        // ── Room change ──
+        const rentIsActive = profile.rentExpiryDate && new Date(profile.rentExpiryDate) > now;
+
+        if (rentIsActive && carryOverBalance) {
+          // Tenant has an active unexpired cycle AND landlord chose to carry over.
+          // Calculate what's still owed on the old room, store it as carriedOverBalance.
+          // Preserve the existing cycle dates so expiry doesn't reset.
+          const verifiedPayments = await tx.payment.findMany({
+            where: {
+              tenantId: profile.id,
+              status: { in: ["VERIFIED", "SUCCESS"] },
+              type: "RENT",
+              createdAt: { gte: profile.rentStartDate ?? new Date(0) },
+            },
+            select: { amount: true },
+          });
+          const alreadyPaid = verifiedPayments.reduce((sum, p) => sum + p.amount, 0);
+
+          // Determine full rent amount for the old room
+          const oldBaseRentRule = await tx.billingRule.findFirst({
+            where: {
+              type: { in: ["Base Rent", "Base_Rent", "BaseRent", "Rent", "RENT", "BASE_RENT"] },
+              rooms: { some: { id: profile.roomId } },
+            },
+          });
+          const oldFullRent = oldBaseRentRule?.amount ?? profile.room?.rentAmount ?? 0;
+          const remaining = Math.max(0, oldFullRent - alreadyPaid);
+
+          newCarriedOverBalance = remaining;
+
+          // Preserve existing cycle dates — tenant is mid-cycle
+          rentStartDate = now; // reset start to now so payment scoping works correctly
+          expiry = profile.rentExpiryDate;
+        } else {
+          // Rent expired OR landlord chose fresh start — reset everything
+          rentStartDate = now;
+          newCarriedOverBalance = 0;
+
+          if (clientExpiry) {
+            expiry = new Date(clientExpiry);
+          } else {
+            const baseRentRule = await tx.billingRule.findFirst({
+              where: {
+                type: { in: ["Base Rent", "Base_Rent", "BaseRent", "Rent", "RENT", "BASE_RENT"] },
+                rooms: { some: { id: roomId } },
+              },
+              orderBy: { createdAt: "asc" },
+            });
+            expiry = calcExpiry(baseRentRule?.frequency ?? "YEARLY", now);
+          }
+        }
 
         // Close the old StayHistory entry
         await tx.stayHistory.updateMany({
           where: { tenantId: id, status: "ACTIVE" },
           data: { endDate: now, status: "COMPLETED" },
         });
+
       } else {
-        // ── Fresh assignment ──
+        // ── Fresh assignment (no previous room) ──
         rentStartDate = now;
+        newCarriedOverBalance = 0;
 
         if (clientExpiry) {
           expiry = new Date(clientExpiry);
@@ -85,8 +136,7 @@ export async function PUT(req, { params }) {
           expiry = calcExpiry(baseRentRule?.frequency ?? "YEARLY", now);
         }
 
-        // Promote pre-active tenants to ACTIVE so the directory shows their room correctly.
-        // PENDING and REJECTED are never promoted here — they need to go through the proper flow.
+        // Promote pre-active tenants to ACTIVE
         if (PROMOTABLE_STATUSES.includes(currentStatus)) {
           await tx.user.update({
             where: { id: profile.userId },
@@ -95,21 +145,24 @@ export async function PUT(req, { params }) {
         }
       }
 
-      // Update the tenant profile with the new room and dates
+      // Update tenant profile with new room, dates, and carried-over balance
       await tx.tenantProfile.update({
         where: { id },
-        data: { roomId, rentStartDate, rentExpiryDate: expiry },
+        data: {
+          roomId,
+          rentStartDate,
+          rentExpiryDate: expiry,
+          carriedOverBalance: newCarriedOverBalance,
+        },
       });
 
       // ── Transfer Room Sharers ──
-      // Automatically move all linked room sharers to the new room
-      // and sync their lease dates with the primary tenant
       await tx.tenantProfile.updateMany({
         where: { primaryTenantId: id },
         data: { roomId, rentStartDate, rentExpiryDate: expiry },
       });
 
-      // Mark the room as OCCUPIED
+      // Mark the new room as OCCUPIED
       await tx.room.update({
         where: { id: roomId },
         data: { status: "OCCUPIED" },

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { 
   CreditCard, ShieldCheck, AlertCircle, FileText, 
-  CheckCircle2, X, Calendar, Lock, HelpCircle 
+  CheckCircle2, X, Calendar, Lock, HelpCircle, Sparkles, ChevronRight, Clock, ArrowRight 
 } from "lucide-react";
 import PaymentFormWrapper from "@/components/PaymentFormWrapper";
 
@@ -22,14 +22,17 @@ const freqLabel = (frequency) => {
 export default function PaymentBreakdownPanel({
   room,
   baseRentAmount,
-  billingRules,
-  unpaidCharges,
+  rentRemaining = null,
+  alreadyPaidRent = 0,
+  billingRules = [],
+  unpaidCharges = [],
+  upcomingCharges = [],
   totalDue,
   isPartialMode,
   installmentAmount,
   profile,
   session,
-  paymentHistory,
+  paymentHistory = [],
   rentFrequencyShorthand = "yr",
   allRecurringCharges = [],
   isSharer = false,
@@ -37,94 +40,265 @@ export default function PaymentBreakdownPanel({
   canChoosePartial = false,
   defaultInstallments = 1,
   hasActiveInstallmentPlan = false,
+  earlyInstallmentCharge = null,
+  isRentPaid = false,
+  effectiveExpiryDate = null,
+  hasPendingRentPayment = false,
 }) {
   const [localIsPartialMode, setLocalIsPartialMode] = useState(isPartialMode || canChoosePartial);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // We keep track of checked state for each billing item.
-  // By default, base rent, caution fees, and overdue charges are mandatory (checked and disabled).
-  // Standard unpaid recurring charges are toggleable.
+  // When tenant switches between "Pay Full" and "Pay Installment":
+  // - Full mode → rent must be checked (row is visible and locked)
+  // - Installment mode with active plan → rent must be unchecked (row is hidden, tenant picks charges individually)
+  useEffect(() => {
+    if (!isRentPaid) {
+      const inInstallmentMode = localIsPartialMode && hasActiveInstallmentPlan;
+      setSelectedItems(prev => ({ ...prev, rent: !inInstallmentMode }));
+    }
+  }, [localIsPartialMode, hasActiveInstallmentPlan, isRentPaid]);
+
+  // Projected new expiry date when paying advance rent
+  const projectedExpiryDate = useMemo(() => {
+    if (!effectiveExpiryDate) return null;
+    const d = new Date(effectiveExpiryDate);
+    switch (rentFrequencyShorthand) {
+      case "yr":
+        d.setFullYear(d.getFullYear() + 1);
+        break;
+      case "sem":
+        d.setMonth(d.getMonth() + 6);
+        break;
+      case "qtr":
+        d.setMonth(d.getMonth() + 3);
+        break;
+      case "mo":
+        d.setMonth(d.getMonth() + 1);
+        break;
+      case "day":
+        d.setDate(d.getDate() + 1);
+        break;
+      default:
+        d.setFullYear(d.getFullYear() + 1);
+    }
+    return d;
+  }, [effectiveExpiryDate, rentFrequencyShorthand]);
+
+  // Rent amount fallback
+  const fullRentAmount = baseRentAmount ?? room.rentAmount;
+
+  // ── Outstanding rent balance (source of truth) ──────────────────────────────
+  // Always derive from actual verified payments, never from DB installment charge records.
+  // alreadyPaidRent = sum of all VERIFIED/SUCCESS rent payments for this cycle (from page.js).
+  // rentRemaining = fullRentAmount - alreadyPaidRent (guaranteed by page.js).
+  const outstandingRentBalance = (() => {
+    if (isRentPaid) return fullRentAmount; // advance renewal — charge next full cycle
+    if (rentRemaining !== null && rentRemaining >= 0) return rentRemaining;
+    // Fallback: compute directly from already-paid amount
+    return alreadyPaidRent > 0 ? Math.max(0, fullRentAmount - alreadyPaidRent) : fullRentAmount;
+  })();
+
+  // Tenant has a partial balance when they have paid SOMETHING but not everything.
+  const hasPartialBalance = !isRentPaid && (
+    (alreadyPaidRent > 0 && outstandingRentBalance < fullRentAmount) ||
+    (hasActiveInstallmentPlan && outstandingRentBalance > 0)
+  );
+
+  // The rent figure used in ALL calculations and display:
+  // - Full-pay mode: outstandingRentBalance (remaining amount owed)
+  // - Installment mode: outstandingRentBalance / activeInstallments  (computed below)
+  // - Advance renewal: fullRentAmount
+  const rentAmount = outstandingRentBalance;
+
+  // Format upcoming charges to show readable titles for system installments.
+  // If tenant is paying remaining balance in full, exclude system installments so they aren't duplicated.
+  const formattedUpcomingCharges = useMemo(() => {
+    const allInstCharges = allRecurringCharges
+      .filter(c => c.billingRuleId === "__system_rent_installment__")
+      .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+    const totalInstCount = allInstCharges.length + 1;
+    const shouldExcludeInstallments = !localIsPartialMode && hasPartialBalance;
+
+    return (upcomingCharges || [])
+      .filter(charge => {
+        if (shouldExcludeInstallments && charge.billingRuleId === "__system_rent_installment__") {
+          return false;
+        }
+        return true;
+      })
+      .map(charge => {
+        if (charge.billingRuleId === "__system_rent_installment__") {
+          const instIndex = allInstCharges.findIndex(c => c.id === charge.id) + 2;
+          return {
+            ...charge,
+            billingRule: {
+              ...charge.billingRule,
+              title: `Rent Installment ${instIndex} of ${totalInstCount}`,
+              description: `Rent Installment ${instIndex} of ${totalInstCount}`,
+            },
+          };
+        }
+        return charge;
+      });
+  }, [upcomingCharges, allRecurringCharges, localIsPartialMode, hasPartialBalance]);
+
+  // When paying remaining rent in full, also exclude system installments from unpaid charges list to prevent duplicate display
+  const effectiveUnpaidCharges = useMemo(() => {
+    const shouldExcludeInstallments = !localIsPartialMode && hasPartialBalance;
+    return (unpaidCharges || []).filter(charge => {
+      if (shouldExcludeInstallments && charge.billingRuleId === "__system_rent_installment__") {
+        return false;
+      }
+      return true;
+    });
+  }, [unpaidCharges, localIsPartialMode, hasPartialBalance]);
+
+  // Track checked state for each billing item.
+  // - If rent is NOT paid (due/expiring): rent, mandatory rules, and due charges start CHECKED.
+  // - If rent is ALREADY paid: advance rent, fees, and upcoming charges start UNCHECKED (Total = 0, zero panic).
   const [selectedItems, setSelectedItems] = useState(() => {
-    const initialState = {
-      rent: true, // Base rent is mandatory
-    };
+    const initialState = {};
 
-    // Global / one-time fees are mandatory
-    billingRules.forEach(rule => {
-      initialState[`rule_${rule.id}`] = true;
+    if (!isRentPaid) {
+      // Start rent checked. When switching to installment mode, the rent row
+      // is hidden and rent gets unchecked via the useEffect below.
+      initialState.rent = true;
+      billingRules.forEach(rule => {
+        initialState[`rule_${rule.id}`] = true;
+      });
+    } else {
+      initialState.rent = false;
+      billingRules.forEach(rule => {
+        initialState[`rule_${rule.id}`] = false;
+      });
+    }
+
+    // Charges that are currently due/overdue
+    unpaidCharges.forEach(charge => {
+      initialState[`charge_${charge.id}`] = true;
     });
 
-    // Unpaid/overdue recurring charges
-    unpaidCharges.forEach(charge => {
-      // All due bills should be automatically clicked (checked) by default
-      initialState[`charge_${charge.id}`] = true;
+    // Upcoming future charges are optional and start unchecked
+    (upcomingCharges || []).forEach(charge => {
+      initialState[`charge_${charge.id}`] = false;
     });
 
     return initialState;
   });
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
-  // Use the ticked BASE_RENT rule's amount if provided, otherwise fall back to room.rentAmount
-  const rentAmount = baseRentAmount ?? room.rentAmount;
-
   // Dynamically calculate the active total selected
   let activeTotal = selectedItems["rent"] ? rentAmount : 0;
-  
+
   billingRules.forEach(rule => {
     if (selectedItems[`rule_${rule.id}`]) {
       activeTotal += rule.amount;
     }
   });
 
-  unpaidCharges.forEach(charge => {
+  effectiveUnpaidCharges.forEach(charge => {
     if (selectedItems[`charge_${charge.id}`]) {
       activeTotal += charge.amount;
     }
   });
 
-  // Calculate mathematically correct split amounts (utilities are never divided into installments)
-  const rentAndFeesTotal = (selectedItems["rent"] ? rentAmount : 0) + 
-    billingRules.reduce((sum, rule) => sum + (selectedItems[`rule_${rule.id}`] ? rule.amount : 0), 0);
+  formattedUpcomingCharges.forEach(charge => {
+    if (selectedItems[`charge_${charge.id}`]) {
+      activeTotal += charge.amount;
+    }
+  });
 
+  // Calculate split amounts
+  // IMPORTANT: Only RENT is divided into installments. Fees (caution, utilities, etc.) are always paid in full.
   const activeInstallments = localIsPartialMode ? (defaultInstallments || profile.partialPaymentInstallments || 2) : 1;
-  const rentAndFeesInstallment = localIsPartialMode 
-    ? Math.round((rentAndFeesTotal / activeInstallments) * 100) / 100
-    : rentAndFeesTotal;
 
-  const utilityTotal = unpaidCharges.reduce((sum, charge) => sum + (selectedItems[`charge_${charge.id}`] ? charge.amount : 0), 0);
+  // Rent for this checkout slot:
+  // - Full-pay mode  → outstandingRentBalance (= rentAmount, already set above)
+  // - Installment mode → one slot = outstandingRentBalance / activeInstallments
+  //   (prefer earlyInstallmentCharge.amount from DB when available so locked amounts match)
+  const rentForThisSlot = localIsPartialMode
+    ? (earlyInstallmentCharge?.amount
+        ?? installmentAmount
+        ?? Math.round((rentAmount / activeInstallments) * 100) / 100)
+    : rentAmount;
+
+  // Fees are NEVER divided - always pay full amount
+  const selectedFeesTotal = billingRules.reduce(
+    (sum, rule) => sum + (selectedItems[`rule_${rule.id}`] ? rule.amount : 0), 0
+  );
+  const feesForThisSlot = selectedFeesTotal;
+
+  // rentInstallmentOnly: the rent portion of this payment slot
+  const rentInstallmentOnly = selectedItems["rent"] ? rentForThisSlot : 0;
+  const rentAndFeesInstallment = rentInstallmentOnly + feesForThisSlot;
+
+  // Split upcoming charges into installment charges vs true utilities
+  // so the sub-label shows the right description
+  const selectedUpcomingInstallmentTotal = formattedUpcomingCharges.reduce((sum, c) => {
+    if (!selectedItems[`charge_${c.id}`]) return sum;
+    if (c.billingRuleId === "__system_rent_installment__") return sum + c.amount;
+    return sum;
+  }, 0);
+  const selectedUpcomingInstallmentCount = formattedUpcomingCharges.filter(
+    c => selectedItems[`charge_${c.id}`] && c.billingRuleId === "__system_rent_installment__"
+  ).length;
+
+  const currentUtilityTotal = effectiveUnpaidCharges.reduce((sum, charge) => sum + (selectedItems[`charge_${charge.id}`] ? charge.amount : 0), 0);
+  const upcomingUtilityTotal = formattedUpcomingCharges.reduce((sum, charge) => sum + (selectedItems[`charge_${charge.id}`] ? charge.amount : 0), 0);
+  const utilityTotal = currentUtilityTotal + upcomingUtilityTotal;
 
   const totalToPayNow = rentAndFeesInstallment + utilityTotal;
 
-  // Selected recurring charge IDs (from the Recurring Charges Due section)
-  const selectedRecurringChargeIds = unpaidCharges
+  // Selected recurring charge IDs (due and upcoming)
+  const allChargesList = [...effectiveUnpaidCharges, ...formattedUpcomingCharges];
+  const selectedRecurringChargeIds = allChargesList
     .filter(charge => selectedItems[`charge_${charge.id}`])
     .map(charge => charge.id);
 
-  // IDs of non-ONCE billing rules included in this checkout bundle.
-  // Sent to the verify route so it can stamp a PAID RecurringCharge for the
-  // current cycle — preventing the cron from double-billing the same period.
+  // All remaining system installment charges to bundle when paying in full
+  const allRemainingInstallmentIds = allRecurringCharges
+    .filter(c => c.billingRuleId === "__system_rent_installment__" && (c.status === "UNPAID" || c.status === "OVERDUE"))
+    .map(c => c.id);
+
+  // IDs of selected billing rules (one-time/setup fees) to include in checkout
   const checkoutBillingRuleIds = billingRules
-    .filter(rule => rule.frequency !== "ONCE" && selectedItems[`rule_${rule.id}`])
+    .filter(rule => selectedItems[`rule_${rule.id}`])
     .map(rule => rule.id);
 
-  // Only count VERIFIED/SUCCESS installments — PENDING means receipt submitted but not approved yet
-  const paidInstallmentCount = (paymentHistory || []).filter(
-    (p) => p.installmentNumber != null && (p.status === "VERIFIED" || p.status === "SUCCESS")
-  ).length;
-  const nextInstallmentNumber = paidInstallmentCount + 1;
+  const checkoutRecurringChargeIds = (!localIsPartialMode && selectedItems["rent"] && hasPartialBalance)
+    ? Array.from(new Set([...selectedRecurringChargeIds, ...allRemainingInstallmentIds]))
+    : selectedRecurringChargeIds;
 
+  // Count paid installments scoped to the current cycle only.
+  // rentStartDate resets on every room change — payments before it belong to the old room.
+  const cycleStart = profile?.rentStartDate ? new Date(profile.rentStartDate) : null;
+  const paidInstallmentCount = (paymentHistory || []).filter(
+    (p) => (p.installmentNumber != null || p.isPartial) &&
+      (p.status === "VERIFIED" || p.status === "SUCCESS") &&
+      (!cycleStart || new Date(p.createdAt) >= cycleStart)
+  ).length;
+  const nextInstallmentNumber = Math.min(activeInstallments, paidInstallmentCount + 1);
+
+  // Build the breakdown array — amounts MUST exactly match totalToPayNow to avoid
+  // any discrepancy between what the tenant sees and what the gateway charges.
   const breakdown = [];
   if (selectedItems["rent"]) {
-    breakdown.push({
-      name: `Base Room Rent${localIsPartialMode ? ` (Installment ${nextInstallmentNumber}/${activeInstallments})` : ""}`,
-      amount: localIsPartialMode ? Math.round((rentAmount / activeInstallments) * 100) / 100 : rentAmount
-    });
+    const rentLabel = isRentPaid
+      ? "Base Room Rent (Advance Renewal)"
+      : localIsPartialMode
+        ? `Base Room Rent (Installment ${nextInstallmentNumber}/${activeInstallments})`
+        : hasPartialBalance
+          ? `Remaining Rent Balance`
+          : "Base Room Rent";
+    breakdown.push({ name: rentLabel, amount: rentForThisSlot });
   }
   billingRules.forEach(rule => {
     if (selectedItems[`rule_${rule.id}`]) {
+      const amt = localIsPartialMode
+        ? Math.round((rule.amount / activeInstallments) * 100) / 100
+        : rule.amount;
       breakdown.push({
         name: `${rule.title || rule.description}${localIsPartialMode ? ` (Installment ${nextInstallmentNumber}/${activeInstallments})` : ""}`,
-        amount: localIsPartialMode ? Math.round((rule.amount / activeInstallments) * 100) / 100 : rule.amount
+        amount: amt
       });
     }
   });
@@ -132,6 +306,14 @@ export default function PaymentBreakdownPanel({
     if (selectedItems[`charge_${charge.id}`]) {
       breakdown.push({
         name: `${charge.billingRule?.title || charge.billingRule?.description || "Utility Charge"}`,
+        amount: charge.amount
+      });
+    }
+  });
+  formattedUpcomingCharges.forEach(charge => {
+    if (selectedItems[`charge_${charge.id}`]) {
+      breakdown.push({
+        name: `${charge.billingRule?.title || charge.billingRule?.description || "Upcoming Charge"} (Advance)`,
         amount: charge.amount
       });
     }
@@ -150,7 +332,7 @@ export default function PaymentBreakdownPanel({
   }, [isModalOpen]);
 
   const toggleItem = (key, isMandatory) => {
-    if (isMandatory) return; // Cannot toggle mandatory items
+    if (isMandatory) return; // Cannot toggle locked mandatory items
     setSelectedItems(prev => ({
       ...prev,
       [key]: !prev[key],
@@ -158,31 +340,73 @@ export default function PaymentBreakdownPanel({
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8" id="rent-payment-panel">
+
       {/* ── Dynamic Billing Breakdown Checklist ── */}
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in duration-500">
-        <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/20">
-          <h2 className="text-lg font-display font-semibold text-slate-900 flex items-center gap-2">
-            <ShieldCheck size={20} className="text-blue-600" />
-            Billing Checklist
-          </h2>
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-            Select items to pay
-          </span>
+        
+        {/* Header */}
+        <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/40">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-blue-100 text-blue-600 rounded-2xl">
+              <ShieldCheck size={22} />
+            </div>
+            <div>
+              <h2 className="text-base sm:text-lg font-bold text-slate-900">
+                {isRentPaid ? "Payment Checklist & Advance Settle" : "Billing Checklist"}
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {isRentPaid 
+                  ? "Select any future rent cycle or upcoming bills you wish to settle in advance." 
+                  : "Review and select charges to settle."}
+              </p>
+            </div>
+          </div>
+          {!isRentPaid && !hasActiveInstallmentPlan && (
+            <span className="text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider self-start sm:self-auto border bg-amber-50 text-amber-700 border-amber-200">
+              Payment Due
+            </span>
+          )}
         </div>
 
-        <div className="p-6 sm:p-8 space-y-4">
-          {canChoosePartial && (
-            <div className="bg-blue-50/50 rounded-2xl border border-blue-100 p-5 mb-6">
+        <div className="p-6 sm:p-8 space-y-6">
+
+          {/* Reassuring advance info banner if current rent is up-to-date */}
+          {isRentPaid && (
+            <div className="bg-gradient-to-r from-blue-50 via-indigo-50/40 to-white border border-blue-200/80 rounded-2xl p-4 sm:p-5 flex items-start gap-3.5">
+              <div className="space-y-1">
+                <p className="text-xs font-bold uppercase tracking-wider text-blue-900">
+                  Advance Prepayment Option
+                </p>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Your current stay is settled up to <strong className="text-slate-900">{effectiveExpiryDate ? new Date(effectiveExpiryDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "the scheduled date"}</strong>.
+                  {projectedExpiryDate && (
+                    <> Paying next cycle early will immediately extend your stay to <strong className="text-blue-700 underline decoration-blue-300">{projectedExpiryDate.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</strong>.</>
+                  )} All items below start unselected — simply tick whatever you want to pay early.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Partial payment selector if eligible */}
+          {(canChoosePartial || hasPartialBalance) && (
+            <div className="bg-blue-50/50 rounded-2xl border border-blue-100 p-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h3 className="text-sm font-bold text-blue-900">Payment Plan Option</h3>
+                  <h3 className="text-sm font-bold text-blue-900">
+                    {hasPartialBalance ? "Payment Options" : "Payment Plan Option"}
+                  </h3>
                   <p className="text-xs text-blue-700 mt-1">
-                    As a returning tenant, you can choose to pay your rent in full or split it into {activeInstallments} installments.
+                    {localIsPartialMode
+                      ? `Your rent is divided into scheduled installments. You can select your next installment below to settle it early anytime.`
+                      : hasPartialBalance
+                        ? `You have a remaining rent balance of ₦${rentRemaining.toLocaleString(undefined, { maximumFractionDigits: 2 })}. You can clear this balance in full or continue with your scheduled installments.`
+                        : `As an eligible tenant, you can choose to pay rent in full or split it into ${activeInstallments} installments.`}
                   </p>
                 </div>
                 <div className="flex items-center bg-white rounded-xl border border-blue-200 p-1 shrink-0">
                   <button
+                    type="button"
                     onClick={() => setLocalIsPartialMode(false)}
                     className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
                       !localIsPartialMode 
@@ -190,9 +414,10 @@ export default function PaymentBreakdownPanel({
                         : "text-slate-600 hover:text-blue-600"
                     }`}
                   >
-                    Pay Full
+                    {hasPartialBalance ? "Pay Remaining in Full" : "Pay Full"}
                   </button>
                   <button
+                    type="button"
                     onClick={() => setLocalIsPartialMode(true)}
                     className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
                       localIsPartialMode 
@@ -200,172 +425,113 @@ export default function PaymentBreakdownPanel({
                         : "text-slate-600 hover:text-blue-600"
                     }`}
                   >
-                    Installments
+                    {hasPartialBalance ? "Pay Installment" : "Installments"}
                   </button>
                 </div>
               </div>
             </div>
           )}
 
-          <p className="text-xs text-slate-500 font-medium mb-2">
-            Check the items you want to settle in this transaction. Mandatory items required to maintain or renew your tenancy are pre-selected and locked.
-          </p>
-
-          {/* 1. Base Room Rent — hidden when tenant is mid-installment plan */}
-          {!hasActiveInstallmentPlan && (() => {
-            const rentLockWindowDays = (rentFrequencyShorthand === "yr" || rentFrequencyShorthand === "sem") ? 30 : 7;
-            const daysUntilRentExpiry = profile.rentExpiryDate
-              ? Math.ceil((new Date(profile.rentExpiryDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
-              : null;
-            const isRentMandatory = daysUntilRentExpiry === null || daysUntilRentExpiry <= rentLockWindowDays;
+          {/* 1. Base Room Rent — hidden when tenant is in installment mode with an active plan */}
+          {(!localIsPartialMode || !hasActiveInstallmentPlan) && (() => {
+            const isRentDisabled = isSharer || hasPendingRentPayment;
+            const isRentMandatory = !isRentPaid && !isRentDisabled;
+            const isChecked = !!selectedItems["rent"];
 
             return (
               <div 
-                onClick={() => toggleItem("rent", isRentMandatory)}
-                className={`flex flex-wrap items-center justify-between p-4 sm:p-5 bg-slate-50 rounded-2xl border transition-all select-none ${isRentMandatory ? "border-slate-100 hover:border-slate-200 cursor-not-allowed" : "border-slate-200 hover:border-blue-300 cursor-pointer shadow-sm hover:shadow-md"}`}
+                onClick={() => {
+                  if (isRentDisabled) return;
+                  toggleItem("rent", isRentMandatory);
+                }}
+                className={`flex flex-wrap items-center justify-between p-4 sm:p-5 rounded-2xl border transition-all select-none ${
+                  isRentDisabled
+                    ? "bg-slate-50 border-slate-100 cursor-not-allowed opacity-90"
+                    : isRentMandatory
+                      ? "bg-slate-50 border-slate-100 cursor-not-allowed"
+                      : isChecked
+                        ? "bg-blue-50/20 border-blue-200 cursor-pointer shadow-sm hover:border-blue-300"
+                        : "bg-white border-slate-100 hover:border-slate-200 cursor-pointer"
+                }`}
               >
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-4">
                   <div className="relative flex items-center justify-center">
                     <input 
                       type="checkbox"
-                      checked={selectedItems["rent"]}
+                      checked={isChecked}
                       readOnly
-                      disabled={isRentMandatory}
-                      className={`w-5 h-5 rounded-lg border-slate-300 text-blue-600 focus:ring-blue-500/20 ${isRentMandatory ? "cursor-not-allowed" : "cursor-pointer"}`}
+                      disabled={isRentMandatory || isRentDisabled}
+                      className={`w-5 h-5 rounded-lg border-slate-300 text-blue-600 focus:ring-blue-500/20 ${
+                        isRentMandatory || isRentDisabled ? "cursor-not-allowed" : "cursor-pointer"
+                      }`}
                     />
-                    {isRentMandatory && <Lock size={10} className="absolute text-slate-400" />}
+                    {(isRentMandatory || isRentDisabled) && <Lock size={10} className="absolute text-slate-400" />}
                   </div>
-                  <div className="">
-                    <p className="text-sm font-display font-semibold text-slate-900 flex items-center gap-2">
-                      Room Rent
-                      {isRentMandatory && (
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                      {isRentPaid
+                        ? "Room Rent (Advance Renewal)"
+                        : !localIsPartialMode && hasPartialBalance
+                          ? "Remaining Rent Balance"
+                          : localIsPartialMode
+                            ? `Base Room Rent (Installment ${nextInstallmentNumber}/${activeInstallments})`
+                            : "Room Rent"}
+                      {hasPendingRentPayment ? (
+                        <span className="text-[9px] font-bold px-2 py-0.5 bg-amber-50 text-amber-700 rounded-full border border-amber-200">
+                          Payment Under Review
+                        </span>
+                      ) : isRentPaid ? (
+                        <span className="text-[9px] font-bold px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full border border-blue-100">
+                          Advance Renewal
+                        </span>
+                      ) : hasPartialBalance ? (
+                        <span className="text-[9px] font-bold px-2 py-0.5 bg-green-50 text-green-700 rounded-full border border-green-200">
+                          ₦{(alreadyPaidRent > 0 ? alreadyPaidRent : (fullRentAmount - rentRemaining)).toLocaleString(undefined, { maximumFractionDigits: 2 })} already paid
+                        </span>
+                      ) : isRentMandatory ? (
                         <span className="text-[9px] font-bold px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full border border-blue-100">
                           Mandatory
                         </span>
-                      )}
+                      ) : null}
                     </p>
                     <div className="flex flex-wrap items-center gap-2 mt-0.5">
                       <p className="text-xs text-slate-400">Room {room.roomNumber}</p>
-                      {profile.rentExpiryDate && (
-                        <p className="text-xs text-wrap text-slate-400">· Due: {new Date(profile.rentExpiryDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</p>
-                      )}
+                      {hasPendingRentPayment ? (
+                        <p className="text-xs text-amber-600 font-medium">· Receipt submitted · Awaiting landlord review</p>
+                      ) : effectiveExpiryDate ? (
+                        <p className="text-xs text-slate-400">
+                          · {isRentPaid 
+                              ? `Current expiry: ${new Date(effectiveExpiryDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}` 
+                              : `Due: ${new Date(effectiveExpiryDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`}
+                        </p>
+                      ) : null}
                     </div>
                   </div>
                 </div>
-                <span className="text-sm sm:text-base font-display font-bold text-slate-900">
-                  ₦{rentAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}/{rentFrequencyShorthand}
+                <span className="text-sm sm:text-base font-bold text-slate-900">
+                  ₦{rentForThisSlot.toLocaleString(undefined, { maximumFractionDigits: 2 })}/{rentFrequencyShorthand}
                 </span>
               </div>
             );
           })()}
 
-          {/* Active installment plan notice — shown instead of base rent row */}
-          {hasActiveInstallmentPlan && (
-            <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-100 rounded-2xl">
-              <Calendar size={18} className="text-blue-500 mt-0.5 shrink-0" />
-              <div>
-                <p className="text-sm font-bold text-blue-900">Installment Plan Active</p>
-                <p className="text-xs text-blue-700 mt-0.5">
-                  Your remaining rent installments are listed under <strong>Recurring Charges Due</strong>. Pay each one as it becomes due — no new checkout required.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* 2. Billing Fees — mandatory (locked) only if within reminder window or overdue, otherwise toggleable */}
+          {/* 2. Room Rules / Additional Fees */}
           {billingRules.map(rule => {
-            const matchingCharge = allRecurringCharges
-              .filter(c => c.billingRuleId === rule.id && (c.status === "UNPAID" || c.status === "OVERDUE"))
-              .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))[0];
-            const dueDateStr = matchingCharge
-              ? new Date(matchingCharge.dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
-              : null;
-
-            // Apply same lock-window logic as recurring charges
-            const freq = rule.frequency;
-            const lockWindowDays = (freq === "YEARLY" || freq === "PER_SEMESTER") ? 30 : 7;
-            const daysUntilDue = matchingCharge
-              ? Math.ceil((new Date(matchingCharge.dueDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
-              : null;
-            // If no charge record found (e.g. pure ONCE fee OR first installment of recurring):
-            // - mandatory if landlord set isOptional=false (default)
-            // - optional (unlocked) if landlord set isOptional=true
-            const isMandatory = daysUntilDue === null
-              ? !rule.isOptional 
-              : (matchingCharge?.status === "OVERDUE" || daysUntilDue <= lockWindowDays);
-
+            const isMandatory = !isRentPaid && !rule.isOptional;
             const key = `rule_${rule.id}`;
-            const isChecked = selectedItems[key];
-
-            return (
-            <div 
-              key={rule.id}
-              onClick={() => toggleItem(key, isMandatory)}
-              className={`flex flex-wrap items-center justify-between p-4 sm:p-5 rounded-2xl border transition-all select-none ${
-                isMandatory
-                  ? "bg-slate-50 border-slate-100 cursor-not-allowed"
-                  : isChecked
-                    ? "bg-blue-50/20 border-blue-200 cursor-pointer hover:border-blue-300"
-                    : "bg-white border-slate-100 cursor-pointer hover:border-slate-200"
-              }`}
-            >
-              <div className="flex items-center gap-4">
-                <div className="relative flex items-center justify-center">
-                  <input 
-                    type="checkbox"
-                    checked={isChecked}
-                    readOnly
-                    disabled={isMandatory}
-                    className={`w-5 h-5 rounded-lg border-slate-300 text-blue-600 focus:ring-blue-500/20 ${isMandatory ? "cursor-not-allowed" : "cursor-pointer"}`}
-                  />
-                  {isMandatory && <Lock size={10} className="absolute text-slate-400" />}
-                </div>
-                <div>
-                  <p className="text-sm font-display font-semibold text-slate-900 flex items-center gap-2">
-                    {rule.title || rule.description}
-                    {isMandatory ? (
-                      <span className="text-[9px] font-bold px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full border border-indigo-100">
-                        Mandatory Fee
-                      </span>
-                    ) : (
-                      <span className="text-[9px] font-bold px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full border border-slate-200">
-                        Optional
-                      </span>
-                    )}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-2 mt-0.5">
-                    <p className="text-xs text-slate-400">Category: {rule.type ? rule.type.replace(/_/g, " ").toUpperCase() : "ONE-TIME FEE"}</p>
-                    {dueDateStr && <p className="text-xs text-slate-400">· Due: {dueDateStr}</p>}
-                  </div>
-                </div>
-              </div>
-              <span className="text-sm sm:text-base font-display font-bold text-slate-900">
-                ₦{rule.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}/{freqLabel(rule.frequency)}
-              </span>
-            </div>
-          )})}
-
-          {/* 3. Unpaid / Overdue Recurring Charges (Toggleable if Unpaid, locked if Overdue or within reminder window) */}
-          {unpaidCharges.map(charge => {
-            const freq = charge.billingRule?.frequency;
-            const lockWindowDays = (freq === "YEARLY" || freq === "PER_SEMESTER") ? 30 : 7;
-            const daysUntilDue = Math.ceil((new Date(charge.dueDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-            
-            // Lock if overdue or if it has entered the automated reminder window
-            const isMandatory = charge.status === "OVERDUE" || daysUntilDue <= lockWindowDays; 
-            
-            const key = `charge_${charge.id}`;
-            const isChecked = selectedItems[key];
+            const isChecked = !!selectedItems[key];
 
             return (
               <div 
-                key={charge.id}
+                key={rule.id}
                 onClick={() => toggleItem(key, isMandatory)}
-                className={`flex flex-wrap items-center justify-between p-4 sm:p-5 rounded-2xl border transition-all select-none cursor-pointer ${
-                  isChecked 
-                    ? "bg-blue-50/20 border-blue-200" 
-                    : "bg-white border-slate-100 hover:border-slate-200"
-                } ${isMandatory ? "cursor-not-allowed opacity-95 bg-slate-50" : ""}`}
+                className={`flex flex-wrap items-center justify-between p-4 sm:p-5 rounded-2xl border transition-all select-none ${
+                  isMandatory
+                    ? "bg-slate-50 border-slate-100 cursor-not-allowed"
+                    : isChecked
+                      ? "bg-blue-50/20 border-blue-200 cursor-pointer shadow-sm hover:border-blue-300"
+                      : "bg-white border-slate-100 cursor-pointer hover:border-slate-200"
+                }`}
               >
                 <div className="flex items-center gap-4">
                   <div className="relative flex items-center justify-center">
@@ -374,41 +540,187 @@ export default function PaymentBreakdownPanel({
                       checked={isChecked}
                       readOnly
                       disabled={isMandatory}
-                      className={`w-5 h-5 rounded-lg focus:ring-blue-500/20 cursor-pointer ${
-                        isMandatory 
-                          ? "border-slate-300 text-blue-600 cursor-not-allowed" 
-                          : "border-slate-300 text-blue-600"
+                      className={`w-5 h-5 rounded-lg border-slate-300 text-blue-600 focus:ring-blue-500/20 ${
+                        isMandatory ? "cursor-not-allowed" : "cursor-pointer"
                       }`}
                     />
                     {isMandatory && <Lock size={10} className="absolute text-slate-400" />}
                   </div>
                   <div>
-                    <p className="text-sm font-display font-semibold text-slate-900 flex items-center gap-2">
-                      {charge.billingRule?.title || charge.billingRule?.description || "Utility Charge"}
-                      {charge.status === "OVERDUE" ? (
-                        <span className="text-[9px] font-bold px-2 py-0.5 bg-red-50 text-red-600 rounded-full border border-red-100">
-                          Overdue Mandatory
-                        </span>
-                      ) : (
+                    <p className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                      {rule.title || rule.description}
+                      {isMandatory && (
                         <span className="text-[9px] font-bold px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full border border-blue-100">
-                          Due & Locked
+                          Mandatory
                         </span>
                       )}
                     </p>
-                    <p className="text-xs text-wrap text-slate-400 mt-0.5">
-                      Type: {charge.billingRule?.type ? charge.billingRule.type.replace(/_/g, " ").toUpperCase() : "UTILITY"} • Due: {new Date(charge.dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-                    </p>
+                    <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                      <p className="text-xs text-slate-400">Category: {rule.type ? rule.type.replace(/_/g, " ").toUpperCase() : "FEE"}</p>
+                      <p className="text-xs text-slate-400">· Cycle: {freqLabel(rule.frequency)}</p>
+                    </div>
                   </div>
                 </div>
-                <span className="text-sm sm:text-base font-display font-bold text-slate-900">
-                  ₦{charge.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}/{freqLabel(charge.billingRule?.frequency)}
+                <span className="text-sm sm:text-base font-bold text-slate-900">
+                  ₦{rule.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}/{freqLabel(rule.frequency)}
                 </span>
               </div>
             );
           })}
 
-          {/* Dynamic Installment Notice if Partial Mode & selected items */}
-          {localIsPartialMode && rentAndFeesTotal > 0 && (
+          {/* 3. Unpaid / Overdue Recurring Charges (Due Now) */}
+          {effectiveUnpaidCharges.length > 0 && (
+            <div className="pt-2 space-y-3">
+              <div className="flex items-center justify-between pb-1">
+                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Charges Due Now
+                </h4>
+                <span className="text-[10px] text-amber-600 font-bold">
+                  {effectiveUnpaidCharges.length} outstanding
+                </span>
+              </div>
+
+              {effectiveUnpaidCharges.map(charge => {
+                const freq = charge.billingRule?.frequency;
+                const lockWindowDays = (freq === "YEARLY" || freq === "PER_SEMESTER") ? 30 : 7;
+                const daysUntilDue = Math.ceil((new Date(charge.dueDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                const isMandatory = charge.status === "OVERDUE" || daysUntilDue <= lockWindowDays; 
+                
+                const key = `charge_${charge.id}`;
+                const isChecked = !!selectedItems[key];
+
+                return (
+                  <div 
+                    key={charge.id}
+                    onClick={() => toggleItem(key, isMandatory)}
+                    className={`flex flex-wrap items-center justify-between p-4 sm:p-5 rounded-2xl border transition-all select-none ${
+                      isMandatory
+                        ? "bg-slate-50 border-slate-100 cursor-not-allowed opacity-95"
+                        : isChecked 
+                          ? "bg-blue-50/20 border-blue-200 cursor-pointer shadow-sm hover:border-blue-300" 
+                          : "bg-white border-slate-100 hover:border-slate-200 cursor-pointer"
+                    }`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="relative flex items-center justify-center">
+                        <input 
+                          type="checkbox"
+                          checked={isChecked}
+                          readOnly
+                          disabled={isMandatory}
+                          className={`w-5 h-5 rounded-lg border-slate-300 text-blue-600 focus:ring-blue-500/20 ${
+                            isMandatory ? "cursor-not-allowed" : "cursor-pointer"
+                          }`}
+                        />
+                        {isMandatory && <Lock size={10} className="absolute text-slate-400" />}
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                          {charge.billingRule?.title || charge.billingRule?.description || "Utility Charge"}
+                          {charge.status === "OVERDUE" ? (
+                            <span className="text-[9px] font-bold px-2 py-0.5 bg-red-50 text-red-600 rounded-full border border-red-100">
+                              Overdue
+                            </span>
+                          ) : (
+                            <span className="text-[9px] font-bold px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full border border-blue-100">
+                              Due Now
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          Type: {charge.billingRule?.type ? charge.billingRule.type.replace(/_/g, " ").toUpperCase() : "UTILITY"} • Due: {new Date(charge.dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-sm sm:text-base font-bold text-slate-900">
+                      ₦{charge.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}/{freqLabel(charge.billingRule?.frequency)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* 4. Upcoming / Future Recurring Charges (Optional Advance Payments) */}
+          {formattedUpcomingCharges.length > 0 && (
+            <div className="pt-2 space-y-3">
+              <div className="flex items-center justify-between pb-1">
+                <div className="flex items-center gap-2">
+                  <Clock size={14} className="text-blue-600" />
+                  <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    Upcoming Charges (Pay Ahead)
+                  </h4>
+                </div>
+                <span className="text-[10px] text-slate-400 font-medium">
+                  Optional · Settle future bills early
+                </span>
+              </div>
+
+              {formattedUpcomingCharges.map(charge => {
+                const isPending = charge.status === "PENDING";
+                const key = `charge_${charge.id}`;
+                const isChecked = !!selectedItems[key];
+                const dueDateStr = new Date(charge.dueDate).toLocaleDateString("en-GB", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric"
+                });
+
+                return (
+                  <div
+                    key={charge.id}
+                    onClick={() => {
+                      if (isPending) return;
+                      toggleItem(key, false);
+                    }}
+                    className={`flex flex-wrap items-center justify-between p-4 sm:p-5 rounded-2xl border transition-all select-none ${
+                      isPending
+                        ? "bg-slate-50 border-slate-100 cursor-not-allowed opacity-80"
+                        : isChecked
+                          ? "bg-blue-50/20 border-blue-200 cursor-pointer shadow-sm hover:border-blue-300"
+                          : "bg-white border-slate-100 hover:border-slate-200 cursor-pointer"
+                    }`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="relative flex items-center justify-center">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          readOnly
+                          disabled={isPending}
+                          className="w-5 h-5 rounded-lg border-slate-300 text-blue-600 focus:ring-blue-500/20 cursor-pointer disabled:cursor-not-allowed"
+                        />
+                        {isPending && <Lock size={10} className="absolute text-slate-400" />}
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                          {charge.billingRule?.title || charge.billingRule?.description || "Recurring Charge"}
+                          {isPending ? (
+                            <span className="text-[9px] font-bold px-2 py-0.5 bg-amber-50 text-amber-700 rounded-full border border-amber-200">
+                              Payment Under Review
+                            </span>
+                          ) : (
+                            <span className="text-[9px] font-bold px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full border border-blue-100">
+                              Advance Payment
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          Scheduled due date: {dueDateStr}{charge.billingRuleId !== "__system_rent_installment__" && charge.billingRule?.frequency ? ` · ${freqLabel(charge.billingRule.frequency)}` : ""}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-sm sm:text-base font-bold text-slate-900">
+                      ₦{charge.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Dynamic Installment Notice if Partial Mode & rent is selected */}
+          {localIsPartialMode && selectedItems["rent"] && rentAndFeesInstallment > 0 && (
             <div className="mt-6 flex flex-col sm:flex-row sm:items-center justify-between bg-blue-50 border border-blue-100 rounded-2xl p-5 gap-4">
               <div>
                 <p className="text-xs font-bold text-blue-800 uppercase tracking-wide flex items-center gap-2">
@@ -428,21 +740,38 @@ export default function PaymentBreakdownPanel({
           )}
         </div>
 
-        {/* Dynamic Billing Footer & Proceed Action */}
+        {/* Dynamic Billing Footer & Action */}
         <div className="p-6 sm:p-8 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="text-center sm:text-left">
             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-              {localIsPartialMode ? "Total to Pay Now" : "Total Selected to Pay"}
+              {activeTotal === 0 ? "No Items Selected" : (localIsPartialMode ? "Total to Pay Now" : "Total Selected to Pay")}
             </p>
             <p className="text-3xl font-black text-slate-900 tracking-tight mt-1">
               ₦{totalToPayNow.toLocaleString(undefined, { maximumFractionDigits: 2 })}
             </p>
-            {localIsPartialMode && (
+            {activeTotal === 0 ? (
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                Check any item above to include it in this payment
+              </p>
+            ) : localIsPartialMode ? (
               <p className="text-[10px] text-slate-500 mt-0.5 font-semibold">
-                (₦{rentAndFeesInstallment.toLocaleString(undefined, { maximumFractionDigits: 2 })} installment + ₦{utilityTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })} utilities in full)
+                {selectedUpcomingInstallmentCount > 0 && utilityTotal - selectedUpcomingInstallmentTotal > 0
+                  ? `(${selectedUpcomingInstallmentCount} installment${selectedUpcomingInstallmentCount > 1 ? "s" : ""} + ₦${(utilityTotal - selectedUpcomingInstallmentTotal).toLocaleString(undefined, { maximumFractionDigits: 2 })} charges)`
+                  : selectedUpcomingInstallmentCount > 0
+                    ? `${selectedUpcomingInstallmentCount} rent installment${selectedUpcomingInstallmentCount > 1 ? "s" : ""} selected`
+                    : rentAndFeesInstallment > 0 && utilityTotal > 0
+                      ? `(₦${rentAndFeesInstallment.toLocaleString(undefined, { maximumFractionDigits: 2 })} rent + ₦${utilityTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })} charges)`
+                      : rentAndFeesInstallment > 0
+                        ? `Rent installment payment`
+                        : null}
+              </p>
+            ) : (
+              <p className="text-[10px] text-slate-500 mt-0.5 font-semibold">
+                {breakdown.length} item{breakdown.length > 1 ? "s" : ""} selected for checkout
               </p>
             )}
           </div>
+
           {isSharer ? (
             <div className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-4 bg-slate-100 text-slate-500 text-sm font-bold rounded-2xl border border-slate-200">
               <Lock size={18} />
@@ -455,7 +784,10 @@ export default function PaymentBreakdownPanel({
               onClick={() => setIsModalOpen(true)}
               className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-2xl shadow-xl shadow-blue-500/20 active:translate-y-px transition-all disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
             >
-              <CreditCard size={18} /> Make Payment
+              <CreditCard size={18} />
+              <span>
+                {activeTotal === 0 ? "Select Items to Pay" : `Make Payment (₦${totalToPayNow.toLocaleString(undefined, { maximumFractionDigits: 2 })})`}
+              </span>
             </button>
           )}
         </div>
@@ -504,27 +836,37 @@ export default function PaymentBreakdownPanel({
                     <div className="flex justify-between py-2 font-medium text-slate-700">
                       <div>
                         <span>Room Rent ({room.roomNumber})</span>
-                        {localIsPartialMode && (
+                        {isRentPaid ? (
+                          <span className="ml-1.5 text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-100">
+                            Advance Renewal
+                          </span>
+                        ) : localIsPartialMode ? (
                           <span className="ml-1.5 text-[9px] font-bold text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded-full border border-blue-100">
                             Installment {nextInstallmentNumber}/{activeInstallments}
                           </span>
-                        )}
+                        ) : hasPartialBalance ? (
+                          <span className="ml-1.5 text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-100">
+                            Remaining Balance
+                          </span>
+                        ) : null}
                       </div>
                       <span className="font-bold text-slate-900">
-                        ₦{(localIsPartialMode ? Math.round((rentAmount / activeInstallments) * 100) / 100 : rentAmount).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                        ₦{rentForThisSlot.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                       </span>
                     </div>
                   )}
+
                   {billingRules.map(rule => {
                     if (!selectedItems[`rule_${rule.id}`]) return null;
-                    const displayAmount = localIsPartialMode ? Math.round((rule.amount / activeInstallments) * 100) / 100 : rule.amount;
+                    // Fees (caution, security deposit, etc.) are ALWAYS paid in full — never split into installments
+                    const displayAmount = rule.amount;
                     return (
                       <div key={rule.id} className="flex justify-between py-2 font-medium text-slate-700">
                         <div>
                           <span>{rule.title || rule.description}</span>
                           {localIsPartialMode && (
-                            <span className="ml-1.5 text-[9px] font-bold text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded-full border border-blue-100">
-                              Installment {nextInstallmentNumber}/{activeInstallments}
+                            <span className="ml-1.5 text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full border border-slate-200">
+                              Full amount
                             </span>
                           )}
                         </div>
@@ -532,14 +874,30 @@ export default function PaymentBreakdownPanel({
                       </div>
                     );
                   })}
-                  {unpaidCharges.map(charge => {
+
+                  {effectiveUnpaidCharges.map(charge => {
                     if (!selectedItems[`charge_${charge.id}`]) return null;
                     return (
                       <div key={charge.id} className="flex justify-between py-2 font-medium text-slate-700">
                         <div>
                           <span>{charge.billingRule?.title || charge.billingRule?.description || "Utility"}</span>
-                          <span className="ml-1.5 text-[9px] font-bold text-purple-500 bg-purple-50 px-1.5 py-0.5 rounded-full border border-purple-100">
-                            Full amount due
+                          <span className="ml-1.5 text-[9px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full border border-amber-100">
+                            Due Now
+                          </span>
+                        </div>
+                        <span className="font-bold text-slate-900">₦{charge.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                      </div>
+                    );
+                  })}
+
+                  {formattedUpcomingCharges.map(charge => {
+                    if (!selectedItems[`charge_${charge.id}`]) return null;
+                    return (
+                      <div key={charge.id} className="flex justify-between py-2 font-medium text-slate-700">
+                        <div>
+                          <span>{charge.billingRule?.title || charge.billingRule?.description || "Scheduled Bill"}</span>
+                          <span className="ml-1.5 text-[9px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full border border-blue-100">
+                            Advance Payment
                           </span>
                         </div>
                         <span className="font-bold text-slate-900">₦{charge.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
@@ -547,9 +905,10 @@ export default function PaymentBreakdownPanel({
                     );
                   })}
                 </div>
+
                 <div className="pt-3 border-t border-slate-200 flex justify-between items-center text-sm">
                   <span className="font-bold text-slate-950">
-                    {localIsPartialMode ? "Total to Pay Now" : "Total Due"}
+                    {localIsPartialMode ? "Total to Pay Now" : "Total Selected"}
                   </span>
                   <span className="font-black text-slate-950">₦{totalToPayNow.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                 </div>
@@ -560,16 +919,25 @@ export default function PaymentBreakdownPanel({
                 totalDue={totalToPayNow}
                 canPayPartial={localIsPartialMode}
                 partialPaymentInstallments={activeInstallments}
-                tenantEmail={session.user.email}
-                tenantId={profile.id}
-                rentStartDate={profile.rentStartDate}
+                tenantEmail={session?.user?.email}
+                tenantId={profile?.id}
+                rentStartDate={profile?.rentStartDate}
                 existingPayments={paymentHistory}
-                recurringChargeIds={checkoutBillingRuleIds.concat(selectedRecurringChargeIds)}
+                recurringChargeIds={checkoutRecurringChargeIds}
                 isRentSelected={!!selectedItems["rent"]}
                 rentFrequencyShorthand={rentFrequencyShorthand}
                 breakdown={breakdown}
                 checkoutBillingRuleIds={checkoutBillingRuleIds}
-                baseInstallmentAmount={rentAndFeesInstallment}
+                baseInstallmentAmount={rentInstallmentOnly}
+                installmentCharges={allRecurringCharges.filter(c => {
+                  if (c.billingRuleId !== "__system_rent_installment__") return false;
+                  // Scope to current cycle only — ignore charges from previous room assignments
+                  if (profile?.rentStartDate && new Date(c.createdAt) < new Date(profile.rentStartDate)) return false;
+                  return true;
+                }).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))}
+                hasPartialBalance={hasPartialBalance}
+                rentRemaining={rentRemaining}
+                alreadyPaidRent={alreadyPaidRent}
               />
             </div>
 

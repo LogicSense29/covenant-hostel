@@ -6,6 +6,7 @@ import RoomCard from "@/components/RoomCard";
 
 
 export const dynamic = "force-dynamic";
+export const revalidate = 30;
 
 export default async function RoomsPage({ searchParams }) {
   const params = await searchParams;

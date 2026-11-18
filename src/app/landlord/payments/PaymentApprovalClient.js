@@ -247,9 +247,15 @@ export default function PaymentApprovalClient({ payments }) {
                     </td>
                     <td className="px-6 py-4 font-black text-slate-900">₦{pmt.amount.toLocaleString()}</td>
                     <td className="px-6 py-4">
-                      {pmt.paymentType === "PARTIAL" ? (
+                      {pmt.paymentType === "PARTIAL" || pmt.installmentNumber != null ? (
                         <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
-                          Installment {pmt.installmentNumber}/{pmt.totalInstallments}
+                          {pmt.installmentNumber && pmt.totalInstallments
+                            ? `Installment ${pmt.installmentNumber}/${pmt.totalInstallments}`
+                            : "Partial"}
+                        </span>
+                      ) : pmt.paymentType === "RECURRING" && pmt.recurringCharge?.billingRuleId === "__system_rent_installment__" ? (
+                        <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
+                          Partial
                         </span>
                       ) : pmt.paymentType === "RECURRING" ? (
                         <span className="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100">

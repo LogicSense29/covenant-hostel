@@ -78,7 +78,12 @@ export async function POST(request) {
     // Send email notifications
     try {
       if (isFree) {
-        // Free: Auto-confirm and send confirmation
+        // Free: Auto-confirm in DB and send confirmation email
+        await prisma.guestInspection.update({
+          where: { id: inspection.id },
+          data: { status: "CONFIRMED", feePaid: true },
+        });
+
         await sendGuestInspectionConfirmation({
           email,
           name,
@@ -86,16 +91,16 @@ export async function POST(request) {
           roomNumber,
           blockName,
           address,
-          amount: feeAmount,
+          amount: 0,
         });
       } else {
-        // Paid: Send pending receipt email
+        // Paid: Send pending receipt email (awaiting Paystack payment)
         const { sendInspectionReceipt } = await import("@/lib/email");
         await sendInspectionReceipt({
           email,
           name,
           date,
-          reference: "Manual Bank Transfer",
+          reference: "Pending Payment",
           isFree: false,
           amount: feeAmount,
         });

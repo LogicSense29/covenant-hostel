@@ -19,6 +19,8 @@ export async function GET(request) {
   const block = searchParams.get("block") || "";
   const limit = parseInt(searchParams.get("limit") || "20", 10);
 
+  const isArchivedFilter = status === "ARCHIVED";
+
   // Build the dynamic where clause
   let whereClause = {};
 
@@ -32,89 +34,83 @@ export async function GET(request) {
 
   if (status) {
     const now = new Date();
-    
+
     if (status === "EXPIRING_7") {
       const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-      whereClause.rentExpiryDate = {
-        gt: now,
-        lte: sevenDaysFromNow,
-      };
+      whereClause.rentExpiryDate = { gt: now, lte: sevenDaysFromNow };
     } else if (status === "EXPIRING_14") {
       const fourteenDaysFromNow = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
-      whereClause.rentExpiryDate = {
-        gt: now,
-        lte: fourteenDaysFromNow,
-      };
+      whereClause.rentExpiryDate = { gt: now, lte: fourteenDaysFromNow };
     } else if (status === "EXPIRING_30") {
       const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-      whereClause.rentExpiryDate = {
-        gt: now,
-        lte: thirtyDaysFromNow,
-      };
+      whereClause.rentExpiryDate = { gt: now, lte: thirtyDaysFromNow };
     } else if (status === "EXPIRED_TENANT") {
-      whereClause.user = {
-        ...(whereClause.user || {}),
-        status: "EXPIRED"
-      };
+      whereClause.user = { ...(whereClause.user || {}), status: "EXPIRED" };
     } else if (status === "INSTALLMENTS") {
       whereClause.allowPartialPayment = true;
+    } else if (status === "ARCHIVED") {
+      // handled below via archivedAt filter
     } else {
-
-      whereClause.user = {
-        ...(whereClause.user || {}),
-        status: status
-      };
+      whereClause.user = { ...(whereClause.user || {}), status: status };
     }
   }
 
-  // Filter by block name (tenant must be assigned to a room in that block)
+  // Filter by block
   if (block) {
     whereClause.room = {
       ...(whereClause.room || {}),
-      block: { name: { equals: block, mode: "insensitive" } }
+      block: { name: { equals: block, mode: "insensitive" } },
     };
   }
 
-  const queryParams = {
-    where: whereClause,
-    take: limit + 1, // Fetch one extra to determine nextCursor
+  const buildQueryParams = (includeArchivedFilter) => ({
+    where: {
+      ...whereClause,
+      // Only add archivedAt filter when the column exists (post-migration)
+      ...(includeArchivedFilter
+        ? isArchivedFilter
+          ? { archivedAt: { not: null } }
+          : { archivedAt: null }
+        : {}),
+    },
+    take: limit + 1,
     orderBy: { createdAt: "desc" },
     include: {
       user: true,
-      room: {
-        include: { block: true }
-      },
+      room: { include: { block: true } },
       stayHistory: {
+        include: { room: { include: { block: true } } },
+        orderBy: { startDate: "desc" },
+      },
+      payments: { orderBy: { createdAt: "desc" } },
+      primaryTenant: {
         include: {
-          room: {
-            include: { block: true }
-          }
-        },
-        orderBy: { startDate: "desc" }
-      },
-      payments: {
-        orderBy: { createdAt: "desc" }
-      },
-      primaryTenant: { 
-        include: { 
           user: true,
-          room: { include: { block: true } }
-        } 
-      }
-    }
-  };
-
-  if (cursor) {
-    queryParams.cursor = { id: cursor };
-    queryParams.skip = 1; // Skip the cursor itself
-  }
+          room: { include: { block: true } },
+        },
+      },
+      recurringCharges: {
+        where: { billingRuleId: "__system_rent_installment__" },
+        orderBy: { dueDate: "asc" },
+      },
+    },
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+  });
 
   try {
-    const tenants = await prisma.tenantProfile.findMany(queryParams);
+    // Try with archivedAt filter first (works once db push has run)
+    let tenants;
+    try {
+      tenants = await prisma.tenantProfile.findMany(buildQueryParams(true));
+    } catch (migrationErr) {
+      // archivedAt column doesn't exist yet — fall back to query without it
+      console.warn("[tenants] archivedAt column missing, running without archive filter:", migrationErr?.message);
+      tenants = await prisma.tenantProfile.findMany(buildQueryParams(false));
+    }
 
     let nextCursor = null;
     if (tenants.length > limit) {
-      const nextItem = tenants.pop(); // Remove the extra item
+      const nextItem = tenants.pop();
       nextCursor = nextItem.id;
     }
 

@@ -16,8 +16,12 @@ import {
   ExternalLink,
   ArrowRight,
   Loader2,
-  Link2
+  Link2,
+  Archive,
+  Trash2,
+  AlertCircle
 } from "lucide-react";
+import { toast } from "react-hot-toast";
 import Link from "next/link";
 import TenantActionsMenu from "./TenantActionsMenu";
 import ApprovalActions from "./ApprovalActions";
@@ -27,7 +31,7 @@ import TenantEmailModal from "./TenantEmailModal";
 import BulkEmailModal from "./BulkEmailModal";
 import InstallmentBalanceCard from "@/components/InstallmentBalanceCard";
 
-export default function TenantDirectoryClient({ initialTenants, initialNextCursor, availableRooms, blocks = [] }) {
+export default function TenantDirectoryClient({ initialTenants, initialNextCursor, availableRooms, blocks = [], userRole }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -42,8 +46,108 @@ export default function TenantDirectoryClient({ initialTenants, initialNextCurso
   const [emailTenant, setEmailTenant] = useState(null);
   const [showBulkEmail, setShowBulkEmail] = useState(false);
 
+  // Bulk selection state
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+
   const isInitialMount = useRef(true);
   const observerRef = useRef();
+
+  // Bulk selection handlers
+  const toggleSelection = (tenantId) => {
+    setSelectedIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(tenantId)) {
+        newSet.delete(tenantId);
+      } else {
+        newSet.add(tenantId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === tenants.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(tenants.map(t => t.id)));
+    }
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const handleBulkArchive = async () => {
+    if (selectedIds.size === 0) return;
+    
+    const confirmed = window.confirm(`Archive ${selectedIds.size} tenant(s)? They will be moved to the archived list.`);
+    if (!confirmed) return;
+
+    // Optimistically remove from list immediately
+    const idsToArchive = new Set(selectedIds);
+    setTenants(prev => prev.filter(t => !idsToArchive.has(t.id)));
+    clearSelection();
+
+    try {
+      const res = await fetch("/api/tenants/bulk-archive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenantIds: Array.from(idsToArchive) }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        toast.success(`Archived ${data.archivedCount} tenant(s)`);
+      } else {
+        toast.error("Failed to archive tenants");
+        window.location.reload();
+      }
+    } catch (err) {
+      toast.error("Error archiving tenants");
+      window.location.reload();
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    setShowBulkDeleteModal(true);
+  };
+
+  const confirmBulkDelete = async () => {
+    setShowBulkDeleteModal(false);
+    setIsBulkDeleting(true);
+
+    // Optimistically remove selected tenants from the list immediately
+    const idsToDelete = new Set(selectedIds);
+    setTenants(prev => prev.filter(t => !idsToDelete.has(t.id)));
+    clearSelection();
+    
+    try {
+      const res = await fetch("/api/tenants/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenantIds: Array.from(idsToDelete) }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        toast.success(`Deleted ${data.deletedCount} tenant(s)`);
+        if (data.errors && data.errors.length > 0) {
+          toast.error(`${data.errors.length} tenant(s) could not be deleted (have sharers)`);
+          // Re-fetch to restore any tenants that failed to delete
+          window.location.reload();
+        }
+      } else {
+        toast.error("Failed to delete tenants");
+        window.location.reload(); // Restore list on failure
+      }
+    } catch (err) {
+      toast.error("Error deleting tenants");
+      window.location.reload();
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
 
   // Handle body scroll for drawer
   useEffect(() => {
@@ -190,6 +294,8 @@ export default function TenantDirectoryClient({ initialTenants, initialNextCurso
             <option value="EXPIRING_14">📅 Expiring in 14 days</option>
             <option value="EXPIRING_30">📅 Expiring in 30 days</option>
             <option value="EXPIRED_TENANT">🔴 Expired</option>
+            <option disabled>──────────</option>
+            <option value="ARCHIVED">📦 Archived</option>
           </select>
         </div>
         <button
@@ -220,6 +326,14 @@ export default function TenantDirectoryClient({ initialTenants, initialNextCurso
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50/50 border-b border-slate-100">
+                  <th className="px-4 py-3 w-12">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.size === tenants.length && tenants.length > 0}
+                      onChange={toggleSelectAll}
+                      className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                    />
+                  </th>
                   <th className="px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Tenant</th>
                   <th className="px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest hidden md:table-cell">Guarantor</th>
                   <th className="px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest hidden md:table-cell">IDs</th>
@@ -246,6 +360,16 @@ export default function TenantDirectoryClient({ initialTenants, initialNextCurso
                       }}
                       className="hover:bg-blue-50/50 transition-colors cursor-pointer group"
                     >
+
+                      {/* Checkbox */}
+                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(profile.id)}
+                          onChange={() => toggleSelection(profile.id)}
+                          className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                        />
+                      </td>
 
                       {/* Tenant Details */}
                       <td className="px-4 py-3 max-w-[220px]">
@@ -291,9 +415,12 @@ export default function TenantDirectoryClient({ initialTenants, initialNextCurso
                               {status === 'REJECTED' && <span className="shrink-0 text-[8px] px-1.5 py-0.5 bg-red-100 text-red-700 rounded font-bold uppercase tracking-tighter">Rejected</span>}
                               {status === 'AWAITING_PAYMENT' && <span className="shrink-0 text-[8px] px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded font-bold uppercase tracking-tighter border border-blue-100">Awaiting Payment</span>}
                               {status === 'PAYMENT_MADE' && <span className="shrink-0 text-[8px] px-1.5 py-0.5 bg-emerald-50 text-emerald-600 rounded font-bold uppercase tracking-tighter border border-emerald-100">Payment Made</span>}
+                              {status === 'ARCHIVED' && <span className="shrink-0 text-[8px] px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded font-bold uppercase tracking-tighter border border-slate-200">Archived</span>}
                               {(() => {
                                 if (!effectiveExpiryDate) return null;
-                                const days = Math.ceil((new Date(effectiveExpiryDate) - now) / (1000 * 60 * 60 * 24));
+                                const expiryDate = new Date(effectiveExpiryDate);
+                                const days = Math.ceil((expiryDate - now) / (1000 * 60 * 60 * 24));
+                                
                                 if (days <= 0) return <span className="shrink-0 text-[8px] px-1.5 py-0.5 bg-red-100 text-red-700 rounded font-bold uppercase tracking-tighter">Expired</span>;
                                 if (days <= 7) return <span className="shrink-0 text-[8px] px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded font-bold uppercase tracking-tighter">{days}d left</span>;
                                 if (days <= 30) return <span className="shrink-0 text-[8px] px-1.5 py-0.5 bg-amber-50 text-amber-600 rounded font-bold uppercase tracking-tighter border border-amber-100">{days}d left</span>;
@@ -391,6 +518,15 @@ export default function TenantDirectoryClient({ initialTenants, initialNextCurso
                           profile={profile}
                           availableRooms={availableRooms}
                           onEmail={(p) => setEmailTenant(p)}
+                          userRole={userRole}
+                          onTenantUpdate={(updated) => {
+                            setTenants(prev => prev.map(t => t.id === updated.id ? { ...t, ...updated } : t));
+                            setSelectedTenant(prev => prev?.id === updated.id ? { ...prev, ...updated } : prev);
+                          }}
+                          onTenantRemove={(tenantId) => {
+                            setTenants(prev => prev.filter(t => t.id !== tenantId));
+                            setSelectedTenant(prev => prev?.id === tenantId ? null : prev);
+                          }}
                         />
                       </td>
 
@@ -544,6 +680,100 @@ export default function TenantDirectoryClient({ initialTenants, initialNextCurso
           tenant={emailTenant}
           onClose={() => setEmailTenant(null)}
         />
+      )}
+
+      {/* Floating Action Bar */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom duration-300">
+          <div className="bg-slate-900 text-white rounded-2xl shadow-2xl border border-slate-700 px-6 py-4 flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-sm font-bold">
+                {selectedIds.size}
+              </div>
+              <span className="text-sm font-semibold">
+                {selectedIds.size} selected
+              </span>
+            </div>
+            
+            <div className="w-px h-8 bg-slate-700" />
+            
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleBulkArchive}
+                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2"
+              >
+                <Archive size={16} />
+                Archive
+              </button>
+              
+              {userRole === "ADMIN" && (
+                <button
+                  onClick={handleBulkDelete}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2"
+                >
+                  <Trash2 size={16} />
+                  Delete
+                </button>
+              )}
+              
+              <button
+                onClick={clearSelection}
+                className="px-4 py-2 hover:bg-slate-700 rounded-lg text-sm font-semibold transition-colors"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Delete Confirmation Modal */}
+      {showBulkDeleteModal && (
+        <>
+          <div
+            className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 animate-in fade-in duration-200"
+            onClick={() => setShowBulkDeleteModal(false)}
+          />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in zoom-in-95 duration-200">
+            <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 space-y-4">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                  <AlertCircle size={24} className="text-red-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-slate-900">Permanently Delete {selectedIds.size} Tenant(s)?</h3>
+                  <p className="text-sm text-slate-600 mt-1">
+                    This will <strong>permanently delete</strong> all selected tenants and their data (payments, history, notifications). 
+                    This action <strong>cannot be undone</strong>.
+                  </p>
+                  <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-3">
+                    ⚠️ Tenants with linked sharers will be skipped.
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setShowBulkDeleteModal(false)}
+                  className="flex-1 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmBulkDelete}
+                  disabled={isBulkDeleting}
+                  className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white rounded-xl font-semibold transition-colors flex items-center justify-center gap-2"
+                >
+                  {isBulkDeleting ? (
+                    <><Loader2 size={16} className="animate-spin" /> Deleting...</>
+                  ) : (
+                    "Delete Permanently"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
       )}
     </div>
     
