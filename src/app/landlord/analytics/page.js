@@ -91,7 +91,6 @@ export default async function AnalyticsPage() {
   const totalTenants = Object.values(statusMap).reduce((s, v) => s + v, 0);
 
   // Monthly revenue — last 6 months
-  const now = new Date();
   const monthlyRevenue = [];
   for (let i = 5; i >= 0; i--) {
     const start = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -113,7 +112,6 @@ export default async function AnalyticsPage() {
   const partialPayments = allPayments.filter(p => p.paymentType === "PARTIAL" && (p.status === "SUCCESS" || p.status === "VERIFIED"));
   const recurringPayments = allPayments.filter(p => p.paymentType === "RECURRING" && (p.status === "SUCCESS" || p.status === "VERIFIED"));
 
-  // Monthly revenue — last 6 months
   const ticketStatusMap = Object.fromEntries(ticketsByStatus.map(t => [t.status, t._count]));
   const totalTickets = Object.values(ticketStatusMap).reduce((s, v) => s + v, 0);
 
