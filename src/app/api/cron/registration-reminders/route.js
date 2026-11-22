@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import nodemailer from "nodemailer";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
+import { buildRegistrationIncomplete } from "@/lib/whatsapp-templates";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -23,7 +24,7 @@ export async function GET(req) {
   const headersList = await headers();
   const authHeader = headersList.get("authorization");
   
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!process.env.CRON_SECRET?.trim() || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
@@ -78,7 +79,7 @@ export async function GET(req) {
           try {
             await sendWhatsAppMessage({
               to: data.phone,
-              body: `👋 Hi ${name}, you started an application for Covenant Hostel but didn't finish. Pick up right where you left off: ${resumeUrl}`
+              ...buildRegistrationIncomplete({ name, resumeUrl }),
             });
           } catch (waError) {
             console.error(`WhatsApp reminder failed for ${data.phone}:`, waError.message);

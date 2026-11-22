@@ -64,9 +64,7 @@ async function testWhatsAppTemplate() {
     // Sample template variables for welcome_new_tenant
     const templateVariables = {
       "1": "Test User",
-      "2": "Room 24",
-      "3": new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
-      "4": new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+      "2": "Room 24"
     };
 
     console.log("Template Variables:");

@@ -8,11 +8,15 @@ import { createNotification } from "@/lib/notifications";
 export const dynamic = "force-dynamic";
 
 export async function GET(req) {
+  if (process.env.NODE_ENV !== "development") {
+    return new NextResponse("Not found", { status: 404 });
+  }
+
   const session = await getServerSession(authOptions);
   
-  if (!session) {
+  if (!["ADMIN", "LANDLORD"].includes(session?.user?.role)) {
     return new NextResponse(
-      "Unauthorized. Please log into the tenant or landlord portal first.",
+      "Unauthorized. Please log into the landlord portal first.",
       { status: 401 }
     );
   }
@@ -49,7 +53,7 @@ export async function GET(req) {
     });
 
     // Trigger the cron job — it will detect the expiry window and fire emails + notifications
-    const baseUrl = req.nextUrl?.origin || process.env.NEXTAUTH_URL || "http://localhost:3000";
+    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
     let cronResult = "unknown";
     try {
       const cronHeaders = {};
@@ -195,7 +199,7 @@ export async function GET(req) {
     }
 
     // Also trigger the cron to process any other expiry side-effects
-    const baseUrl = req.nextUrl?.origin || process.env.NEXTAUTH_URL || "http://localhost:3000";
+    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
     try {
       const cronHeaders = {};
       if (process.env.CRON_SECRET) cronHeaders["Authorization"] = `Bearer ${process.env.CRON_SECRET}`;
@@ -263,7 +267,7 @@ export async function GET(req) {
     });
 
     // Also trigger the cron to process any other expiry side-effects
-    const baseUrl = req.nextUrl?.origin || process.env.NEXTAUTH_URL || "http://localhost:3000";
+    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
     try {
       const cronHeaders = {};
       if (process.env.CRON_SECRET) cronHeaders["Authorization"] = `Bearer ${process.env.CRON_SECRET}`;

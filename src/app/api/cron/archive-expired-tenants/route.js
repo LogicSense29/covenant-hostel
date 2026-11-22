@@ -17,7 +17,7 @@ export async function GET(req) {
   const headersList = await headers();
   const authHeader = headersList.get("authorization");
   
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!process.env.CRON_SECRET?.trim() || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
 

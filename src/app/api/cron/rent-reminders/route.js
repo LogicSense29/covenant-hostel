@@ -16,6 +16,7 @@ import {
 } from "@/lib/email";
 import { createNotification, getLandlordUserIds } from "@/lib/notifications";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
+import { buildRentExpiryReminder, buildRentExpiredNotification, buildInstallmentDueReminder, buildPaymentOverdueAlert, buildRecurringChargeDueReminder } from "@/lib/whatsapp-templates";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -24,7 +25,7 @@ export async function GET(req) {
   const headersList = await headers();
   const authHeader = headersList.get("authorization");
   
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!process.env.CRON_SECRET?.trim() || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
@@ -79,7 +80,7 @@ export async function GET(req) {
           const expiryFormatted = new Date(tenant.rentExpiryDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
           await sendWhatsAppMessage({
             to: tenant.phone,
-            body: `🏠 *Covenant Hostel Reminder*\n\nDear ${tenant.user?.name || "Tenant"}, your tenancy for Room ${tenant.room?.roomNumber || "N/A"} expires in *${days} day${days > 1 ? "s" : ""}* on ${expiryFormatted}.\n\nPlease log in to your portal to renew: ${process.env.NEXTAUTH_URL || ""}/tenant/payments`,
+            ...buildRentExpiryReminder({ name: tenant.user?.name || "Tenant", roomNumber: tenant.room?.roomNumber || "N/A", daysLeft: days, expiryDate: expiryFormatted }),
           });
         }
 
@@ -154,7 +155,7 @@ export async function GET(req) {
         if (whatsappEnabled && tenant.phone) {
           await sendWhatsAppMessage({
             to: tenant.phone,
-            body: `🏠 *Covenant Hostel – Annual Reminder*\n\nDear ${tenant.user?.name || "Tenant"}, your annual tenancy expires in *${days} days*. Please start your renewal process soon.\n\n${process.env.NEXTAUTH_URL || ""}/tenant/payments`,
+            ...buildRentExpiryReminder({ name: tenant.user?.name || "Tenant", roomNumber: tenant.room?.roomNumber || "N/A", daysLeft: days, expiryDate: new Date(tenant.rentExpiryDate).toLocaleDateString("en-GB") }),
           });
         }
         await createNotification({
@@ -198,7 +199,7 @@ export async function GET(req) {
       if (whatsappEnabled && tenant.phone) {
         await sendWhatsAppMessage({
           to: tenant.phone,
-          body: `⚠️ *Covenant Hostel – Tenancy Expired*\n\nDear ${tenant.user?.name || "Tenant"}, your tenancy has now *expired*. Please renew immediately to avoid losing your room.\n\n${process.env.NEXTAUTH_URL || ""}/tenant/payments`,
+          ...buildRentExpiredNotification({ name: tenant.user?.name || "Tenant", roomNumber: tenant.room?.roomNumber || "N/A", expiryDate: new Date(tenant.rentExpiryDate).toLocaleDateString("en-GB") }),
         });
       }
 
@@ -240,12 +241,6 @@ export async function GET(req) {
           }));
         }
 
-        if (whatsappEnabled && sharer.phone) {
-          tasks.push(sendWhatsAppMessage({
-            to: sharer.phone,
-            body: `⚠️ *Covenant Hostel – Room Tenancy Expired*\n\nDear ${sharer.user?.name || "Tenant"}, the tenancy for Room ${tenant.room?.roomNumber || "N/A"} managed by ${tenant.user?.name || "your primary tenant"} has now *expired*. Some features will be restricted until the tenancy is renewed.\n\n${process.env.NEXTAUTH_URL || ""}/tenant`,
-          }));
-        }
 
         await Promise.allSettled(tasks);
       });
@@ -346,7 +341,7 @@ export async function GET(req) {
       if (whatsappEnabled && tenant.phone) {
         await sendWhatsAppMessage({
           to: tenant.phone,
-          body: `💰 *Covenant Hostel – Installment Due*\n\nDear ${tenant.user?.name || "Tenant"}, installment *${nextInstallmentNumber}/${n}* of ₦${installmentAmount.toLocaleString()} is due in *${daysUntilDue} day${daysUntilDue > 1 ? "s" : ""}* (${dueDateStr}).\n\nLog in to pay: ${process.env.NEXTAUTH_URL || ""}/tenant/payments`,
+          ...buildInstallmentDueReminder({ name: tenant.user?.name || "Tenant", roomNumber: tenant.room?.roomNumber || "N/A", dueDate: dueDateStr, amount: installmentAmount, installmentNum: nextInstallmentNumber, totalInstallments: n }),
         });
       }
 
@@ -440,7 +435,7 @@ export async function GET(req) {
       if (whatsappEnabled && tenant.phone) {
         tasks.push(sendWhatsAppMessage({
           to: tenant.phone,
-          body: `⚠️ *Covenant Hostel – OVERDUE Installment*\n\nDear ${tenant.user?.name || "Tenant"}, installment *${nextInstallmentNumber}/${n}* of ₦${installmentAmount.toLocaleString()} was due on *${dueDateStr}* and is now *OVERDUE*.\n\nPlease pay immediately: ${process.env.NEXTAUTH_URL || ""}/tenant/payments`,
+          ...buildPaymentOverdueAlert({ name: tenant.user?.name || "Tenant", roomNumber: tenant.room?.roomNumber || "N/A", amount: installmentAmount, dueDate: dueDateStr }),
         }));
       }
 
@@ -497,12 +492,6 @@ export async function GET(req) {
         }));
       }
 
-      if (whatsappEnabled && charge.tenant.phone) {
-        tasks.push(sendWhatsAppMessage({
-          to: charge.tenant.phone,
-          body: `⚠️ *Covenant Hostel – OVERDUE Bill*\n\nDear ${charge.tenant.user?.name || "Tenant"}, your *${chargeTitle}* bill of ₦${charge.amount.toLocaleString()} is now *OVERDUE*. It was due on ${formattedDue}.\n\nPlease pay immediately: ${process.env.NEXTAUTH_URL || ""}/tenant/payments`,
-        }));
-      }
 
       tasks.push(createNotification({
         userId: charge.tenant.userId,
@@ -662,7 +651,7 @@ export async function GET(req) {
           if (whatsappEnabled && tenant.phone) {
             await sendWhatsAppMessage({
               to: tenant.phone,
-              body: `📋 *Covenant Hostel – Bill Reminder*\n\nDear ${tenant.user?.name || "Tenant"}, your *${chargeTitle}* bill of ₦${charge.amount.toLocaleString()} is due in *${days} day${days > 1 ? "s" : ""}* on ${formattedDue}.\n\n${process.env.NEXTAUTH_URL || ""}/tenant/payments`,
+              ...buildRecurringChargeDueReminder({ name: tenant.user?.name || "Tenant", roomNumber: tenant.room?.roomNumber || "N/A", chargeDescription: chargeTitle, amount: charge.amount, dueDate: formattedDue }),
             });
           }
 

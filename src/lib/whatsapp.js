@@ -37,7 +37,7 @@ export async function sendWhatsAppMessage({ to, body, contentSid, contentVariabl
     return false;
   }
 
-  if (!to) {
+  if (typeof to !== "string" || !/^(whatsapp:)?\+[1-9]\d{1,14}$/.test(to)) {
     console.warn("No destination phone number provided for WhatsApp message.");
     return false;
   }
@@ -58,9 +58,17 @@ export async function sendWhatsAppMessage({ to, body, contentSid, contentVariabl
     // Use template if contentSid is provided, otherwise use raw body text
     if (contentSid) {
       // WhatsApp Business API with approved template
+      if (!/^HX[0-9a-f]{32}$/i.test(contentSid)) return false;
       messageParams.contentSid = contentSid;
       if (contentVariables) {
-        messageParams.contentVariables = JSON.stringify(contentVariables);
+        const variables = Object.entries(contentVariables);
+        if (variables.some(([key, value]) => !/^[1-9]\d*$/.test(key) ||
+          (typeof value !== "string" && typeof value !== "number") || !String(value).trim())) {
+          return false;
+        }
+        messageParams.contentVariables = JSON.stringify(Object.fromEntries(
+          variables.map(([key, value]) => [key, String(value)])
+        ));
       }
     } else if (body) {
       // Raw text message (for sandbox/testing)
@@ -70,12 +78,10 @@ export async function sendWhatsAppMessage({ to, body, contentSid, contentVariabl
       return false;
     }
 
-    const message = await client.messages.create(messageParams);
-    
-    console.log(`WhatsApp message sent successfully to ${to}. Message SID: ${message.sid}`);
+    await client.messages.create(messageParams);
     return true;
   } catch (error) {
-    console.error(`Failed to send WhatsApp message to ${to}:`, error.message || error);
+    console.error("Twilio rejected the WhatsApp request.", error.code || error.status);
     return false;
   }
 }
