@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendProviderAssignedEmail, sendTenantProviderAssignedEmail } from "@/lib/email";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
+import { buildMaintenanceAssigned } from "@/lib/whatsapp-templates";
 import { sendSMS } from "@/lib/sms";
 import { createNotification } from "@/lib/notifications";
 
@@ -61,7 +62,15 @@ export async function PUT(req, { params }) {
           const body = `Covenant Hostel: You have been assigned a new maintenance task for Room ${roomNumber}. Issue: ${ticket.title}. Priority: ${ticket.priority}. Please log in for details.`;
           
           // Attempt WhatsApp first
-          const waSuccess = await sendWhatsAppMessage({ to: provider.phone, body });
+          const waSuccess = await sendWhatsAppMessage({
+            to: provider.phone,
+            ...buildMaintenanceAssigned({
+              providerName: provider.user.name || "Provider",
+              roomNumber: room?.roomNumber || "N/A",
+              issueTitle: ticket.title,
+              priority: ticket.priority,
+            }),
+          });
           
           // If WhatsApp fails or is disabled (skipped), fallback to SMS
           if (!waSuccess) {

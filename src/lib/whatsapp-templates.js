@@ -129,14 +129,12 @@ export function buildPaymentConfirmation({ name, amount, paymentType, paymentDat
 /**
  * Helper function to send welcome to new tenant
  */
-export function buildWelcomeNewTenant({ name, roomNumber, moveInDate, rentExpiryDate }) {
+export function buildWelcomeNewTenant({ name, roomNumber }) {
   return {
     contentSid: TEMPLATE_SIDS.WELCOME_NEW_TENANT,
     contentVariables: {
       "1": name,
-      "2": roomNumber,
-      "3": moveInDate,
-      "4": rentExpiryDate
+      "2": roomNumber
     }
   };
 }
