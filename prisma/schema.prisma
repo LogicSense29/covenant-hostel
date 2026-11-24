@@ -64,6 +64,7 @@ model TenantProfile {
   payments            Payment[]
   stayHistory         StayHistory[]
   recurringCharges    RecurringCharge[]
+  whatsAppConversations WhatsAppConversation[]
   room                Room?               @relation("RoomToTenants", fields: [roomId], references: [id], onDelete: SetNull)
   user                User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   primaryTenant       TenantProfile?      @relation("RoomSharings", fields: [primaryTenantId], references: [id])
@@ -300,6 +301,41 @@ model Notification {
   link      String?  // optional deep link
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// WhatsApp inbox — inbound messages from tenants and enquiries
+model WhatsAppConversation {
+  id            String               @id @default(cuid())
+  phone         String               @unique // the external WhatsApp number e.g. +2348012345678
+  displayName   String?              // name from Twilio profile or matched tenant name
+  tenantId      String?              // null = unknown enquiry
+  status        ConversationStatus   @default(OPEN)
+  unreadCount   Int                  @default(0)
+  lastMessageAt DateTime             @default(now())
+  createdAt     DateTime             @default(now())
+  tenant        TenantProfile?       @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  messages      WhatsAppMessage[]
+}
+
+model WhatsAppMessage {
+  id             String               @id @default(cuid())
+  conversationId String
+  body           String
+  direction      MessageDirection     // INBOUND | OUTBOUND
+  twilioSid      String?              // Twilio message SID for reference
+  read           Boolean              @default(false)
+  createdAt      DateTime             @default(now())
+  conversation   WhatsAppConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+}
+
+enum ConversationStatus {
+  OPEN
+  RESOLVED
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
 }
 
 enum Role {

@@ -15,19 +15,25 @@ None
 
 ### Body:
 ```
-👋 Hi {{1}},
+👋 Welcome to Covenant Hostel, {{1}}!
 
-Thank you for applying to Covenant Hostel!
+Thank you for choosing us. Your application has been received and is currently under review.
 
-Your application has been received and is under review. We'll notify you once it's processed.
+We'll notify you via email and WhatsApp once your application is processed.
 
-Application ID: {{2}}
+Looking forward to hosting you!
 
 - Covenant Hostel Management
 ```
 
-### Footer (Optional):
+###Footer (Optional):
 None
+
+### Button:
+None
+
+### Variables:
+- `{{1}}` = Applicant name
 
 ### Buttons (Optional):
 None
@@ -104,6 +110,7 @@ Portal: https://covenant-hostel.vercel.app
 - **Name:** `application_approved`
 - **Category:** **UTILITY** ⚠️
 - **Language:** English
+- **Type:** Text Template (no button)
 
 ### Body:
 ```
@@ -111,12 +118,10 @@ Portal: https://covenant-hostel.vercel.app
 
 Your application for Covenant Hostel has been APPROVED!
 
-Next Steps:
-1. Login to complete payment
-2. Schedule your move-in date
-3. Review hostel guidelines
-
-Portal: https://covenant-hostel.vercel.app
+📧 Check your email for instructions to:
+1. Create your password
+2. Complete payment
+3. Move in
 
 - Covenant Hostel Management
 ```
@@ -130,15 +135,15 @@ Portal: https://covenant-hostel.vercel.app
 
 Your application for Covenant Hostel has been APPROVED!
 
-Next Steps:
-1. Login to complete payment
-2. Schedule your move-in date
-3. Review hostel guidelines
-
-Portal: https://covenant-hostel.vercel.app
+📧 Check your email for instructions to:
+1. Create your password
+2. Complete payment
+3. Move in
 
 - Covenant Hostel Management
 ```
+
+**Note:** This is a notification template. The password setup link (with unique token) is sent via email.
 
 ---
 
@@ -158,9 +163,8 @@ Hi {{1}}, your room inspection has been confirmed.
 Room: {{2}}
 Block: {{3}}
 Date: {{4}}
-Time: {{5}}
 
-{{6}}
+{{5}}
 
 Please arrive on time. If you need to reschedule, contact us immediately.
 
@@ -171,9 +175,8 @@ Please arrive on time. If you need to reschedule, contact us immediately.
 - **{{1}}** = `John Doe`
 - **{{2}}** = `24`
 - **{{3}}** = `Block A`
-- **{{4}}** = `15 Nov 2024`
-- **{{5}}** = `10:00 AM`
-- **{{6}}** = `Fee: ₦5,000 paid`
+- **{{4}}** = `15 Nov 2024 at 10:00 AM`
+- **{{5}}** = `Fee: ₦5,000 paid`
 
 **Preview:**
 ```
@@ -183,8 +186,7 @@ Hi John Doe, your room inspection has been confirmed.
 
 Room: 24
 Block: Block A
-Date: 15 Nov 2024
-Time: 10:00 AM
+Date: 15 Nov 2024 at 10:00 AM
 
 Fee: ₦5,000 paid
 

@@ -24,9 +24,10 @@ try {
  * @param {string} [params.body] - The message content (for raw text messages)
  * @param {string} [params.contentSid] - The approved template SID (e.g. 'HXxxxxx...')
  * @param {Object} [params.contentVariables] - Variables for the template (e.g. {"1": "John", "2": "Room 24"})
+ * @param {Object} [params.buttonVariables] - Button URL variables (e.g. {"1": "https://example.com/resume/123"})
  * @returns {Promise<boolean>} - True if successful, false otherwise
  */
-export async function sendWhatsAppMessage({ to, body, contentSid, contentVariables }) {
+export async function sendWhatsAppMessage({ to, body, contentSid, contentVariables, buttonVariables }) {
   if (!client) {
     console.warn("Twilio WhatsApp is not configured. Missing account SID or Auth Token.");
     return false;
@@ -60,8 +61,20 @@ export async function sendWhatsAppMessage({ to, body, contentSid, contentVariabl
       // WhatsApp Business API with approved template
       if (!/^HX[0-9a-f]{32}$/i.test(contentSid)) return false;
       messageParams.contentSid = contentSid;
-      if (contentVariables) {
-        const variables = Object.entries(contentVariables);
+      
+      // Merge body variables and button variables
+      const allVariables = { ...contentVariables };
+      
+      // If button variables exist, add them with proper Twilio format
+      if (buttonVariables && Object.keys(buttonVariables).length > 0) {
+        Object.entries(buttonVariables).forEach(([key, value]) => {
+          // Button parameters are typically indexed starting after body variables
+          allVariables[key] = value;
+        });
+      }
+      
+      if (allVariables && Object.keys(allVariables).length > 0) {
+        const variables = Object.entries(allVariables);
         if (variables.some(([key, value]) => !/^[1-9]\d*$/.test(key) ||
           (typeof value !== "string" && typeof value !== "number") || !String(value).trim())) {
           return false;

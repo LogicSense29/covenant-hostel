@@ -52,27 +52,25 @@ async function testWelcomeApplicant() {
 
     // Template variables for welcome_applicant
     // {{1}} = Applicant name
-    // {{2}} = Application ID
     const templateVariables = {
-      "1": "Adebayo Oluwaseun",
-      "2": "APP-89JKLM"
+      "1": "Adebayo Oluwaseun"
     };
 
     console.log("Template Variables:");
     console.log("- Name: Adebayo Oluwaseun");
-    console.log("- Application ID: APP-89JKLM");
     console.log();
 
     console.log("Expected Message:");
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("👋 Hi Adebayo Oluwaseun,");
+    console.log("👋 Welcome to Covenant Hostel, Adebayo Oluwaseun!");
     console.log("");
-    console.log("Thank you for applying to Covenant Hostel!");
+    console.log("Thank you for choosing us. Your application has been");
+    console.log("received and is currently under review.");
     console.log("");
-    console.log("Your application has been received and is under review.");
-    console.log("We'll notify you once it's processed.");
+    console.log("We'll notify you via email and WhatsApp once your");
+    console.log("application is processed.");
     console.log("");
-    console.log("Application ID: APP-89JKLM");
+    console.log("Looking forward to hosting you!");
     console.log("");
     console.log("- Covenant Hostel Management");
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");

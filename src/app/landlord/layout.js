@@ -22,7 +22,8 @@ import {
   Layers,
   CheckCircle,
   TrendingUp,
-  MessageSquareWarning
+  MessageSquareWarning,
+  MessageCircle
 } from "lucide-react";
 import NotificationBell from "@/components/NotificationBell";
 
@@ -32,6 +33,7 @@ export default function LandlordLayout({ children }) {
   const { data: session, status } = useSession();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pendingPaymentsCount, setPendingPaymentsCount] = useState(0);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
 
   useEffect(() => {
     if (status === "loading") return;
@@ -46,6 +48,11 @@ export default function LandlordLayout({ children }) {
     fetch("/api/payments/pending-count")
       .then(r => r.ok ? r.json() : { count: 0 })
       .then(data => setPendingPaymentsCount(data.count || 0))
+      .catch(() => {});
+    
+    fetch("/api/whatsapp/unread-count")
+      .then(r => r.ok ? r.json() : { count: 0 })
+      .then(data => setUnreadMessagesCount(data.count || 0))
       .catch(() => {});
   }, [pathname, session]);
 
@@ -68,6 +75,7 @@ export default function LandlordLayout({ children }) {
     { name: "Tenant Directory", href: "/landlord/tenants", icon: Users },
     { name: "Billing & Rules", href: "/landlord/billing", icon: CreditCard },
     { name: "Payment Approvals", href: "/landlord/payments", icon: CheckCircle },
+    { name: "Messages", href: "/landlord/messages", icon: MessageCircle },
     { name: "Maintenance", href: "/landlord/maintenance", icon: Wrench },
     { name: "Service Providers", href: "/landlord/maintenance/providers", icon: Briefcase },
     // { name: "Disputes & Complaints", href: "/landlord/disputes", icon: MessageSquareWarning },
@@ -123,6 +131,11 @@ export default function LandlordLayout({ children }) {
                 {item.href === "/landlord/payments" && pendingPaymentsCount > 0 && (
                   <span className="ml-auto text-[10px] font-black bg-red-500 text-white px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none">
                     {pendingPaymentsCount > 99 ? "99+" : pendingPaymentsCount}
+                  </span>
+                )}
+                {item.href === "/landlord/messages" && unreadMessagesCount > 0 && (
+                  <span className="ml-auto text-[10px] font-black bg-green-500 text-white px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none">
+                    {unreadMessagesCount > 99 ? "99+" : unreadMessagesCount}
                   </span>
                 )}
               </Link>

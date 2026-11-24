@@ -266,6 +266,22 @@ export async function POST(req) {
         type: "TENANCY",
         link: "/tenant",
       }),
+      // WhatsApp welcome to new tenant
+      (async () => {
+        try {
+          const phone = user.tenantProfile?.phone;
+          if (phone) {
+            const { buildWelcomeNewTenant } = await import("@/lib/whatsapp-templates");
+            const { sendWhatsAppMessage } = await import("@/lib/whatsapp");
+            const payload = buildWelcomeNewTenant({ name: user.name, roomNumber });
+            if (payload.contentSid) {
+              await sendWhatsAppMessage({ to: phone, ...payload });
+            }
+          }
+        } catch (waErr) {
+          console.error("Non-fatal: WhatsApp welcome tenant failed:", waErr);
+        }
+      })(),
     ]);
 
     return NextResponse.json({ success: true, message: "Tenancy activated successfully." });

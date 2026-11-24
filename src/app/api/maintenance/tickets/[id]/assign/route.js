@@ -53,13 +53,12 @@ export async function PUT(req, { params }) {
             email: provider.user.email,
             name: provider.user.name,
             roomNumber,
-            issue: ticket.title,
-            description: ticket.description,
-            priority: ticket.priority
+            issue: ticket.issueDescription,
           });
         }
         if (provider.phone) {
-          const body = `Covenant Hostel: You have been assigned a new maintenance task for Room ${roomNumber}. Issue: ${ticket.title}. Priority: ${ticket.priority}. Please log in for details.`;
+          const tenantPhone = tenant?.phone || tenant?.user?.phone || "N/A";
+          const body = `Covenant Hostel: You have been assigned a new maintenance task for ${roomNumber}. Issue: ${ticket.issueDescription}. Tenant: ${tenantPhone}. Please contact them to schedule and complete the maintenance.`;
           
           // Attempt WhatsApp first
           const waSuccess = await sendWhatsAppMessage({
@@ -67,8 +66,8 @@ export async function PUT(req, { params }) {
             ...buildMaintenanceAssigned({
               providerName: provider.user.name || "Provider",
               roomNumber: room?.roomNumber || "N/A",
-              issueTitle: ticket.title,
-              priority: ticket.priority,
+              issueDescription: ticket.issueDescription,
+              tenantPhone: tenantPhone,
             }),
           });
           
@@ -100,7 +99,7 @@ export async function PUT(req, { params }) {
             providerPhone: provider?.phone || null,
             providerEmail: provider?.user?.email || null,
             roomNumber,
-            issue: ticket.title,
+            issue: ticket.issueDescription,
           });
         }
       }

@@ -5,6 +5,18 @@
  * Find them at: https://console.twilio.com/us1/develop/sms/content-editor
  * 
  * UPDATE THESE with your actual template SIDs after approval!
+ * 
+ * BUTTON TEMPLATES:
+ * Some templates include Call-to-Action (CTA) buttons with URLs.
+ * - Static buttons: Same URL for all users (e.g., dashboard link)
+ * - Dynamic buttons: Personalized URLs passed via buttonVariables
+ * 
+ * When a template has buttons, the helper function returns:
+ * {
+ *   contentSid: "HXxxxxx",
+ *   contentVariables: { "1": "name", "2": "room" },  // Body variables
+ *   buttonVariables: { "1": "https://..." }          // Button URL (optional)
+ * }
  */
 
 export const TEMPLATE_SIDS = {
@@ -14,7 +26,7 @@ export const TEMPLATE_SIDS = {
   PAYMENT_OVERDUE: process.env.WHATSAPP_TEMPLATE_PAYMENT_OVERDUE || null,
   RENT_EXPIRED: process.env.WHATSAPP_TEMPLATE_RENT_EXPIRED || null,
   RECURRING_CHARGE_DUE: process.env.WHATSAPP_TEMPLATE_RECURRING_CHARGE || null,
-  PAYMENT_CONFIRMED: process.env.WHATSAPP_TEMPLATE_PAYMENT_CONFIRMED || null,
+  // PAYMENT_CONFIRMED: process.env.WHATSAPP_TEMPLATE_PAYMENT_CONFIRMED || null, // NOT USING FOR NOW
   
   // Welcome & Onboarding Templates
   WELCOME_NEW_TENANT: process.env.WHATSAPP_TEMPLATE_WELCOME_TENANT || null,
@@ -23,14 +35,14 @@ export const TEMPLATE_SIDS = {
   
   // Inspection Templates
   INSPECTION_CONFIRMED: process.env.WHATSAPP_TEMPLATE_INSPECTION_CONFIRMED || null,
-  INSPECTION_REMINDER: process.env.WHATSAPP_TEMPLATE_INSPECTION_REMINDER || null,
+  // INSPECTION_REMINDER: process.env.WHATSAPP_TEMPLATE_INSPECTION_REMINDER || null, // NOT USING FOR NOW
   
   // Maintenance Templates
   MAINTENANCE_ASSIGNED: process.env.WHATSAPP_TEMPLATE_MAINTENANCE_ASSIGNED || null,
   
   // Other Templates
   REGISTRATION_INCOMPLETE: process.env.WHATSAPP_TEMPLATE_REGISTRATION_INCOMPLETE || null,
-  GENERAL_NOTIFICATION: process.env.WHATSAPP_TEMPLATE_GENERAL || null,
+  GENERAL_ANNOUNCEMENT: process.env.WHATSAPP_TEMPLATE_GENERAL || null,
 };
 
 /**
@@ -112,19 +124,20 @@ export function buildRecurringChargeDueReminder({ name, roomNumber, chargeDescri
 
 /**
  * Helper function to send payment confirmation
+ * NOT USING FOR NOW - COMMENTED OUT
  */
-export function buildPaymentConfirmation({ name, amount, paymentType, paymentDate, newExpiryDate }) {
-  return {
-    contentSid: TEMPLATE_SIDS.PAYMENT_CONFIRMED,
-    contentVariables: {
-      "1": name,
-      "2": amount.toLocaleString(),
-      "3": paymentType,
-      "4": paymentDate,
-      "5": newExpiryDate
-    }
-  };
-}
+// export function buildPaymentConfirmation({ name, amount, paymentType, paymentDate, newExpiryDate }) {
+//   return {
+//     contentSid: TEMPLATE_SIDS.PAYMENT_CONFIRMED,
+//     contentVariables: {
+//       "1": name,
+//       "2": amount.toLocaleString(),
+//       "3": paymentType,
+//       "4": paymentDate,
+//       "5": newExpiryDate
+//     }
+//   };
+// }
 
 /**
  * Helper function to send welcome to new tenant
@@ -142,12 +155,11 @@ export function buildWelcomeNewTenant({ name, roomNumber }) {
 /**
  * Helper function to send welcome to applicant
  */
-export function buildWelcomeApplicant({ name, applicationId }) {
+export function buildWelcomeApplicant({ name }) {
   return {
     contentSid: TEMPLATE_SIDS.WELCOME_APPLICANT,
     contentVariables: {
-      "1": name,
-      "2": applicationId
+      "1": name
     }
   };
 }
@@ -166,61 +178,76 @@ export function buildApplicationApproved({ name }) {
 
 /**
  * Helper function to send inspection confirmed
+ * NOTE: Time is included in the inspectionDate variable (no separate time field in schema)
  */
-export function buildInspectionConfirmed({ name, roomNumber, blockName, inspectionDate, inspectionTime, feeMessage }) {
+export function buildInspectionConfirmed({ name, roomNumber, blockName, inspectionDate, feeMessage }) {
   return {
     contentSid: TEMPLATE_SIDS.INSPECTION_CONFIRMED,
     contentVariables: {
       "1": name,
       "2": roomNumber,
       "3": blockName,
-      "4": inspectionDate,
-      "5": inspectionTime,
-      "6": feeMessage
+      "4": inspectionDate,  // Should include time, e.g., "Dec 20, 2024 at 2:00 PM"
+      "5": feeMessage
     }
   };
 }
 
 /**
  * Helper function to send inspection reminder
+ * NOT USING FOR NOW - COMMENTED OUT
  */
-export function buildInspectionReminder({ name, roomNumber, inspectionDate, inspectionTime, location }) {
-  return {
-    contentSid: TEMPLATE_SIDS.INSPECTION_REMINDER,
-    contentVariables: {
-      "1": name,
-      "2": roomNumber,
-      "3": inspectionDate,
-      "4": inspectionTime,
-      "5": location
-    }
-  };
-}
+// export function buildInspectionReminder({ name, roomNumber, inspectionDate, inspectionTime, location }) {
+//   return {
+//     contentSid: TEMPLATE_SIDS.INSPECTION_REMINDER,
+//     contentVariables: {
+//       "1": name,
+//       "2": roomNumber,
+//       "3": inspectionDate,
+//       "4": inspectionTime,
+//       "5": location
+//     }
+//   };
+// }
 
 /**
  * Helper function to send maintenance assignment to provider
  */
-export function buildMaintenanceAssigned({ providerName, roomNumber, issueTitle, priority }) {
+export function buildMaintenanceAssigned({ providerName, roomNumber, issueDescription, tenantPhone }) {
   return {
     contentSid: TEMPLATE_SIDS.MAINTENANCE_ASSIGNED,
     contentVariables: {
       "1": providerName,
       "2": roomNumber,
-      "3": issueTitle,
-      "4": priority
+      "3": issueDescription,
+      "4": tenantPhone
     }
   };
 }
 
 /**
  * Helper function to send registration incomplete reminder
+ * Note: URL-encoded email is passed as variable 2 for the button URL
  */
-export function buildRegistrationIncomplete({ name, resumeUrl }) {
+export function buildRegistrationIncomplete({ name, email }) {
   return {
     contentSid: TEMPLATE_SIDS.REGISTRATION_INCOMPLETE,
     contentVariables: {
       "1": name,
-      "2": resumeUrl
+      "2": encodeURIComponent(email)  // URL-encoded email for button URL
+    }
+  };
+}
+
+/**
+ * Helper function to send general announcement
+ */
+export function buildGeneralAnnouncement({ recipientName, message }) {
+  return {
+    contentSid: TEMPLATE_SIDS.GENERAL_ANNOUNCEMENT,
+    contentVariables: {
+      "1": recipientName,
+      "2": message
     }
   };
 }

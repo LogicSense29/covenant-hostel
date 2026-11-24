@@ -166,9 +166,10 @@ Hi {{1}},
 You have been assigned a maintenance task for Room {{2}}.
 
 Issue: {{3}}
-Priority: {{4}}
 
-Please login to view details and update status.
+Tenant Contact: {{4}}
+
+Please contact the tenant to schedule and complete the maintenance.
 
 - Covenant Hostel Management
 ```
@@ -176,8 +177,8 @@ Please login to view details and update status.
 **Variables:**
 1. Provider name
 2. Room number
-3. Issue title
-4. Priority level
+3. Issue description
+4. Tenant phone number
 
 **Used in:** `src/app/api/maintenance/tickets/[id]/assign/route.js`
 
@@ -194,16 +195,27 @@ Please login to view details and update status.
 
 You started an application for Covenant Hostel but didn't finish.
 
-Pick up right where you left off: {{2}}
+Pick up right where you left off.
 
 - Covenant Hostel Management
 ```
 
 **Variables:**
 1. Applicant name
-2. Resume URL
+2. Email address (URL-encoded, gets inserted into button URL)
+
+**Button (Call-to-Action):**
+- **Type:** URL (Visit website)
+- **Text:** "Continue Application"
+- **URL:** `https://covenanthostel.com/register?resume={{2}}`
 
 **Used in:** `src/app/api/cron/registration-reminders/route.js`
+
+**Important:** 
+- In Twilio, the button URL MUST be: `https://covenanthostel.com/register?resume={{2}}`
+- Twilio requires a valid URL format (cannot use just `{{2}}`)
+- The code passes the URL-encoded email as variable 2
+- Twilio will replace `{{2}}` with the email value
 
 ---
 
@@ -216,14 +228,9 @@ Pick up right where you left off: {{2}}
 ```
 🎉 Welcome to Covenant Hostel, {{1}}!
 
-Your registration is complete for Room {{2}}.
+Your tenancy for Room {{2}} is now active.
 
-Move-in Date: {{3}}
-Rent Expiry: {{4}}
-
-Login to access your dashboard, pay bills, and request maintenance.
-
-Portal: https://covenant-hostel.vercel.app
+View your move-in date, rent expiry, and access your dashboard to pay bills and request maintenance.
 
 - Covenant Hostel Management
 ```
@@ -231,8 +238,11 @@ Portal: https://covenant-hostel.vercel.app
 **Variables:**
 1. Tenant name
 2. Room number
-3. Move-in date
-4. Rent expiry date
+
+**Button (Call-to-Action):**
+- **Type:** URL (Static)
+- **Text:** "Open Dashboard"
+- **URL:** `https://covenanthostel.com/login`
 
 **Used in:** When tenant is approved and room is assigned
 
@@ -245,20 +255,19 @@ Portal: https://covenant-hostel.vercel.app
 
 **Body:**
 ```
-👋 Hi {{1}},
+👋 Welcome to Covenant Hostel, {{1}}!
 
-Thank you for applying to Covenant Hostel!
+Thank you for choosing us. Your application has been received and is currently under review.
 
-Your application has been received and is under review. We'll notify you once it's processed.
+We'll notify you via email and WhatsApp once your application is processed.
 
-Application ID: {{2}}
+Looking forward to hosting you!
 
 - Covenant Hostel Management
 ```
 
 **Variables:**
 1. Applicant name
-2. Application ID
 
 **Used in:** Right after registration form submission
 
@@ -268,6 +277,7 @@ Application ID: {{2}}
 **Template Name:** `application_approved`  
 **Category:** Utility  
 **Language:** English  
+**Type:** Text Template (no button)
 
 **Body:**
 ```
@@ -275,18 +285,18 @@ Application ID: {{2}}
 
 Your application for Covenant Hostel has been APPROVED!
 
-Next Steps:
-1. Login to complete payment
-2. Schedule your move-in date
-3. Review hostel guidelines
-
-Portal: https://covenant-hostel.vercel.app
+📧 Check your email for instructions to:
+1. Create your password
+2. Complete payment
+3. Move in
 
 - Covenant Hostel Management
 ```
 
 **Variables:**
 1. Applicant name
+
+**Note:** This is a notification template that directs users to check their email for the password setup link (which contains a unique secure token).
 
 **Used in:** When landlord approves an application
 
@@ -306,9 +316,8 @@ Hi {{1}}, your room inspection has been confirmed.
 Room: {{2}}
 Block: {{3}}
 Date: {{4}}
-Time: {{5}}
 
-{{6}}
+{{5}}
 
 Please arrive on time. If you need to reschedule, contact us immediately.
 
@@ -316,12 +325,13 @@ Please arrive on time. If you need to reschedule, contact us immediately.
 ```
 
 **Variables:**
-1. Applicant name
+1. Guest name
 2. Room number
 3. Block name
 4. Inspection date
-5. Inspection time
-6. Fee message (e.g., "Fee: ₦5,000 paid" or "Free inspection")
+5. Fee message (e.g., "Fee: ₦5,000 paid" or "Free inspection")
+
+**Note:** Time field removed - not in schema. Date should include time if needed (e.g., "Jan 15, 2024 at 2:00 PM")
 
 **Used in:** After inspection booking is confirmed
 
@@ -340,8 +350,7 @@ Hi {{1}}, this is a reminder about your room inspection.
 
 Room: {{2}}
 Date: {{3}}
-Time: {{4}}
-Location: {{5}}
+Location: {{4}}
 
 Please bring a valid ID and arrive on time.
 
@@ -349,10 +358,14 @@ Please bring a valid ID and arrive on time.
 ```
 
 **Variables:**
-1. Applicant name
+1. Guest name
 2. Room number
-3. Inspection date
-4. Inspection time
+3. Inspection date (include time, e.g., "Jan 15, 2024 at 2:00 PM")
+4. Location/address
+
+**Note:** Time field removed - not in schema. Date should include time if needed.
+
+**Used in:** 24 hours before inspection appointment
 5. Block address
 
 **Used in:** 24 hours before scheduled inspection
@@ -392,29 +405,87 @@ Thank you for your payment!
 
 ---
 
-### 14. **General Test Message** (Optional)
-**Template Name:** `general_notification`  
+### 14. **General Announcement**
+**Template Name:** `general_announcement`  
 **Category:** Utility  
 **Language:** English  
 
 **Body:**
 ```
+📢 Important Announcement
+
 Hi {{1}},
 
 {{2}}
+
+If you have any questions, please don't hesitate to reach out to us.
 
 - Covenant Hostel Management
 ```
 
 **Variables:**
 1. Recipient name
-2. Custom message body
+2. Custom announcement message
 
-**Used in:** Testing and ad-hoc notifications
+**Note:** Made message longer to meet WhatsApp's minimum length requirement for templates with variables.
+
+**Used in:** General announcements, system notifications, and important updates
 
 ---
 
-## 📝 How to Submit Templates
+## � How to Add Buttons to Templates
+
+Some templates include **Call-to-Action (CTA) buttons** for better UX and higher WhatsApp approval rates.
+
+### **In Twilio Console:**
+
+1. **Go to Content Editor:** https://console.twilio.com/us1/develop/sms/content-editor
+2. **Create/Edit Template**
+3. **Add Body** text with variables (e.g., `{{1}}`, `{{2}}`)
+4. **Scroll to "Components"** section
+5. **Click "+ Add Component" → Select "Buttons"**
+6. **Configure Button:**
+   - **Button Type:** URL
+   - **Button Text:** e.g., "Open Dashboard" (max 25 characters)
+   - **URL Type:**
+     - **Static:** Same URL for all recipients (e.g., `https://covenanthostel.com`)
+     - **Dynamic:** Variable URL (use `{{1}}` for the button URL parameter)
+
+### **Templates with Buttons:**
+
+| Template | Button Text | URL Type | URL |
+|---|---|---|---|
+| Welcome New Tenant | "Open Dashboard" | Static | `https://covenanthostel.com/login` |
+| Registration Incomplete | "Continue Application" | Static with variable | `https://covenanthostel.com/register?resume={{2}}` |
+
+**Note:** Application Approved template no longer has a button - it's now a text template that directs users to check their email.
+
+### **Code Usage:**
+
+The code automatically handles button parameters. When using `buildRegistrationIncomplete`:
+
+```javascript
+// The resumeUrl is passed as a button parameter, not a body variable
+const payload = buildRegistrationIncomplete({
+  name: "John Doe",
+  email: "john@example.com"  // Gets URL-encoded automatically
+});
+
+// Returns:
+// {
+//   contentSid: "HXxxxxx",
+//   contentVariables: { "1": "John Doe" },
+//   buttonVariables: { "1": "https://..." }
+// }
+
+await sendWhatsAppMessage({ to: phone, ...payload });
+```
+
+Static button templates (Welcome Tenant, Registration Incomplete) don't need special code — the button URL is configured once in Twilio and automatically included.
+
+---
+
+## �📝 How to Submit Templates
 
 ### Step 1: Go to Content Editor
 https://console.twilio.com/us1/develop/sms/content-editor

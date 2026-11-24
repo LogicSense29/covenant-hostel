@@ -79,7 +79,7 @@ export async function GET(req) {
           try {
             await sendWhatsAppMessage({
               to: data.phone,
-              ...buildRegistrationIncomplete({ name, resumeUrl }),
+              ...buildRegistrationIncomplete({ name, email: draft.email }),
             });
           } catch (waError) {
             console.error(`WhatsApp reminder failed for ${data.phone}:`, waError.message);

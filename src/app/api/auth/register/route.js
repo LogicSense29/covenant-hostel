@@ -151,6 +151,23 @@ export async function POST(req) {
       } catch (emailError) {
         console.error("Non-fatal: Registration email failed:", emailError);
       }
+
+      // Send WhatsApp welcome to applicant (non-blocking, non-fatal)
+      try {
+        const { sendWhatsAppMessage } = await import("@/lib/whatsapp");
+        const { buildWelcomeApplicant } = await import("@/lib/whatsapp-templates");
+        const phone = body.phone;
+        if (phone) {
+          const payload = buildWelcomeApplicant({
+            name: newUser.name,
+          });
+          if (payload.contentSid) {
+            await sendWhatsAppMessage({ to: phone, ...payload });
+          }
+        }
+      } catch (waError) {
+        console.error("Non-fatal: WhatsApp welcome applicant failed:", waError);
+      }
     }
 
     return NextResponse.json({
